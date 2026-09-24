@@ -1,0 +1,11 @@
+[
+  {"intent":"rent_status","examples":["rent status of {name}","status for {name}","has {name} paid rent","{name} rent status please","current rent state of {name}","rent update for {name}"]},
+  {"intent":"due_amount","examples":["how much due for {name}","pending amount for {name}","total due for {name}","{name} remaining rent amount","{name} rent balance"]},
+  {"intent":"pending_months","examples":["pending months for {name}","which months are pending for {name}","{name} rent months due","unpaid months for {name}"]},
+  {"intent":"vacant_beds_in_room","examples":["vacant beds in room {room}","empty beds in room {room}","which beds are free in room {room}","bed availability in room {room}"]},
+  {"intent":"who_has_pending","examples":["who has pending","which tenants have dues","show pending list","pending renters list","who still owes rent"]},
+  {"intent":"phone_of","examples":["phone of {name}","mobile of {name}","contact for {name}","what is {name}'s mobile"]},
+  {"intent":"deposit_of","examples":["deposit of {name}","security for {name}","how much is {name}'s deposit","deposit amount for {name}"]},
+  {"intent":"left_last_month","examples":["who left last month","moved out last month","last month who vacated","tenants who left recently"]},
+  {"intent":"help","examples":["help","commands","what can you do","examples","show help","how to ask","features","usage"]}
+]

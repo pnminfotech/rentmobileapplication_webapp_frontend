@@ -1,0 +1,17 @@
+.vacant-mobile-screen {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .vacant-mobile-screen {
+    display: block;
+    width: 100%;
+    background: linear-gradient(180deg, #f8fffe, #f4f9ff);
+  }
+
+  .vacant-mobile-screen-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+}

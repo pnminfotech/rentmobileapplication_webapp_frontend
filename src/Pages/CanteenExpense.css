@@ -1,0 +1,2408 @@
+body{
+  font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif
+}
+.canteen-expense-page {
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+
+.canteen-expense-page *,
+.canteen-expense-page *::before,
+.canteen-expense-page *::after {
+  box-sizing: border-box;
+}
+
+
+.canteen-header-card {
+  background: linear-gradient(135deg, #f7f3ff, #eef4ff);
+  border-radius: 22px;
+  padding: 24px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+}
+
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #1e2b4f;
+}
+
+
+.section-text {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+
+.canteen-subtext {
+  margin: 4px 0 0;
+  color: #5f6b85;
+  font-size: 14px;
+}
+
+
+.section-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #6677ff;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+.canteen-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+
+.canteen-add-btn,
+.canteen-budget-btn {
+  border: none;
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+
+.canteen-add-btn {
+  background: linear-gradient(135deg, #5c7cff, #6a5cff);
+  color: #fff;
+}
+
+
+.canteen-budget-btn {
+  background: #edf2ff;
+  color: #2947a9;
+}
+
+
+.canteen-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 20px;
+}
+@media screen and (max-width:768px) {
+  .canteen-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 12px;
+}
+}
+
+.canteen-summary-grid > *,
+.canteen-dashboard-grid > * {
+  min-width: 0;
+}
+
+
+.canteen-summary-box,
+.canteen-filter-card,
+.canteen-table-card,
+.canteen-category-card {
+  background: #fff;
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+
+.canteen-summary-box p {
+  margin-bottom: 8px;
+  color: #666;
+  font-weight: 500;
+}
+
+
+.canteen-summary-box h3 {
+  margin: 0;
+  color: #1b2340;
+  font-weight: 700;
+}
+
+
+.canteen-metric-caption {
+  display: inline-block;
+  margin-top: 10px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+
+.canteen-metric-caption.positive {
+  color: #15803d;
+}
+
+
+.canteen-metric-caption.negative {
+  color: #dc2626;
+}
+
+
+.canteen-filter-card {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+
+.canteen-filter-card input,
+.canteen-filter-card select,
+.canteen-form-grid input,
+.canteen-form-grid select,
+.canteen-form-grid textarea,
+.canteen-export-select {
+  --bs-form-select-bg-img: url(data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3e%3cpath fill=%27none%27 stroke=%27%23343a40%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%272%27 d=%27m2 5 6 6 6-6%27/%3e%3c/svg%3e);
+  display: block;
+  width: 100%;
+  padding: 0.625rem 2.25rem 0.625rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--bs-body-color);
+  appearance: none;
+  background-color: var(--bs-body-bg);
+  background-image: var(--bs-form-select-bg-img), var(--bs-form-select-bg-icon, none);
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px 12px;
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+
+.canteen-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 20px;
+  width: 100%;
+  min-width: 0;
+}
+
+
+.canteen-table-card .table-responsive,
+.canteen-category-card .table-responsive {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+
+.canteen-table,
+.canteen-category-table,
+.canteen-vendor-table {
+  min-width: 100%;
+}
+
+
+.canteen-table {
+  min-width: 1080px;
+}
+
+
+.canteen-category-table,
+.canteen-vendor-table {
+  min-width: 560px;
+}
+
+
+.canteen-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+
+.canteen-table thead th,
+.canteen-category-table thead th,
+.canteen-vendor-table thead th {
+  background: linear-gradient(180deg, #dcd3f7, #c7b8ee) !important;
+  color: #1f2937 !important;
+  font-weight: 600;
+  padding: 14px !important;
+  border: none !important;
+  text-align: center;
+  white-space: nowrap;
+}
+
+
+.canteen-table thead th:first-child,
+.canteen-category-table thead th:first-child,
+.canteen-vendor-table thead th:first-child {
+  border-top-left-radius: 14px;
+}
+
+
+.canteen-table thead th:last-child,
+.canteen-category-table thead th:last-child,
+.canteen-vendor-table thead th:last-child {
+  border-top-right-radius: 14px;
+}
+.extramealcard  thead th:last-child{
+  border-top-right-radius: 14px;
+}
+
+
+
+
+.canteen-table tbody td,
+.canteen-category-table tbody td,
+.canteen-vendor-table tbody td {
+  padding: 14px 12px !important;
+  vertical-align: middle;
+  text-align: center;
+  border-color: #eef2ff;
+  border-style: solid;
+  border-width: 0 0 1px;
+}
+
+
+.canteen-table tbody tr.canteen-group-tone-a > td,
+.canteen-table tbody tr.canteen-group-tone-a > th,
+.canteen-table tbody td.canteen-date-group-cell.canteen-group-tone-a {
+  background: #dcdde9 !important;
+  transition: background 0.25s ease;
+}
+
+
+.canteen-table tbody tr.canteen-group-tone-b > td,
+.canteen-table tbody tr.canteen-group-tone-b > th,
+.canteen-table tbody td.canteen-date-group-cell.canteen-group-tone-b {
+  background: #f8fbff !important;
+  transition: background 0.25s ease;
+}
+
+
+/* .canteen-table tbody tr.canteen-group-tone-a:hover > td,
+.canteen-table tbody tr.canteen-group-tone-a:hover > th,
+.canteen-table tbody td.canteen-date-group-cell.canteen-group-tone-a:hover,
+.canteen-table tbody tr.canteen-group-tone-b:hover > td,
+.canteen-table tbody tr.canteen-group-tone-b:hover > th,
+.canteen-table tbody td.canteen-date-group-cell.canteen-group-tone-b:hover {
+  background: linear-gradient(190deg, #f3efff, #ffffff) !important;
+} */
+
+
+.canteen-group-subrow td {
+  border-top: 2px solid #d7e3f7 !important;
+}
+
+
+.canteen-date-group-cell {
+  min-width: 120px;
+  border-right: 1px solid #e2e8f0;
+}
+
+
+.canteen-date-group {
+  display: grid;
+  gap: 4px;
+}
+
+
+.canteen-date-group strong {
+  color: #1e2b4f;
+}
+
+
+.canteen-date-group small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+
+.canteen-status-badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  display: inline-block;
+}
+
+
+.canteen-status-badge.pending {
+  background: #f99d00cc;
+}
+
+
+.canteen-status-badge.partial {
+  background: #2563ebcf;
+}
+
+
+.canteen-status-badge.paid {
+  background: #16a34ab5;
+}
+
+
+.action-btn-group {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+
+.icon-btn {
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  color: #fff;
+}
+
+
+.icon-btn.edit {
+  background: #f4b400b0;
+}
+
+
+.icon-btn.delete {
+  background: #ef4444;
+}
+
+
+.icon-btn.view {
+  background: #4f7cffa3;
+}
+
+
+.canteen-receipt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+
+.canteen-receipt-count {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+
+.canteen-mobile-groups,
+.canteen-mobile-breakdown {
+  display: none !important;
+}
+
+
+.canteen-mobile-breakdown-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fbff;
+}
+
+
+.canteen-mobile-group-card {
+  border-radius: 18px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+
+.canteen-mobile-group-head {
+  margin-bottom: 12px;
+}
+
+
+.canteen-mobile-entry-list {
+  display: grid;
+}
+
+
+.canteen-mobile-entry {
+  padding: 12px 0 0;
+}
+
+
+.canteen-mobile-entry.with-divider {
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 2px solid #d7e3f7;
+}
+
+
+.canteen-mobile-entry-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+
+.canteen-mobile-entry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  color: #475569;
+  font-size: 13px;
+}
+
+
+.canteen-mobile-entry-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+
+.canteen-recent-card {
+  margin-bottom: 0;
+}
+
+
+.canteen-recent-list {
+  display: grid;
+  gap: 12px;
+}
+
+
+.canteen-recent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f8faff;
+  border: 1px solid #e7ecff;
+  min-width: 0;
+}
+
+
+.canteen-recent-item p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+
+.canteen-recent-metrics {
+  text-align: right;
+}
+
+
+.canteen-recent-metrics span {
+  display: block;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+
+.canteen-recent-metrics small {
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+
+.canteen-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+
+.canteen-modal-box {
+  width: 100%;
+  max-width: 900px;
+  background: #fff;
+  border-radius: 22px;
+  padding: 24px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+
+.canteen-budget-modal {
+  max-width: 720px;
+}
+
+
+.canteen-preview-box {
+  width: 100%;
+  max-width: 900px;
+  background: #fff;
+  border-radius: 22px;
+  padding: 20px;
+}
+
+
+.canteen-preview-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+
+.canteen-preview-sidebar {
+  display: grid;
+  gap: 8px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+
+.canteen-preview-tab {
+  border: 1px solid #d8e3ff;
+  background: #f8faff;
+  color: #1e2b4f;
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+.canteen-preview-tab.active {
+  background: #e0e9ff;
+  border-color: #7c96ff;
+}
+
+
+.canteen-preview-stage {
+  min-width: 0;
+}
+
+
+.canteen-preview-counter {
+  margin-bottom: 10px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+.canteen-preview-image {
+  width: 100%;
+  max-height: 75vh;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+
+.canteen-close-btn {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: #5f6f86;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+.canteen-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+
+.canteen-form-grid label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #2e3556;
+}
+
+
+.canteen-batch-header {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+
+.canteen-batch-help {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f8faff;
+  border: 1px solid #e7ecff;
+  color: #64748b;
+  font-size: 14px;
+}
+
+
+.canteen-batch-list {
+  display: grid;
+  gap: 16px;
+}
+
+
+.canteen-batch-card {
+  border: 1px solid #e7ecff;
+  border-radius: 18px;
+  padding: 18px;
+  background: #fcfdff;
+}
+
+
+.canteen-batch-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+
+.canteen-row-remove-btn {
+  border: 0;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+
+.canteen-batch-footer {
+  margin-top: 16px;
+}
+
+
+.canteen-inline-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f8faff;
+  border: 1px solid #e7ecff;
+}
+
+
+.canteen-selected-receipts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+
+.canteen-existing-receipts {
+  margin-top: 8px;
+}
+
+
+.canteen-receipt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #eef4ff;
+  border: 1px solid #d8e3ff;
+  font-size: 13px;
+  color: #1e2b4f;
+}
+
+
+.canteen-receipt-chip.existing {
+  background: #f8faff;
+}
+
+
+.canteen-receipt-chip button,
+.canteen-receipt-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+
+.canteen-receipt-chip button {
+  color: #475569;
+  font-size: 16px;
+  line-height: 1;
+}
+
+
+.canteen-receipt-link {
+  color: #2947a9;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+
+.canteen-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+
+.primary-btn,
+.secondary-btn {
+  border: none;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+
+.primary-btn {
+  background: linear-gradient(135deg, #5c7cff, #6a5cff);
+  color: #fff;
+}
+
+
+.secondary-btn {
+  background: #edf0f7;
+  color: #2e3556;
+}
+
+
+@media (max-width: 1100px) {
+  .canteen-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+
+  .canteen-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+@media (max-width: 992px) {
+  .canteen-header-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+
+  .canteen-header-actions {
+    justify-content: stretch;
+  }
+
+
+  .canteen-summary-grid,
+  .canteen-filter-card,
+  .canteen-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .canteen-batch-header {
+    grid-template-columns: 1fr;
+  }
+
+
+  .canteen-recent-item,
+  .canteen-inline-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+
+  .canteen-preview-layout {
+    grid-template-columns: 1fr;
+  }
+
+
+  .canteen-preview-sidebar {
+    max-height: 180px;
+  }
+}
+
+
+@media (max-width: 768px) {
+  .canteen-header-card,
+  .canteen-summary-box,
+  .canteen-filter-card,
+  .canteen-table-card,
+  .canteen-category-card,
+  .canteen-modal-box,
+  .canteen-preview-box {
+    border-radius: 18px;
+    padding: 16px;
+  }
+
+
+  .section-text {
+    font-size: 20px;
+  }
+
+
+  .canteen-header-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+
+  .canteen-header-actions > * {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .canteen-table {
+    min-width: 980px;
+  }
+
+
+  .canteen-category-table,
+  .canteen-vendor-table {
+    min-width: 520px;
+  }
+
+
+  .action-btn-group,
+  .canteen-receipt-actions {
+    flex-wrap: wrap;
+  }
+
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+
+  .canteen-card-head h5,
+  .canteen-recent-item strong {
+    overflow-wrap: anywhere;
+  }
+}
+
+
+
+
+.canteen-summary-box1{
+background: linear-gradient(66deg, #aac5ef, #608ac5) !important;
+}
+.canteen-summary-box2{
+ background: linear-gradient(122deg, #cec0f1, #c0afec) !important;
+}
+
+
+.canteen-summary-box3{
+background: linear-gradient(49deg, #e3d1b9, #f5d7ae) !important;
+}
+.canteen-summary-box4{
+  background: linear-gradient(315deg, #f3b9b9, #ffe6e6) !important;
+}
+
+
+
+
+/* =========================================
+   SUMMARY BOX FIX
+========================================= */
+
+
+.canteen-summary-box-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+
+/* ICON */
+.canteen-summary-icon {
+  min-width: 60px;
+  min-height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* COLORS */
+.bg-indigo {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+
+.bg-orange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+
+.bg-green {
+  background: #ecfdf5;
+  color: #16a34a;
+}
+
+
+.bg-blue {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+
+/* TEXT */
+.canteen-summary-content {
+  flex: 1;
+  min-width: 0;
+}
+
+
+.canteen-summary-content p {
+  margin: 0;
+  font-size: 14px;
+}
+
+
+.canteen-summary-content h3 {
+  font-size: 20px;
+  margin: 4px 0;
+}
+
+
+/* =========================================
+   MOBILE RESPONSIVE
+========================================= */
+
+
+@media (max-width: 768px) {
+
+
+  .canteen-summary-box-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+
+  .canteen-summary-icon {
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+
+  .canteen-summary-icon svg {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+
+  .canteen-summary-content h3 {
+    font-size: 18px;
+  }
+}
+
+
+/* =========================================
+   EXTRA SMALL DEVICES
+========================================= */
+
+
+@media (max-width: 480px) {
+
+
+  .canteen-summary-box {
+    padding: 14px;
+  }
+
+
+  .canteen-summary-content h3 {
+    font-size: 16px;
+  }
+
+
+  .canteen-summary-content p {
+    font-size: 13px;
+  }
+}
+
+
+
+
+/* =========================
+   GRID LAYOUT
+========================= */
+
+
+.canteen-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+
+/* =========================
+   BOX STYLE
+========================= */
+
+
+.canteen-summary-box {
+  border-radius: 16px;
+  padding: 16px;
+  color: #1e293b;
+}
+
+
+/* COLORS */
+.box1, .box_1 { background: linear-gradient(135deg, #c7d2fe, #93c5fd); }
+.box2 { background: linear-gradient(135deg, #e9d5ff, #c4b5fd); }
+.box3 { background: linear-gradient(135deg, #ede9d8, #d7c787) }
+.box4 { background: linear-gradient(135deg, #ffdcdc, #fdd0f6); }
+
+
+/* =========================
+   INNER FLEX
+========================= */
+
+
+.summary-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+
+/* =========================
+   ICON STYLE
+========================= */
+
+
+.summary-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+
+.summary-icon.blue {
+  background: #eef2ff;
+  color: #6ea8f3;
+}
+
+
+.summary-icon.orange {
+  background: #fff7ed;
+  color: #825bff;
+}
+
+
+.summary-icon.green {
+  background: #ecfdf5;
+  color: #bdad6f;
+}
+
+
+.summary-icon.indigo {
+  background: #eef2ff;
+  color: #f79ab7;
+}
+
+
+/* =========================
+   TEXT
+========================= */
+
+
+.summary-content p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+
+.summary-content h3 {
+  margin: 4px 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+
+.canteen-metric-caption {
+  font-size: 12px;
+  color: #475569;
+}
+
+
+.canteen-metric-caption.negative {
+  color: red;
+}
+
+
+.canteen-metric-caption.positive {
+  color: green;
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+
+@media (max-width: 1024px) {
+  .canteen-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+ @media (max-width: 768px) {
+
+
+  .canteen-summary-grid {
+    display: flex;
+    overflow-x: auto;
+    gap: 14px;
+    padding-bottom: 6px;
+
+
+    /* smooth scroll */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+
+  /* hide scrollbar (optional) */
+  .canteen-summary-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+
+  .canteen-summary-grid {
+    scrollbar-width: none;
+  }
+
+
+  /* cards */
+  .canteen-summary-box {
+    min-width: 100px;   /* 👈 IMPORTANT */
+    flex: 0 0 auto;
+  }
+
+
+  .summary-inner {
+    flex-direction: row;
+  }
+
+
+  .summary-content h3 {
+    font-size: 18px;
+  }
+}
+@media screen and (min-width:768px) and (max-width: 1024px) {
+  .canteen-summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 480px) {
+  .summary-inner {
+    gap: 10px;
+  }
+
+
+  .summary-icon {
+    width: 46px;
+    height: 46px;
+    font-size: 22px;
+  }
+
+
+  .summary-content h3 {
+    font-size: 16px;
+  }
+}
+
+
+
+
+
+
+@media screen and (max-width:425px){
+  .canteen-filter-card input, .canteen-filter-card select{
+    font-size: 10px;
+  }
+}
+
+
+
+
+.summary-card {
+  border-radius: 16px;
+  color: #fff;
+  padding: 16px;
+}
+
+
+
+
+
+
+.present-card {
+  background: linear-gradient(135deg, #c7d2fe, #93c5fd);
+}
+
+
+.absent-card {
+  background: linear-gradient(135deg, #e9d5ff, #c4b5fd);
+}
+.notmarked-card {
+ background: linear-gradient(135deg, #ede9d8, #d7c787);
+}
+
+
+.extra-card {
+ background: linear-gradient(135deg, #ffdcdc, #fdd0f6);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+.present-card .summary-card-icon {
+  background: #eaf2ff;
+  color: #5d95e8;
+}
+
+
+.absent-card .summary-card-icon {
+  background: #ffecec;
+  color: #825bff;
+}
+
+
+.notmarked-card .summary-card-icon {
+  background: #edf7f1;
+  color: #b59a43;
+}
+
+
+.extra-card .summary-card-icon {
+  background: #fce8f1;
+  color: #f08aad;
+}
+
+
+
+
+/* =========================
+   MOBILE APP STYLE
+========================= */
+
+
+.mobile-app-header {
+  position: relative;
+}
+
+
+.canteen-mobile-header-actions {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.canteen-export-fab {
+  position: fixed;
+  right: 16px;
+  top: 150px;
+  z-index: 3005;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f766e, #0c9488);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(15, 118, 110, 0.24);
+}
+
+.canteen-export-fab svg {
+  font-size: 18px;
+}
+
+.canteen-export-menu {
+  position: fixed;
+  right: 16px;
+  top: 212px;
+  z-index: 3005;
+  width: 176px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.canteen-export-menu button {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  background: #edf7f6;
+  color: #0f766e;
+  font-weight: 600;
+  padding: 10px 12px;
+}
+
+@media (max-width: 768px) {
+  .canteen-export-fab {
+    right: 12px;
+    top: 152px;
+    width: 48px;
+    height: 48px;
+    z-index: 4000;
+  }
+
+  .canteen-export-menu {
+    right: 12px;
+    top: 208px;
+    width: 168px;
+    z-index: 4000;
+  }
+}
+
+@media (max-width: 424px) {
+  .canteen-export-fab {
+    right: 10px;
+    top: 146px;
+    width: 46px;
+    height: 46px;
+  }
+
+  .canteen-export-menu {
+    right: 10px;
+    top: 200px;
+    width: 158px;
+  }
+}
+
+
+.canteen-budget-link-btn {
+  border: 0;
+  background: transparent;
+  color: #3559d8;
+  font-weight: 700;
+  padding: 0;
+}
+
+
+.canteen-mobile-search-card {
+  display: none;
+}
+
+
+.canteen-mobile-search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  min-height: 56px;
+  padding: 0 14px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+
+.canteen-mobile-search-box input {
+  border: 0;
+  outline: none;
+  width: 100%;
+  background: transparent;
+  font-size: 15px;
+}
+
+
+.canteen-mobile-search-icon {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+
+.canteen-mobile-filter-btn {
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 16px;
+  background: #dfe8ff;
+  color: #3559d8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+
+.canteen-mobile-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.42);
+  z-index: 3000;
+  display: flex;
+  align-items: flex-end;
+}
+
+
+.canteen-mobile-filter-sheet {
+  width: 100%;
+  background: #fff;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  padding: 14px 16px 22px;
+  box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.16);
+}
+
+
+.canteen-mobile-sheet-handle {
+  width: 52px;
+  height: 5px;
+  border-radius: 999px;
+  background: #dbe3ef;
+  margin: 0 auto 16px;
+}
+
+
+.canteen-mobile-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+
+.canteen-mobile-sheet-head h5 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e2b4f;
+}
+
+
+.canteen-mobile-sheet-close {
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font-size: 22px;
+}
+
+
+.canteen-mobile-filter-fields {
+  display: grid;
+  gap: 16px;
+}
+
+
+.canteen-mobile-field label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #334155;
+}
+
+
+.canteen-mobile-field input,
+.canteen-mobile-field select {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid #d8deeb;
+  padding: 0 14px;
+  background: #fff;
+}
+
+
+.canteen-mobile-filter-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+
+.canteen-mobile-clear-btn,
+.canteen-mobile-apply-btn {
+  min-height: 52px;
+  border: 0;
+  border-radius: 16px;
+  font-weight: 700;
+}
+
+
+.canteen-mobile-clear-btn {
+  background: #edf0f7;
+  color: #1e293b;
+}
+
+
+.canteen-mobile-apply-btn {
+  background: linear-gradient(135deg, #5c7cff, #4d75f6);
+  color: #fff;
+}
+
+
+.canteen-mobile-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 22px;
+  width: 60px;
+  height: 60px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5c7cff, #4d75f6);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 12px 28px rgba(76, 117, 246, 0.35);
+  z-index: 2500;
+}
+
+
+@media (max-width: 768px) {
+  .canteen-header-card {
+    padding: 18px 16px;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+
+  .section-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+
+  .section-text {
+    font-size: 18px;
+  }
+
+
+  .canteen-subtext {
+    font-size: 13px;
+  }
+
+
+  .canteen-summary-grid {
+    display: flex;
+    overflow-x: auto;
+    gap: 14px;
+    padding-bottom: 8px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+
+  .canteen-summary-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+
+  .canteen-summary-box {
+    min-width: 88%;
+    flex: 0 0 88%;
+    scroll-snap-align: start;
+    border-radius: 20px;
+    padding: 8px 18px;
+  }
+  .canteen-metric-caption{
+    margin-top: 0px;
+  }
+
+
+  .summary-inner {
+    gap: 0px;
+  }
+
+
+  .summary-icon {
+   width: 40px;
+        height: 40px;
+        font-size: 19px;
+  }
+
+
+  .summary-content h3 {
+    font-size: 17px;
+  }
+
+
+  .canteen-filter-card {
+    display: none;
+  }
+
+
+  .canteen-mobile-search-card {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+
+  .canteen-desktop-table,
+  .canteen-desktop-summary-table {
+    display: none !important;
+  }
+
+
+  .canteen-mobile-groups,
+  .canteen-mobile-breakdown {
+    display: grid !important;
+    gap: 14px;
+    background: #eceff4;
+    
+  }
+
+
+  .canteen-mobile-group-card {
+    background: #d7dde1c4;
+    border: 1px solid #e7ecff;
+    border-radius: 22px;
+    padding: 14px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+  }
+
+
+  .canteen-mobile-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+
+  .canteen-mobile-entry {
+    background: white;
+    border-radius: 18px;
+    padding: 14px;
+  }
+
+
+  .canteen-mobile-entry.with-divider {
+    margin-top: 10px;
+    border-top: 0;
+  }
+
+
+  .canteen-mobile-entry-top {
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+
+  .canteen-mobile-entry-top strong {
+    font-size: 18px;
+    color: #1e2b4f;
+    text-transform: capitalize;
+  }
+
+
+  .canteen-mobile-entry-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px 12px;
+    font-size: 13px;
+  }
+
+
+  .canteen-mobile-entry-actions {
+    margin-top: 14px;
+    align-items: center;
+  }
+
+
+  .canteen-dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+
+  .canteen-category-card,
+  .canteen-table-card,
+  .canteen-recent-card {
+    border-radius: 22px;
+    padding: 0px;
+  }
+
+
+  .canteen-recent-item {
+    flex-direction: column;
+    align-items: flex-start;
+    border-radius: 18px;
+  }
+
+
+  .canteen-recent-metrics {
+    text-align: left;
+  }
+
+
+  .canteen-header-actions {
+    display: none;
+  }
+}
+
+@media screen and (max-width:375px){
+  .canteen-mobile-entry-grid {
+            grid-template-columns: 1fr ;
+        gap: 0px 12px;
+        font-size: 13px;
+        text-align: left ;
+  }
+  .canteen-mobile-entry-top{
+  margin-bottom: 0px;
+  }
+  .canteen-mobile-entry-actions{
+    margin-top: 0px;
+  }
+     .canteen-category-card, .canteen-table-card, .canteen-recent-card {
+        border-radius: 22px;
+        padding: 0px;
+        background: #e4e7ed;
+    }
+    .canteen-mobile-breakdown-card{
+      text-align: justify;
+    }
+    .canteen-mobile-breakdown,     .canteen-recent-item{
+      margin: 0px 11px;
+    }
+    .canteen-card-head{
+      flex-direction: column;
+    }
+    .rcntexpnsnm{
+      text-align: justify;
+    }
+}
+
+@media screen and (min-width:376px) and (max-width:768px) {
+  .canteen-mobile-breakdown, .canteen-recent-list{
+     grid-template-columns: 1fr 1fr;
+  }
+  .canteen-summary-box {
+        min-width: 43%;
+        flex: 0 0 46%;
+        scroll-snap-align: start;
+        border-radius: 20px;
+        padding:9px;}
+}
+
+
+@media screen and (min-width:477px) and (max-width:768px) {
+
+  .canteen-summary-box {
+        min-width: 43%;
+        flex: 0 0 46%;
+        scroll-snap-align: start;
+        border-radius: 20px;
+        padding: 16px;}
+        .canteen-category-card, .canteen-table-card, .canteen-recent-card {
+        border-radius: 22px;
+        padding: 0px;
+        background: #eceff5;
+        text-align: justify;
+    }
+    
+}
+
+
+
+
+
+
+
+
+
+/* MOBILE ATTENDANCE UI */
+
+@media (max-width: 768px) {
+  .meal-attendance-page .present {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0px;
+    align-items: center;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .meal-attendance-page .present::-webkit-scrollbar {
+    display: none;
+  }
+
+  .meal-attendance-page .present .btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-width: 110px;
+  }
+
+  .attendance-mobile-container {
+    display: grid;
+    gap: 16px;
+  }
+
+  .attendance-mobile-card {
+    background: #fff;
+    border-radius: 22px;
+    padding: 16px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.06);
+  }
+
+  .attendance-user h4 {
+    margin: 0;
+    font-size: 18px;
+    color: #1e2b4f;
+  }
+
+  .attendance-user span {
+    font-size: 13px;
+    color: #64748b;
+  }
+
+  .meal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding: 10px;
+    background: #f8fafc;
+    border-radius: 12px;
+  }
+
+  .meal-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+  }
+
+  .meal-left.breakfast { color: #ea580c; }
+  .meal-left.lunch { color: #2563eb; }
+  .meal-left.dinner { color: #7c3aed; }
+
+  .attendance-notes {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid #d8deeb;
+  }
+
+  .attendance-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .btn-edit {
+    background: #f4bd0a;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 6px 12px;
+  }
+
+  .btn-save {
+    background: #5c7cff;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 6px 12px;
+  }
+
+  .btn-cancel {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 6px 12px;
+  }
+}
+.extramealcard{
+  
+    margin-top: 24px;
+
+}
+@media (max-width: 424px) {
+  .meal-attendance-page .present .btn {
+    min-width: 100px;
+    padding: 10px 12px !important;
+    font-size: 13px;
+  }
+
+}
+
+.meal-attendance-floating-download {
+  position: fixed !important;
+  right: 18px;
+  top: 165px;
+  z-index: 1000;
+  width: 52px;
+  height: 52px;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(15, 118, 110, 0.25) !important;
+}
+
+.meal-attendance-floating-download svg {
+  font-size: 18px;
+  margin: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .meal-attendance-floating-download {
+           right: 0px;
+        top: 92%;
+        width: 48px;
+        height: 48px;
+  }
+}
+
+
+
+.extra-meal-mobile-section {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.extra-meal-mobile-header h5 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e2b4f;
+  margin: 0;
+}
+
+.extra-meal-mobile-empty {
+  background: #ffffff;
+  border: 1px dashed #d8deeb;
+  border-radius: 18px;
+  padding: 16px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.extra-meal-mobile-list {
+  display: grid;
+  gap: 12px;
+}
+
+.extra-meal-mobile-card {
+  background: #ffffff;
+  border: 1px solid #e7ecff;
+  border-radius: 20px;
+  padding: 14px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.extra-meal-mobile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.extra-meal-mobile-top strong {
+  font-size: 16px;
+  color: #1e2b4f;
+  text-transform: capitalize;
+}
+
+.extra-meal-type-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #fce7f3;
+  color: #be185d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.extra-meal-mobile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  color: #475569;
+  font-size: 13px;
+  text-align: left;
+}
+
+.extra-meal-mobile-grid small {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.extra-meal-mobile-notes {
+  grid-column: 1 / -1;
+}
+
+.extra-meal-mobile-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (min-width: 769px) {
+  .extra-meal-mobile-section {
+    display: none;
+  }
+  
+}
+.fullcard{
+   
+              border-radius: 28px;
+              background: #fff;
+              box-Shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+        
+}
+.extramealtableleftchild{
+      border-top-left-radius: 18px;
+}
+@media (max-width: 769px) {
+.fullcard{
+   
+              border-radius: 28px;
+              background: #f0f3f9;
+              box-shadow: 0 0 0 0;
+        
+}}
+.mealbtn {
+
+                  background: #2a6189a6;
+                  color: #fff;
+                  border: none;
+                  border-radius: 14px;
+                  padding: 10px 18px;
+                  font-weight: 600;
+                  width:100%;
+             
+}
+.togglepresentabsent{
+   /* min-width: 64px;
+                                  height: 44px;
+                                  border: none;
+                                  border-radius: 999;
+                                  padding: 0 14px;
+                                  font-weight: 700;
+                                  font-Size: 16px;
+                                  display: flex;
+                                  align-items: center;
+                                  justify-content: center; */
+                                
+}
+.attendancecard{
+ 
+    padding: 1rem !important;
+
+} 
+.extramealcard{
+  border-radius: 28px;
+    background: rgb(255, 255, 255);
+    box-shadow: rgba(15, 23, 42, 0.04) 0px 2px 10px;
+    --bs-card-border-color: white;
+}
+@media (max-width:767px){
+  .attendancecard{
+ 
+    padding: 0rem !important;
+
+} 
+  .extramealcard{
+  display: none;
+}
+.mealbtn {
+
+                  background: #2a6189a6;
+                  color: #fff;
+                  border: none;
+                  border-radius: 14px;
+                  padding: 10px 18px;
+                  font-weight: 600;
+                  width:100%;
+                  margin-top: -5px;
+             
+}
+.present{
+  
+    margin-top: -14px;
+
+}
+}
+.shadow-sm1{
+  box-shadow: var(--bs-box-shadow-sm) !important
+}
+/*  */
+@media screen and (max-width:769px){
+  .section-text1{
+    display: none;
+  }
+  .lightbill-card{
+    border: none;
+    background-color: #ffffff;
+  }
+ .shadow-sm1{
+  box-shadow:0 0 0 0;
+ }
+}
+
+.canteen-mobile-actionbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .canteen-mobile-actionbar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2100;
+    padding: 8px 12px 10px;
+    border-radius: 22px 22px 0 0;
+    background: rgba(255, 255, 255, 0.96);
+    border-top: 1px solid rgba(95, 125, 252, 0.14);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.12);
+  }
+
+  .canteen-mobile-actionbar-btn {
+           border: none;
+        border-radius: 16px;
+        padding: 0px;
+        background: #ffffff;
+        color: #8a8f9d;
+        box-shadow: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1.1;
+        text-align: center;
+        margin: 0px;
+  }
+
+  .canteen-mobile-actionbar-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+           /* background: rgba(95, 125, 252, 0.1); */
+        color: #a5a2a2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .canteen-expense-page {
+    padding-bottom: 95px;
+  }
+
+  .canteen-table-card,
+  .canteen-category-card,
+  .canteen-recent-card,
+  .canteen-summary-grid,
+  .canteen-dashboard-grid {
+    margin-bottom: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .canteen-mobile-fab,
+  .canteen-export-fab {
+    display: none !important;
+  }
+  .rent-mobile-actionbar-btn .canteen-mobile-actionbar-btn {
+    gap: 0px;
+ 
+  }
+  .mobile-section-sidebar .mobile-section-sidebar--blue .open{
+    z-index: 999999;
+  }
+  .rent-mobile-actionbar{
+    z-index: 99;
+  }
+}
+
+
+.meal-mobile-actionbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .meal-mobile-actionbar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2100;
+    padding: 8px 12px 10px;
+    border-radius: 22px 22px 0 0;
+    background: rgba(255, 255, 255, 0.96);
+    border-top: 1px solid rgba(95, 125, 252, 0.14);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.12);
+  }
+
+  .meal-mobile-actionbar-btn {
+    border: none;
+    border-radius: 16px;
+    padding: 8px 10px 10px;
+    background: #ffffff;
+    color: #8a8f9d;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .meal-mobile-actionbar-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #5f7dfc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Important: bottom spacing */
+  .meal-attendance-page {
+    padding-bottom: 100px;
+  }
+  .mealbtn{
+    display: none;
+  }
+  button:hover{
+    background-color: #ffffff;
+  }
+  .breakfast svg{
+   stroke: #9a3412;
+        fill: #9a3412;
+        stroke-width: 0;
+        height: 1em;
+        width: 1em;
+  }
+  .lunch svg{
+            stroke: #1d4ed8;
+        fill: #1d4ed8;
+        stroke-width: 0;
+        height: 1em;
+        width: 1em;
+  }
+ 
+  .dinner svg{
+            stroke:  #7534db;
+        fill:  #7534db;
+        stroke-width: 0;
+        height: 1em;
+        width: 1em;
+  }
+  .meal-mobile-actionbar1{
+    z-index: 0;
+  }
+  .summary-icon .blue svg{
+    stroke: rgb(218, 28, 28);
+        fill: rgb(233, 33, 33);
+        stroke-width: 0;
+        height: 1em;
+        width: 1em;
+  }
+  .canteen-card-head h5{
+    margin: 10px 0px;
+  }
+}

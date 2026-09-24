@@ -1,0 +1,121 @@
+.modal {
+    /* max-width: 400px; */
+    margin: 100px auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  }
+
+  .background-container {
+    background-image: url('../image/hostel-vector-26477303.jpg');
+    background-size: cover;
+    background-position: center;
+    height: 100vh;
+  }
+  
+  input {
+    width: 100%;
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+  
+  button {
+    background-color: #07226c;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  button.link-button {
+    background: none;
+    color: #07226c;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  
+  button:hover {
+    background-color:  #ffc107;
+  }
+  .back-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 16px;
+    color: #fff;
+    background-color: #fbb0bd;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  .input-group {
+    display: flex;
+    align-items: center;
+  }
+  
+  .input-group .input-group-text {
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    padding: 5px 10px;
+    border-left: none;
+    height: 38px;
+    border-radius: 0 4px 4px 0;
+  }
+  
+  .input-group input {
+    border-right: none;
+  }
+  /* Buttons */
+.back-btn {
+  background-color: #ffc107;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.back-btn:hover {
+  background-color: #2c3e50; /* Change to desired hover color */
+  color: white;
+}
+
+/* Buttons for Register */
+.btn-primary {
+  background-color: #ffc107;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: #ffc107; /* Change to desired hover color */
+}
+
+/* Links */
+.btn-link {
+  color: #07226c;
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  padding: 5px 10px;
+}
+
+.btn-link:hover {
+  color: #ffc107; /* Hover effect for links */
+}

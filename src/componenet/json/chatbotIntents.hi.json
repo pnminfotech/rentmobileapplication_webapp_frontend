@@ -1,0 +1,11 @@
+[
+  {"intent":"rent_status","examples":["{name} ke rent ka status","{name} ka rent hua kya","{name} ka rent status","{name} ka kiraya diya kya","{name} ka kiraya status"]},
+  {"intent":"due_amount","examples":["{name} ka kitna bacha hai","kitna due hai {name} ka","{name} ka pending amount","{name} ka outstanding","{name} ka balance"]},
+  {"intent":"pending_months","examples":["{name} ke kaunse mahine pending hai","{name} ke kitne mahine due hai","{name} ke pending mahine","{name} ne kaunse mahine rent nahi diya"]},
+  {"intent":"vacant_beds_in_room","examples":["room {room} me kaunse bed khali hai","{room} me bed available","{room} me khali bed","room {room} me khaali jagah"]},
+  {"intent":"who_has_pending","examples":["kis kis ka rent pending hai","pending renters list","kin logon ka due hai","pending ki list dikhाओ"]},
+  {"intent":"phone_of","examples":["{name} ka phone number","{name} ka mobile","{name} ka contact","{name} ka number do"]},
+  {"intent":"deposit_of","examples":["{name} ka deposit kitna hai","{name} ne kitna deposit diya","{name} ka security amount","{name} ka jamma paise"]},
+  {"intent":"left_last_month","examples":["pichle mahine kaun gaya","last month kaun chala gaya","pichhle mahine move-out","jo pichhle mahine nikle"]},
+  {"intent":"help","examples":["madad","help","kaise puchun","examples","kya kar sakte ho"]}
+]

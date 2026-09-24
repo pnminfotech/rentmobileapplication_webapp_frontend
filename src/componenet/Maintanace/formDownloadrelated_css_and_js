@@ -1,0 +1,303 @@
+import React from "react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import "../Maintanace/FormDownload.css";
+import Img from "../../image/mutkehostel.png";
+import RuleImg from "../../assets/rulebook.jpg";
+
+const FormDownload = ({ formData }) => {
+  const handleDownload = async () => {
+    const formPage = document.getElementById("form-page");
+    const rulePage = document.getElementById("rule-page");
+
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+
+    // --- Page 1: Admission form
+    const canvas1 = await html2canvas(formPage, { scale: 2 });
+    const imgData1 = canvas1.toDataURL("image/png");
+    const imgHeight1 = (canvas1.height * pdfWidth) / canvas1.width;
+    pdf.addImage(imgData1, "PNG", 0, 0, pdfWidth, imgHeight1);
+
+    // --- Page 2: Rules page
+    const canvas2 = await html2canvas(rulePage, { scale: 2 });
+    const imgData2 = canvas2.toDataURL("image/png");
+    const imgHeight2 = (canvas2.height * pdfWidth) / canvas2.width;
+    pdf.addPage();
+    pdf.addImage(imgData2, "PNG", 0, 0, pdfWidth, imgHeight2);
+
+    pdf.save("Admission_Form.pdf");
+  };
+
+  // ---- Helpers to resolve Relative Address 1 / 2 from various sources ----
+  const formatRelative = (r) => {
+    if (!r) return "";
+    const relation = r.relation && String(r.relation).trim();
+    const name = r.name && String(r.name).trim();
+    const phone = r.phone && String(r.phone).trim();
+
+    if (relation && name && phone) return `${relation}: ${name} (${phone})`;
+    if (relation && name) return `${relation}: ${name}`;
+    if (name && phone) return `${name} (${phone})`;
+    return [relation, name, phone].filter(Boolean).join(" ");
+  };
+
+  // Preferred new structure: relatives[]
+  const rel0FromArray = Array.isArray(formData?.relatives) ? formData.relatives[0] : null;
+  const rel1FromArray = Array.isArray(formData?.relatives) ? formData.relatives[1] : null;
+
+  // Your current payload fields (fallback if relatives[] not present)
+  const rel1FromFields = {
+    relation: formData?.relative1Relation,
+    name: formData?.relative1Name,
+    phone: formData?.relative1Phone,
+  };
+  const rel2FromFields = {
+    relation: formData?.relative2Relation,
+    name: formData?.relative2Name,
+    phone: formData?.relative2Phone,
+  };
+
+  // Build the two lines with a clear priority:
+  // 1) explicit relativeAddress1/2
+  // 2) relatives[0]/relatives[1]
+  // 3) individual fields relative1*/relative2*
+  // 4) single relativeAddress (for line 1 only)
+  // 5) underscores fallback
+  const relativeAddressLine1 =
+    formData?.relativeAddress1 ||
+    formatRelative(rel0FromArray) ||
+    formatRelative(rel1FromFields) ||
+    formData?.relativeAddress ||
+    "______________________________";
+
+  const relativeAddressLine2 =
+    formData?.relativeAddress2 ||
+    formatRelative(rel1FromArray) ||
+    formatRelative(rel2FromFields) ||
+    "_______________________________";
+
+  return (
+    <div>
+      {/* PAGE 1 - Form */}
+      <div id="form-page" className="form-container">
+        {/* Header */}
+        <header className="form-header">
+          <img src={Img} alt="Logo" className="form-logo" />
+          <div className="form-title">
+            <div className="form-no">
+              <span>Form No:</span>
+              <div className="form-box"></div>
+            </div>
+            <p
+              style={{
+                marginLeft: "-118px",
+                marginTop: "4px",
+                fontSize: "12px",
+              }}
+            >
+              New Admission Form
+            </p>
+          </div>
+          <div className="form-photo-box"></div>
+        </header>
+
+        {/* Body */}
+        <div className="form-body">
+          <p>
+            <strong>Name Of Occupant:</strong>{" "}
+            {formData?.name || "_______________________________"}
+          </p>
+          <p>
+            <strong>Address:</strong>{" "}
+            {formData?.address || "_______________________________"}
+          </p>
+
+          {/* Relative Address 1 / 2 – supports old fields, new relatives[], and individual fields */}
+          <p>
+            <strong>
+              Address Of Relative:
+              <br />
+              1)
+            </strong>{" "}
+            {relativeAddressLine1} <br />
+            <strong>2)</strong> {relativeAddressLine2}
+          </p>
+
+          <p>
+            <strong>Hostel Joining Date:</strong>{" "}
+            {formData?.joiningDate
+              ? new Date(formData.joiningDate).toLocaleDateString()
+              : "______________________________"}
+          </p>
+          <p>
+            <strong>Flat No:</strong> {formData?.roomNo || "_________"} &nbsp;
+            &nbsp; &nbsp;
+            <strong>Floor No:</strong> {formData?.floorNo || "_________"} &nbsp;
+            &nbsp; &nbsp;
+            <strong>Bed No:</strong> {formData?.bedNo || "_________"}
+          </p>
+          <hr />
+          <p>
+            <strong>
+              Name & Address of Company/College/Institute/Other:
+            </strong>
+            <br /> {formData?.companyAddress || "________________________________"}
+          </p>
+          <p>
+            <strong>Date Of Joining:</strong>{" "}
+            {formData?.joiningDate
+              ? new Date(formData.joiningDate).toLocaleDateString()
+              : "______________________________"}{" "}
+            &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+            <strong>Date Of Birth:</strong>{" "}
+            {formData?.dob
+              ? new Date(formData.dob).toLocaleDateString()
+              : "______________________________"}{" "}
+          </p>
+          <p>
+            <strong>
+              Has Occupant Givin Rules & Regulation Copy To Read & Understand:
+            </strong>{" "}
+            {formData?.rulesProvided || "Yes/No"}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <footer className="form-footer">
+          <div className="signature" style={{ fontSize: "10px" }}>
+            <p>Sign of Warden:</p>
+            <span>_____</span>
+          </div>
+          <div className="signature" style={{ fontSize: "10px" }}>
+            <p>Sign of Occupant:</p>
+            <span>_____</span>
+          </div>
+          <div className="signature" style={{ fontSize: "10px" }}>
+            <p>Sign of Guardian:</p>
+            <span>_____</span>
+          </div>
+        </footer>
+
+        <h6>Regards MUTKE HOSTEL</h6>
+      </div>
+
+      {/* PAGE 2 - Rules */}
+      <div id="rule-page" className="form-container">
+        <img src={RuleImg} alt="rules" style={{ width: "100%" }} />
+      </div>
+
+      {/* Download Button */}
+      <button onClick={handleDownload} className="download-button">
+        Download as PDF
+      </button>
+    </div>
+  );
+};
+
+export default FormDownload;
+
+
+
+.form-container {
+    font-family: Arial, sans-serif;
+    border: 2px solid #ffc0cb; /* Light pink border */
+    padding: 10px;
+    background-color: #fff5f8; /* Very light pink background */
+    color: #333;
+    margin: 20px auto;
+    width: 80%;
+    height: 100%;
+
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .form-title {
+    text-align: center;
+    font-size: 12px;
+    margin-bottom: 20px;
+    color: #333;
+  }
+  
+  .form-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  
+  .form-logo {
+    height: 40px;
+    margin-top: -30px;
+
+  }
+  
+  .form-title {
+    text-align: center;
+    flex: 1;
+    margin-bottom: -42px;
+  }
+  
+  .form-no {
+    margin-top: -13px;
+  }
+  
+  .form-box {
+    display: inline-block;
+    width: 36px;
+    height: 13px;
+    border: 1px solid #ffc0cb;
+    margin-left: 10px;
+  }
+  
+  .form-photo-box {
+    width: 1.5cm;
+    height: 1.5cm;
+    border: 1px solid #ffc0cb;
+    background-color: #fff;
+  }
+  
+  .form-body {
+    margin: 0px 0px 0px 0px;
+    text-align: left;
+    font-size:13px;
+  }
+  
+  .form-body p {
+    margin-bottom: 5px 0;
+  }
+  
+  .form-body hr {
+    border: none;
+    border-top:4px solid #ff9dae;
+    margin: 10px 0;
+  }
+  
+  .form-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 11px 0px 0px 0px;
+  }
+  
+  .signature {
+    text-align: center;
+    flex: 1;
+  }
+  .download-button {
+    margin: 20px 20px;
+    display: inline;
+    /* padding: 10px 20px; */
+    background-color: #ffccd5; /* Light pink */
+    color: #333;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .download-button:hover {
+    background-color: #ffc0cb; /* Slightly darker pink */
+  }
+  

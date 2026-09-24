@@ -1,0 +1,369 @@
+/* Apply only till screen width 993px */
+
+/*
+@media (max-width: 993px) {
+  .modal-dialog {
+    position: relative;
+    top: 0%;
+    margin: auto;
+    max-width: 100% !important;
+    width: 95%; 
+  }
+}
+@media screen and (min-width: 994px) and (max-width: 1200px) {
+  .modal-dialog {
+    position: relative;
+    top: 0%;
+    margin: auto;
+    max-width: 100% !important;
+    width: 70%; 
+  }
+}
+.modal-dialog  .d-flex {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-content: space-between;
+    justify-content: flex-end;
+    align-items: stretch;
+    flex-direction: row;
+}
+.btn-close{
+        background-color: #d9d6d6;
+    padding: 0px;
+    border: 1px solid black;
+}
+th{
+    background-color: #ffc0cb;
+}
+
+
+*/
+/*new */
+
+/* Apply only till screen width 993px */
+@media (max-width: 993px) {
+  .modal-dialog {
+    margin: auto;
+    max-width: 100% !important;
+    width: 95%;
+  }
+}
+
+/* Small laptops */
+@media screen and (min-width: 994px) and (max-width: 1200px) {
+  .modal-dialog {
+    margin: auto;
+    max-width: 100% !important;
+    width: 70%;
+  }
+}
+
+/* Modal scrolling */
+.modal-body {
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+/* SAFELY scoped flex wrapping */
+.modal-footer .d-flex {
+  flex-wrap: wrap;
+}
+
+/* Close button */
+.btn-close {
+  background-color: #d9d6d6;
+  padding: 0;
+  border: 1px solid black;
+}
+
+/* Table headers */
+th {
+  background-color: #ffc0cb;
+}
+
+/* Responsive table */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive table {
+  min-width: 1000px;
+}
+
+/* Mobile buttons (scoped) */
+@media (max-width: 768px) {
+  td .btn,
+  .modal-footer .btn {
+    margin-bottom: 6px;
+  }
+}
+
+/* Optional mobile polish */
+@media (max-width: 576px) {
+  h4, h5 {
+    font-size: 16px;
+  }
+
+  .badge {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
+.shift-btn {
+  background-color: #f4b400; /* Yellow */
+  color: #000;
+  border: none;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease-in-out;
+}
+
+.shift-btn:hover {
+  background-color: #e0a800;
+  color: #000;
+}
+
+.shift-btn:active {
+  transform: scale(0.97);
+}
+
+.edit-tenant-actions .btn {
+  white-space: nowrap;
+}
+
+@media (min-width: 992px) {
+  .edit-tenant-actions {
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+  }
+
+  .edit-tenant-delete-btn {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .edit-tenant-delete-btn {
+    margin-left: 0 !important;
+  }
+}
+
+/* -----------------------------------
+   EXPENSE / LIGHT TAB BUTTON GROUP
+----------------------------------- */
+.expense-tabs-wrapper {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Base button style */
+.expense-tabs-wrapper .btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 240px;
+  border-radius: 14px;
+  font-weight: 600;
+  padding: 12px 18px;
+  transition: all 0.2s ease;
+}
+
+/* Subtitle */
+.btn-subtext {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* Active tab */
+.active-tab {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+
+/* -----------------------------------
+   TABLET VIEW
+----------------------------------- */
+@media (max-width: 991px) {
+  .expense-tabs-wrapper .btn {
+    flex: 1 1 calc(50% - 8px); /* 2 per row */
+  }
+}
+
+/* -----------------------------------
+   MOBILE VIEW
+----------------------------------- */
+@media (max-width: 767px) {
+  .expense-tabs-wrapper {
+    flex-direction: column;
+  }
+
+  .expense-tabs-wrapper .btn {
+    width: 100%;
+    align-items: flex-start;
+  }
+}
+@media (max-width: 767px) {
+  .expense-tabs-wrapper .btn {
+    font-size: 15px;
+  }
+
+  .btn-subtext {
+    font-size: 11px;
+  }
+}
+/* ===============================
+   EXPENSE / LIGHT / STAFF TABS
+================================ */
+.expense-tabs-wrapper {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.expense-tabs-wrapper .btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 240px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-subtext {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.active-tab {
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+  transform: translateY(-1px);
+}
+
+/* Tablet → 2 buttons per row */
+@media (max-width: 991px) {
+  .expense-tabs-wrapper .btn {
+    flex: 1 1 calc(50% - 8px);
+    min-width: unset;
+  }
+}
+
+/* Mobile → stacked full width */
+@media (max-width: 767px) {
+  .expense-tabs-wrapper {
+    flex-direction: column;
+  }
+
+  .expense-tabs-wrapper .btn {
+    width: 100%;
+  }
+}
+/* ===============================
+   RENT TABLE BASE
+================================ */
+.rent-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.rent-table-wrapper table {
+  min-width: 1100px; /* months need space */
+}
+/* ===============================
+   TABLET STICKY COLUMNS
+================================ */
+@media (max-width: 992px) {
+  .rent-table-wrapper table {
+    min-width: 950px;
+  }
+
+  /* Sr */
+  /* .rent-table-wrapper th:first-child,
+  .rent-table-wrapper td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: #fff;
+  } */
+
+  /* Name */
+  /* .rent-table-wrapper th:nth-child(2),
+  .rent-table-wrapper td:nth-child(2) {
+    position: sticky;
+    left: 60px;
+    z-index: 3;
+    background: #fff;
+    min-width: 220px;
+  } */
+}
+/* ===============================
+   MOBILE CARD VIEW
+================================ */
+/* ===============================
+   MOBILE: HORIZONTAL TABLE HEADER
+   =============================== */
+@media (max-width: 768px) {
+
+  .rent-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rent-table-wrapper table {
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .rent-table-wrapper thead tr {
+    display: table-row;
+  }
+
+  .rent-table-wrapper thead th {
+    display: table-cell;
+    white-space: nowrap;
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  .rent-table-wrapper tbody tr {
+    display: table-row;
+  }
+
+  .rent-table-wrapper tbody td {
+    display: table-cell;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+}
+/* ===============================
+   MOBILE = DESKTOP TABLE + SCROLL
+   =============================== */
+.web-rent-due-panel { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px; border-radius:12px; background:#fff0ec; color:#b43d35; }
+.web-rent-due-panel strong { font-size:20px; }.web-rent-due-panel small { display:block; margin-top:4px; color:#7f6660; }
+.web-rent-split-card { padding:16px; border-radius:12px; background:#eaf5fb; color:#173c5d; }.web-rent-split-card h6 { margin:0 0 12px; font-size:17px; }.web-rent-split-row { display:grid; grid-template-columns:1fr auto; gap:3px 12px; padding:10px 0; border-bottom:1px solid rgba(36,79,112,.18); }.web-rent-split-row small { grid-column:1 / -1; color:#5d7284; }.web-rent-total-row { display:flex; justify-content:space-between; margin-top:14px; font-size:15px; }.web-rent-total-row strong { font-size:18px; }
+.web-rent-discount-summary { display:grid; gap:7px; margin:0 0 12px; padding:11px 12px; border-radius:8px; background:rgba(255,255,255,.62); color:#526b7e; font-size:13px; }.web-rent-discount-summary span { display:flex; justify-content:space-between; gap:14px; }.web-rent-discount-summary strong { color:#173c5d; }.web-rent-discount-summary span:nth-child(2) strong { color:#15803d; }
+.web-previous-receipts { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px; border:1px solid #d6e1eb; border-radius:8px; background:#f8fbfd; }.web-previous-receipts strong { width:100%; color:#173c5d; font-size:14px; }
+.web-payment-receipt { background:#fbf7ef; border:0; border-radius:16px; overflow:hidden; color:#17202a; }
+.web-payment-receipt-header { background:#fbf7ef; border-bottom:1px solid #e7ded1; padding:18px 22px; }
+.web-payment-receipt-header .modal-title { color:#17202a; font-weight:700; }
+.web-receipt-close { border:0; background:transparent; color:#244f70; font-size:28px; line-height:1; }
+.web-payment-receipt-body { padding:22px; background:#fbf7ef; }
+.web-receipt-card { background:#eaf5fb; border:1px solid #d6e7ef; border-radius:12px; padding:22px; color:#173c5d; }
+.web-receipt-brand { font-size:23px; font-weight:700; color:#17202a; }.web-receipt-type { margin-top:4px; color:#2c5d80; font-weight:600; padding-bottom:14px; border-bottom:2px solid #2c5d80; }
+.web-receipt-meta { display:flex; justify-content:space-between; gap:12px; margin-top:16px; padding:12px; background:#f7fbfd; color:#647789; font-size:12px; }
+.web-receipt-amount { margin:22px 0; color:#244f70; font-size:30px; font-weight:800; }.web-receipt-row { display:flex; justify-content:space-between; gap:16px; min-height:44px; padding:11px 0; border-bottom:1px solid rgba(36,79,112,.18); }
+.web-receipt-row span { color:#647789; }.web-receipt-row strong { color:#173c5d; text-align:right; word-break:break-word; }.web-receipt-footer { margin-top:22px; color:#647789; font-size:11px; text-align:center; }
+.web-receipt-actions { background:#fbf7ef; border-top:0; padding:0 22px 22px; gap:10px; }.web-receipt-print, .web-receipt-close-action { flex:1; min-height:46px; border-radius:8px; font-weight:700; }.web-receipt-print { border:1px solid #2c5d80; background:#fffdf9; color:#2c5d80; }.web-receipt-close-action { border:0; background:#2c5d80; color:#fff; }
+@media print { body * { visibility:hidden !important; } #web-payment-receipt, #web-payment-receipt * { visibility:visible !important; } #web-payment-receipt { position:absolute; inset:0; width:100%; box-shadow:none; } .web-receipt-actions, .web-payment-receipt-header { display:none !important; } }
+.web-receipt-share { flex:1; min-height:46px; border:1px solid #2c5d80; border-radius:8px; background:#dceef7; color:#244f70; font-weight:700; }

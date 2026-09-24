@@ -1,0 +1,115 @@
+.page-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+}
+
+.form-wrapper {
+  width: 100%;
+  max-width: 800px;
+}
+
+.form-container {
+  width: 100%;
+  background: #fff;
+  padding: 15px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+/* Header */
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.form-logo {
+  max-width: 80px;
+  height: auto;
+}
+.form-title {
+  text-align: center;
+  flex: 1;
+}
+.form-no {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+.form-box {
+  width: 60px;
+  height: 18px;
+  border: 1px solid #000;
+}
+.form-subtitle {
+  margin-top: 5px;
+  font-size: 12px;
+}
+.form-photo-box {
+  width: 80px;
+  height: 80px;
+  border: 1px solid #000;
+}
+
+/* Body */
+.form-body {
+  margin-top: 15px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* Footer */
+.form-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.signature {
+  margin: 5px 10px;
+  font-size: 12px;
+}
+.form-regards {
+  text-align: center;
+  margin-top: 10px;
+}
+
+/* Rule Image same as form width */
+.rule-img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Button */
+.download-button {
+  margin-top: 20px;
+  padding: 10px 16px;
+  border: none;
+  background: #b02a55;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+.download-button:hover {
+  background: #8a2142;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .form-body {
+    font-size: 13px;
+  }
+  .form-logo {
+    max-width: 60px;
+  }
+  .form-photo-box {
+    width: 60px;
+    height: 60px;
+  }
+}

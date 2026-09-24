@@ -1,0 +1,20 @@
+.leaved-mobile-screen {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .leaved-mobile-screen {
+    display: block;
+    width: 100%;
+    background: linear-gradient(180deg, #fdfdff, #f7f8ff);
+  }
+
+  .leaved-mobile-screen-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .leaved-mobile-card-main{
+    text-align: justify;
+  }
+}

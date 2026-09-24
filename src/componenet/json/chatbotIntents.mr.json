@@ -1,0 +1,12 @@
+[
+  {"intent":"rent_status","examples":["{name} चा भाड्याचा स्टेटस काय","{name} चे भाडे भरले का","{name} चा भाडा झाला का","{name} rent status"]},
+  {"intent":"due_amount","examples":["{name} चे किती देणे बाकी","{name} चे देणे किती आहे","{name} चे outstanding किती","{name} चे उर्वरित भाडे"]},
+  {"intent":"pending_months","examples":["{name} चे कोणते महिने बाकी","{name} चे pending महिने","{name} ने कोणत्या महिन्याचे भाडे दिले नाही"]},
+  {"intent":"vacant_beds_in_room","examples":["room {room} मध्ये कोणते बेड रिकामे","{room} मध्ये bed रिकामे आहेत का","{room} रूम मधील रिकामे बेड"]},
+  {"intent":"who_has_pending","examples":["कोणाचे भाडे पेंडिंग आहे","pending असलेले tenants","देणे असलेले कोण कोण","pending list दाखवा"]},
+  {"intent":"phone_of","examples":["{name} चा फोन नंबर","{name} चा मोबाइल","{name} चे contact","{name} चा नंबर द्या"]},
+  {"intent":"deposit_of","examples":["{name} ने किती डिपॉझिट दिले","{name} चे डिपॉझिट किती","{name} चे सिक्युरिटी अमाउंट"]},
+  {"intent":"left_last_month","examples":["मागच्या महिन्यात कोण गेले","गेल्या महिन्यात move-out कोण","मागच्या महिन्यात रूम सोडली कोणी"]},
+  {"intent":"help","examples":["मदत","काय करू शकता","उदाहरणे","कशी विचारायची","help"]}
+]
+

@@ -1,0 +1,66 @@
+[
+  {
+    "intent": "help",
+    "patterns": ["help", "examples", "how to use", "what can you do"]
+  },
+  {
+    "intent": "rent_status",
+    "patterns": ["rent status of {name}", "{name} rent status", "status of {name}"]
+  },
+  {
+    "intent": "rent_amount",
+    "patterns": ["rent amount for {name}", "monthly rent of {name}", "expected rent of {name}"]
+  },
+  {
+    "intent": "joining_date",
+    "patterns": ["joining date of {name}", "{name} joining date", "join date for {name}"]
+  },
+  {
+    "intent": "due_amount",
+    "patterns": ["due for {name}", "how much due for {name}", "{name} due"]
+  },
+  {
+    "intent": "pending_months",
+    "patterns": ["pending months for {name}", "{name} pending months"]
+  },
+  {
+    "intent": "deposit_of",
+    "patterns": ["deposit of {name}", "{name} deposit"]
+  },
+  {
+    "intent": "phone_of",
+    "patterns": ["phone of {name}", "{name} phone", "mobile of {name}"]
+  },
+  {
+    "intent": "details_of",
+    "patterns": ["all details of {name}", "full details for {name}", "{name} profile"]
+  },
+  {
+    "intent": "vacant_beds_in_room",
+    "patterns": ["vacant beds in room {room}", "room {room} vacant beds"]
+  },
+  {
+    "intent": "who_has_pending",
+    "patterns": ["who has pending", "list of all pendings", "all pending", "who is pending"]
+  },
+  {
+    "intent": "left_last_month",
+    "patterns": ["who left last month", "left last month"]
+  },
+  {
+    "intent": "pending_this_month_all",
+    "patterns": ["all pending this month", "this month pending", "pending this month"]
+  },
+  {
+    "intent": "pending_specific_month_all",
+    "patterns": ["all pending for {month}", "pending for {month}"]
+  },
+  {
+    "intent": "pending_this_month_name",
+    "patterns": ["{name} pending this month", "pending this month for {name}"]
+  },
+  {
+    "intent": "pending_specific_month_name",
+    "patterns": ["pending for {name} in {month}", "{name} pending for {month}"]
+  }
+]

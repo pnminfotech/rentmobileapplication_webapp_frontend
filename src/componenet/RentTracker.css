@@ -1,0 +1,2346 @@
+.rent-header-card {
+  background: linear-gradient(180deg, #faf8ff, #f4f6ff);
+  border-radius: 24px;
+  padding: 22px 24px;
+  border: 1px solid rgba(95, 125, 252, 0.1);
+  box-shadow: 0 18px 40px rgba(120, 100, 200, 0.12);
+}
+
+.rent-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.rent-header-notification {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.rent-header-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(95, 125, 252, 0.12);
+  color: #2f3fb8;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.rent-header-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #111827;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.rent-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1 1 720px;
+  min-width: 0;
+}
+
+.rent-toolbar-select {
+  width: 160px;
+  flex: 0 0 160px;
+}
+
+.rent-toolbar-search {
+  position: relative;
+  flex: 1 1 280px;
+  min-width: 220px;
+  max-width: 360px;
+}
+
+.rent-toolbar-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.rent-toolbar-input {
+  padding-left: 40px !important;
+}
+
+.rent-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 1 1 520px;
+  flex-wrap: wrap;
+}
+
+.rent-toolbar-actions-primary,
+.rent-toolbar-actions-secondary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rent-toolbar-actions-secondary {
+  margin-left: auto;
+}
+
+.rent-toolbar .form-select,
+.rent-toolbar .form-control {
+  border-radius: 12px;
+  border: 1px solid #d8ddeb;
+  min-height: 46px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
+}
+
+.rent-toolbar-action {
+  min-height: 46px;
+  border-radius: 12px;
+  font-weight: 700;
+  border: none;
+  padding: 0 18px;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #5f7dfc 0%, #4865f3 100%) !important;
+  box-shadow: 0 8px 18px rgba(95, 125, 252, 0.16);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.rent-toolbar-action:hover,
+.rent-toolbar-action:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(95, 125, 252, 0.22);
+  filter: saturate(1.03);
+}
+
+.rent-tracker-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0 20px;
+}
+
+.rent-tracker-tab {
+  border: 1px solid #5f7dfc;
+  border-radius: 14px;
+  padding: 11px 22px;
+  background: #ffffff;
+  color: #2553cf;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  box-shadow: 0 6px 16px rgba(95, 125, 252, 0.08);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.rent-tracker-tab:hover,
+.rent-tracker-tab:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(95, 125, 252, 0.14);
+}
+
+.rent-tracker-tab.is-active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.24);
+}
+
+.rent-mobile-actionbar {
+  display: none;
+}
+
+.rent-mobile-actionbar-btn {
+  border: none;
+  border-radius: 16px;
+  padding: 10px 10px 12px;
+  background: linear-gradient(180deg, rgba(95, 125, 252, 0.98), rgba(72, 101, 243, 0.98));
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(95, 125, 252, 0.26);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.rent-mobile-actionbar-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.rent-summary-row {
+  margin-top: 6px;
+}
+
+.rent-summary-row > div {
+  min-width: 0;
+}
+
+@media (min-width: 992px) {
+  .rent-summary-row.rent-summary-row--five {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    overflow: hidden;
+  }
+
+  .rent-summary-row.rent-summary-row--five > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
+  }
+
+  .rent-summary-row.rent-summary-row--seven {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    overflow: hidden;
+  }
+
+  .rent-summary-row.rent-summary-row--seven > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1440px) {
+  .rent-table-wrapper
+    > .position-relative.d-flex.align-items-center.justify-content-between.gap-3.flex-wrap.mb-3 {
+    position: static !important;
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px !important;
+    margin-bottom: 18px !important;
+  }
+
+  .rent-table-wrapper
+    > .position-relative.d-flex.align-items-center.justify-content-between.gap-3.flex-wrap.mb-3
+    .section-title {
+    position: static !important;
+    transform: none !important;
+    justify-self: center;
+    margin: 0 !important;
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .rent-header-card {
+    padding: 18px 20px;
+  }
+
+  .rent-toolbar {
+    gap: 14px;
+    align-items: stretch;
+  }
+
+  .rent-toolbar-select {
+    width: 150px;
+    flex: 0 0 150px;
+  }
+
+  .rent-toolbar-search {
+    flex: 1 1 280px;
+    max-width: none;
+  }
+
+  .rent-toolbar-actions {
+    flex: 1 1 100%;
+    gap: 12px;
+    justify-content: space-between;
+  }
+
+  .rent-toolbar-actions-primary,
+  .rent-toolbar-actions-secondary {
+    gap: 12px;
+  }
+
+  .rent-toolbar-action {
+    min-height: 44px;
+    padding: 0 16px;
+    white-space: nowrap;
+  }
+
+  .rent-tracker-tabs {
+    gap: 10px;
+    margin: 16px 0 18px;
+  }
+
+  .rent-tracker-tab {
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+  .rent-table-wrapper
+    > .position-relative.d-flex.align-items-center.justify-content-between.gap-3.flex-wrap.mb-3 {
+    grid-template-columns: 1fr auto;
+  }
+
+  .rent-table-wrapper
+    > .position-relative.d-flex.align-items-center.justify-content-between.gap-3.flex-wrap.mb-3
+    > .btn.btn-outline-primary {
+    justify-self: start;
+    width: auto;
+    min-width: 0;
+    padding: 8px 14px;
+    white-space: nowrap;
+  }
+
+  .rent-table-wrapper
+    > .position-relative.d-flex.align-items-center.justify-content-between.gap-3.flex-wrap.mb-3
+    .section-title {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  .rent-toolbar-select,
+  .rent-toolbar-search,
+  .rent-toolbar-actions {
+    flex: 1 1 100%;
+  }
+
+  .rent-toolbar {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+  }
+
+  .rent-toolbar-select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .rent-toolbar-search {
+    width: 100%;
+  }
+
+  .rent-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .rent-toolbar-actions-primary,
+  .rent-toolbar-actions-secondary {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .rent-toolbar-action {
+    width: auto;
+    flex: 0 0 auto;
+    justify-content: center;
+    padding: 0 14px;
+  }
+
+  .rent-summary-row.rent-summary-row--five {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .rent-summary-row.rent-summary-row--seven {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .rent-summary-row .summary-card {
+    min-height: 68px;
+    padding: 14px 12px;
+  }
+
+  .rent-summary-row .summary-left {
+    min-width: 0;
+    gap: 8px;
+    flex: 1 1 auto;
+  }
+
+  .rent-summary-row .summary-title {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .rent-summary-row .summary-number {
+    min-width: 32px;
+    height: 32px;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1099px) {
+  .rent-header-card {
+    padding: 16px 18px;
+  }
+
+  .rent-toolbar {
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .rent-toolbar-actions {
+    gap: 10px;
+  }
+
+  .rent-toolbar-action {
+    min-height: 42px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 1200px) and (max-width: 1440px) {
+  .rent-summary-row.rent-summary-row--five {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+  }
+
+  .rent-summary-row.rent-summary-row--seven {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+  }
+
+  .rent-summary-row .summary-card {
+    min-height: 70px;
+    padding: 16px 14px;
+  }
+
+  .rent-summary-row .summary-left {
+    min-width: 0;
+    gap: 8px;
+    flex: 1 1 auto;
+  }
+
+  .rent-summary-row .summary-title {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+}
+
+.rent-table-desktop {
+  display: block;
+}
+
+@media (min-width: 993px) {
+  .rent-table-wrapper {
+    overflow-x: visible !important;
+  }
+
+  .rent-table-wrapper table,
+  .rent-table-wrapper .renttable {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+.rent-mobile-view {
+  display: none;
+}
+
+.rent-mobile-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  padding-bottom: 6px;
+}
+
+.rent-mobile-hero {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f7f8ff, #eef2ff 55%, #ffffff);
+  border: 1px solid rgba(95, 125, 252, 0.12);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.rent-mobile-hero-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.rent-mobile-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(95, 125, 252, 0.14);
+  color: #2f3fb8;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.rent-mobile-hero-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  color: #111827;
+}
+
+.rent-mobile-hero-text {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.rent-mobile-hero-stat {
+  min-width: 96px;
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.rent-mobile-hero-stat span {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.rent-mobile-hero-stat strong {
+  font-size: 22px;
+  line-height: 1;
+  color: #111827;
+}
+
+.rent-mobile-hero-stat small {
+  font-size: 11px;
+  color: #6366f1;
+  font-weight: 700;
+}
+
+.rent-mobile-room {
+  background: linear-gradient(180deg, #ffffff, #f8faff);
+  border-radius: 18px;
+  padding: 14px;
+  border: 1px solid #e4e7f8;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.rent-mobile-room-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rent-mobile-room-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.rent-mobile-room-meta {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.rent-mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rent-mobile-card {
+  background: #fff;
+  border: 1px solid #e8e6f4;
+  border-radius: 18px;
+  padding: 12px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rent-mobile-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.rent-mobile-card--paid {
+  border-left: 5px solid #16a34a;
+}
+
+.rent-mobile-card--due {
+  border-left: 5px solid #dc2626;
+}
+
+.rent-mobile-card--pend {
+  border-left: 5px solid #f59e0b;
+}
+
+.rent-mobile-card--upcoming {
+  border-left: 5px solid #6366f1;
+}
+
+.rent-mobile-tenant-core {
+  flex: 0 0 42%;
+  min-width: 0;
+  padding: 14px 14px 14px 14px;
+  border-right: 1px solid #eef2f7;
+}
+
+.rent-mobile-card-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.rent-mobile-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #5f7dfc, #8a9fff);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.rent-mobile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rent-mobile-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.rent-mobile-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.rent-mobile-status-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.rent-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.rent-status-pill.paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.rent-status-pill.due {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.rent-status-pill.pend {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.rent-status-pill.upcoming {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.rent-mobile-due-chip {
+  border: none;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #f8fafc;
+  color: #dc2626;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.rent-mobile-meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.rent-mobile-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.rent-mobile-filter-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* margin-bottom: 12px; */
+}
+
+.rent-mobile-filter-toggle {
+  min-height: 46px;
+  width: 100%;
+  border: 1px solid rgba(95, 125, 252, 0.18);
+  border-radius: 16px;
+  padding: 0 14px;
+  background: linear-gradient(135deg, #ffffff, #f7faff);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+  color: #0f172a;
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.rent-mobile-filter-toggle-left,
+.rent-mobile-filter-toggle-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rent-mobile-filter-toggle-right {
+  color: #5f7dfc;
+  font-size: 12px;
+}
+
+.rent-mobile-filter-toggle-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rent-mobile-filter-panel {
+  padding: 12px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f8faff);
+  border: 1px solid rgba(95, 125, 252, 0.14);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rent-mobile-filter-mode-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rent-mobile-mode-chip {
+  min-height: 40px;
+  border: 1px solid #d8ddeb;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0 10px;
+}
+
+.rent-mobile-mode-chip.active {
+  background: linear-gradient(135deg, #5f7dfc, #6f82ff);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 10px 20px rgba(95, 125, 252, 0.18);
+}
+
+.rent-mobile-filter-chip--stacked {
+  width: 100%;
+  min-width: 0;
+}
+
+.rent-mobile-filter-chip--stacked .rent-mobile-filter-input,
+.rent-mobile-filter-chip--stacked .rent-mobile-filter-select {
+  min-width: 0;
+}
+
+.rent-mobile-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rent-mobile-filter-clear {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #5f7dfc;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.rent-mobile-filter-scroll {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f8faff);
+  border: 1px solid rgba(95, 125, 252, 0.14);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+}
+
+.rent-mobile-filter-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.rent-mobile-filter-chip {
+  flex: 0 0 auto;
+  min-height: 46px;
+  border-radius: 999px;
+  border: 1px solid #d8ddeb;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
+}
+
+.rent-mobile-filter-chip--label {
+  background: linear-gradient(135deg, #5f7dfc, #6f82ff);
+  color: #ffffff;
+  border-color: transparent;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.rent-mobile-filter-chip--label svg {
+  font-size: 12px;
+}
+
+.rent-mobile-filter-chip--field {
+  min-width: 180px;
+}
+
+.rent-mobile-filter-chip--search {
+  min-width: 220px;
+}
+
+.rent-mobile-filter-chip--select {
+  min-width: 150px;
+  padding-right: 8px;
+}
+
+.rent-mobile-filter-chip-text {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 900;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.rent-mobile-filter-input,
+.rent-mobile-filter-select {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+  color: #0f172a;
+  box-shadow: none;
+  outline: none;
+}
+
+.rent-mobile-filter-chip--search .rent-mobile-filter-input,
+.rent-mobile-filter-chip--select .rent-mobile-filter-select {
+  flex: 1 1 auto;
+}
+
+.rent-mobile-filter-input::placeholder {
+  color: #94a3b8;
+}
+
+.rent-mobile-filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.rent-mobile-action {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.rent-mobile-action.primary {
+  background: #5f7dfc;
+  color: #fff;
+}
+
+.rent-mobile-action.secondary {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.rent-mobile-action.warn {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.rent-mobile-action.ghost {
+  background: #f8fafc;
+  color: #334155;
+}
+
+.rent-mobile-vacant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rent-mobile-vacant-card {
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  padding: 12px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rent-mobile-vacant-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rent-mobile-vacant-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.rent-mobile-vacant-sub {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.rent-mobile-vacant-action {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #3db7b1;
+  color: #fff;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.rent-mobile-empty {
+  text-align: center;
+  color: #64748b;
+  padding: 16px 8px;
+  font-size: 13px;
+}
+
+.rent-mobile-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.rent-mobile-topbar {
+     display: grid;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-direction: row;
+    grid-auto-flow: column;
+}
+
+.rent-mobile-sections-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #5f7dfc, #6f82ff);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 13px;
+  box-shadow: 0 10px 20px rgba(95, 125, 252, 0.18);
+}
+
+.rent-mobile-sections-btn svg {
+  font-size: 12px;
+}
+
+.rent-mobile-leaved-launch {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.rent-mobile-launch-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  /* margin-bottom: 10px; */
+  flex-wrap: wrap;
+}
+
+.rent-mobile-leaved-btn {
+  min-height: 34px;
+  border: none;
+  border-radius: 999px;
+  padding: 0 12px;
+  background: linear-gradient(135deg, #1d4ed8, #5f7dfc);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  box-shadow: 0 10px 20px rgba(95, 125, 252, 0.18);
+  white-space: nowrap;
+}
+
+.rent-mobile-vacant-btn {
+  min-height: 34px;
+  border: none;
+  border-radius: 999px;
+  padding: 0 12px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  box-shadow: 0 10px 20px rgba(20, 184, 166, 0.18);
+  white-space: nowrap;
+}
+
+.rent-mobile-section-title h5 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.rent-mobile-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.rent-mobile-tenant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rent-mobile-room-separator {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 -2px;
+  color: #3246a8;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.rent-mobile-room-separator::before,
+.rent-mobile-room-separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #cfd6ff;
+}
+
+.rent-mobile-room-separator span {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid #cfd6ff;
+  border-radius: 999px;
+  background: #f5f7ff;
+}
+
+.rent-mobile-tenant-card {
+  background: linear-gradient(180deg, #ffffff, #f8faff);
+  border: 1px solid #dfe3fb;
+  border-radius: 20px;
+  padding: 0;
+  
+      display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 12px 24px rgba(95, 125, 252, 0.08);
+}
+
+.rent-mobile-tenant-card--paid {
+  border-left: 5px solid #16a34a;
+}
+
+.rent-mobile-tenant-card--due {
+  border-left: 5px solid #dc2626;
+}
+
+.rent-mobile-tenant-card--pend {
+  border-left: 5px solid #f59e0b;
+}
+
+.rent-mobile-tenant-card--upcoming {
+  border-left: 5px solid #6366f1;
+}
+
+.rent-mobile-tenant-card--empty {
+  border-left: 5px solid #cbd5e1;
+}
+
+.rent-mobile-tenant-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.rent-mobile-tenant-avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #5f7dfc, #8a9fff);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.rent-mobile-tenant-avatar-btn {
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  appearance: none;
+  position: relative;
+}
+
+.rent-mobile-tenant-avatar-btn:focus {
+  outline: 2px solid rgba(95, 125, 252, 0.35);
+  outline-offset: 2px;
+}
+
+.rent-mobile-photo-edit-btn {
+  position: absolute;
+        right: -7px;
+        bottom: 43px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 900;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.18);
+}
+
+.rent-mobile-tenant-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rent-mobile-tenant-main {
+  min-width: 0;
+  text-align: left;
+}
+
+.rent-mobile-tenant-name {
+  font-size: 17px;
+  font-weight: 900;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.rent-mobile-tenant-meta {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+.rent-mobile-tenant-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.rent-mobile-month-strip {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 0;
+  min-width: 0;
+}
+
+.rent-month-card {
+  border-radius: 0;
+  padding: 14px 8px 11px;
+  border: none;
+  border-left: 1px solid #eef2f7;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.rent-month-card-clickable {
+  cursor: pointer;
+}
+
+.rent-month-status-btn {
+  margin-top: 4px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.06);
+}
+
+.rent-month-status-label {
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.rent-month-status-date {
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.05;
+  opacity: 0.95;
+}
+
+/* .rent-month-status-btn::after {
+  content: "›";
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.8;
+} */
+
+.rent-month-status-btn.paid {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.rent-month-status-btn.due {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.rent-month-status-btn.pend {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.rent-month-status-btn.upcoming {
+  background: #e0e7ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+}
+
+.rent-month-edit-hint {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  line-height: 1.1;
+}
+
+.rent-month-range {
+  margin-top: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #334155;
+  line-height: 1.15;
+}
+
+.rent-month-card.paid {
+  border-color: rgba(22, 163, 74, 0.18);
+  background: linear-gradient(180deg, #f0fdf4, #ffffff);
+}
+
+.rent-month-card.due {
+  border-color: rgba(220, 38, 38, 0.16);
+  background: linear-gradient(180deg, #fff5f5, #ffffff);
+}
+
+.rent-month-card.pend {
+  border-color: rgba(245, 158, 11, 0.18);
+  background: linear-gradient(180deg, #fffaf0, #ffffff);
+}
+
+.rent-month-card.upcoming {
+  border-color: rgba(99, 102, 241, 0.18);
+  background: linear-gradient(180deg, #f5f7ff, #ffffff);
+}
+
+.rent-month-card.empty {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: linear-gradient(180deg, #f8fafc, #ffffff);
+}
+
+.rent-month-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.rent-month-status {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.rent-month-status.paid {
+  color: #166534;
+}
+
+.rent-month-status.due {
+  color: #b91c1c;
+}
+
+.rent-month-status.pend {
+  color: #92400e;
+}
+
+.rent-month-status.upcoming {
+  color: #3730a3;
+}
+
+.rent-month-status-btn.empty {
+  background: #fff;
+  border-color: #fff;;
+  color: #fff;;
+}
+
+.rent-month-amount {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 900;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.rent-month-note {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.25;
+}
+
+
+
+.rent-mobile-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+  .card-custom{
+  /* background-color: #f6f7fb; */
+    /* background-clip: border-box; */
+    border: none;
+    /* border-radius: var(--bs-card-border-radius); */
+}
+  .leaved-tenants-section{
+    display: none;
+  }
+  .rent-header-card {
+    display: none !important;
+  }
+
+  .rent-table-desktop {
+    display: none !important;
+  }
+
+  .rent-summary-row {
+    display: flex !important;
+    margin-bottom: 12px;
+  }
+
+  .rent-mobile-view {
+    display: block;
+  }
+}
+.maincontainer{
+  padding-right: 10px;
+    padding-left: 10px !important;
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+}
+@media (max-width: 768px) {
+  .maincontainer{
+    padding: 10px;
+  }
+
+  .position-relative.d-flex.align-items-center.justify-content-between.gap-3.flex-wrap.mb-3,
+  .rent-tracker-tabs {
+    display: none !important;
+  }
+
+  .rent-header-card {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .rent-header-top {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .rent-header-notification {
+    justify-content: flex-end;
+  }
+
+  .rent-header-title {
+    font-size: 22px;
+  }
+
+  .rent-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rent-toolbar-select,
+  .rent-toolbar-search,
+  .rent-toolbar-actions,
+  .rent-toolbar-actions-primary,
+  .rent-toolbar-actions-secondary,
+  .rent-toolbar .form-select,
+  .rent-toolbar .form-control,
+  .rent-toolbar .btn {
+    width: 100%;
+    max-width: none;
+  }
+
+  .rent-toolbar-select,
+  .rent-toolbar-search,
+  .rent-toolbar-actions {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .rent-toolbar-actions-primary,
+  .rent-toolbar-actions-secondary {
+    justify-content: flex-start;
+  }
+
+  .rent-toolbar-actions-secondary {
+    margin-left: 0;
+  }
+
+  .rent-tracker-tabs {
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .rent-tracker-tab {
+    flex: 1 1 calc(50% - 10px);
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .rent-toolbar-action {
+    display: none !important;
+  }
+
+  .rent-mobile-actionbar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2100;
+    /* padding: 0px 12px ; */
+    border-radius: 22px 22px 0 0;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(95, 125, 252, 0.14);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
+  }
+
+  .rent-table-desktop {
+    display: none !important;
+  }
+
+  .rent-mobile-view {
+    display: block;
+  }
+
+  .rent-table-wrapper {
+    padding-bottom: 96px;
+  }
+
+  .rent-mobile-hero {
+    flex-direction: column;
+  }
+
+  .rent-mobile-leaved-btn,
+  .rent-mobile-vacant-btn {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  .rent-mobile-hero-stat {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .rent-mobile-tenant-head {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .rent-mobile-tenant-status {
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    flex-direction: row;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+
+  .rent-mobile-month-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-width: 0;
+  }
+
+  .rent-mobile-tenant-core {
+    flex-basis: 42%;
+  }
+
+  .rent-mobile-tenant-head {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .rent-mobile-tenant-list {
+    gap: 6px;
+  }
+
+  .rent-month-card {
+    padding: 10px 6px 8px;
+  }
+
+  .rent-mobile-filter-wrap {
+    gap: 8px;
+  }
+
+  .rent-mobile-launch-row {
+    gap: 6px;
+  }
+
+  .rent-mobile-section-title {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .rent-mobile-tenant-avatar {
+    width: 69px;
+    height: 69px;
+    border-radius: 15px;
+    font-size: 13px;
+  }
+
+  .rent-mobile-tenant-name {
+    font-size: 15px;
+  }
+
+  .rent-mobile-tenant-meta {
+    font-size: 11px;
+  }
+
+  .rent-month-card {
+    padding: 10px 8px 10px;
+    overflow: hidden;
+  }
+
+  .rent-month-title {
+    font-size: 10px;
+    line-height: 1.15;
+    white-space: nowrap;
+    word-break: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rent-month-status {
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  .rent-month-amount {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .rent-month-note {
+    font-size: 10px;
+  }
+  .rent-table-wrapper {
+    background: linear-gradient(180deg, #f6f4ff, #ffffff);
+    border-radius: 18px;
+    padding: 0px;
+    box-shadow: 0 18px 40px rgba(120, 100, 200, 0.22);
+    overflow-x: auto;
+}
+/* svg {
+    stroke: white;
+    fill: white;
+    stroke-width: 0;
+    height: 1em;
+    width: 1em;
+} */
+.rent-mobile-actionbar-btn {
+    border: none;
+    border-radius: 16px;
+    padding: 0px 10px 12px;
+    background: white;
+            color: #334155;
+    box-shadow: 0 0 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* gap: 6px; */
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+}
+.rent-mobile-actionbar-icon
+{    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    background: #5f7dfc;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;}
+
+  .rent-mobile-view{
+    margin-bottom: 100px;
+  }
+
+.rent-mobile-actions .form-select,
+.rent-mobile-actions input[type="month"] {
+  height: 48px;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid #d8ddeb;
+  background-color: #fff;
+  padding: 0 12px;
+  font-size: 14px;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
+  box-sizing: border-box;
+}
+
+.rent-mobile-actions input[type="month"] {
+  appearance: none;
+  -webkit-appearance: none;
+  line-height: 46px;
+}
+}
+
+.form-select{
+      --bs-form-select-bg-img: url(data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3e%3cpath fill=%27none%27 stroke=%27%23343a40%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%272%27 d=%27m2 5 6 6 6-6%27/%3e%3c/svg%3e);
+    display: block;
+    width: 100%;
+    padding: .375rem 2.25rem .375rem .75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--bs-body-color);
+    appearance: none;
+    background-color: var(--bs-body-bg);
+    background-image: var(--bs-form-select-bg-img), var(--bs-form-select-bg-icon, none);
+    background-repeat: no-repeat;
+    background-position: right .75rem center;
+    background-size: 16px 12px;
+    border: var(--bs-border-width) solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+
+
+ @media screen and (max-width:769px){
+  .section-text1{
+    display: none;
+  }
+  .rent-mobile-actionbar-icon svg{
+   
+    stroke: #fffafa;
+        fill: #ffffff;
+        stroke-width: 0;
+        height: 1em;
+        width: 1em;
+  }
+ }
+
+/* ================= MOBILE TENANT FEED ================= */
+.rent-mobile-tenant-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.rent-mobile-tenant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rent-mobile-tenant-card {
+  background: linear-gradient(180deg, #ffffff, #f8faff);
+  border: 1px solid #e5e7f7;
+  border-left: 5px solid #5f7dfc;
+  border-radius: 22px;
+  padding: 14px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+}
+
+.rent-mobile-tenant-card--paid {
+  border-left-color: #16a34a;
+}
+
+.rent-mobile-tenant-card--due {
+  border-left-color: #dc2626;
+}
+
+.rent-mobile-tenant-card--pend {
+  border-left-color: #f59e0b;
+}
+
+.rent-mobile-tenant-card--upcoming {
+  border-left-color: #6366f1;
+}
+
+.rent-mobile-tenant-head {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.rent-mobile-tenant-avatar-wrap {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.rent-mobile-tenant-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #5f7dfc, #8a9fff);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 19px;
+  flex-shrink: 0;
+}
+
+.rent-mobile-tenant-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rent-mobile-tenant-photo-edit-btn {
+  position: absolute;
+  top: -8px;
+  right: -22px;
+  width: 30px;
+  height: 20px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #aa0e03cc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1;
+  z-index: 2;
+  cursor: pointer;
+  padding: 0;
+}
+
+.rent-mobile-tenant-photo-edit-btn svg {
+  font-size: 11px;
+}
+
+.rent-mobile-tenant-main {
+  min-width: 0;
+}
+
+.rent-mobile-tenant-name {
+  font-size: 18px;
+  font-weight: 900;
+  color: #111827;
+  line-height: 1.1;
+}
+
+.rent-mobile-tenant-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #516072;
+}
+
+.rent-mobile-badge-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.rent-mobile-advance-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.rent-mobile-canteen-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #28a745;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.rent-mobile-tenant-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
+.rent-mobile-tenant-rent-btn {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.rent-mobile-tenant-dot {
+  color: #94a3b8;
+  padding: 0 2px;
+}
+
+.rent-mobile-tenant-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.rent-mobile-month-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 14px;
+  border: 1px solid #e7e9f8;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.rent-mobile-month-scroll-row {
+  display: block;
+  margin-top: 14px;
+}
+
+.rent-mobile-month-scroll-row .rent-mobile-month-strip {
+  margin-top: 0;
+  touch-action: pan-y;
+}
+
+.month-row-scroll-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.month-row-scroll-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rent-mobile-month-strip.can-prev {
+  border-left: 3px solid #c7d2fe;
+}
+
+.rent-mobile-month-strip.can-next {
+  border-right: 3px solid #c7d2fe;
+}
+
+.month-row-scroll-cell {
+  width: 42px;
+  min-width: 42px;
+  background: #fff7fa;
+}
+
+.rent-month-card {
+  min-width: 0;
+  padding: 12px 8px 10px;
+  border-left: 1px solid #e7e9f8;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  text-align: center;
+}
+
+.rent-month-card:first-child {
+  border-left: none;
+}
+
+.rent-month-card.paid {
+  background: linear-gradient(180deg, #f0fdf4, #ffffff);
+}
+
+.rent-month-card.due {
+  background: linear-gradient(180deg, #fff5f5, #ffffff);
+}
+
+.rent-month-card.pend {
+  background: linear-gradient(180deg, #fffaf0, #ffffff);
+}
+
+.rent-month-card.upcoming {
+  background: linear-gradient(180deg, #f5f7ff, #ffffff);
+}
+
+.rent-month-title {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rent-month-status-btn {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 8px 10px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.05);
+}
+
+.rent-month-status-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.rent-month-advance-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.rent-month-status-btn.paid {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.rent-month-status-btn.due {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.rent-month-status-btn.pend {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.rent-month-status-btn.upcoming {
+  background: #e0e7ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+}
+
+.rent-month-advance-pill {
+  /* margin-top: 4px; */
+  /* padding: 2px 6px; */
+  font-size: 8px;
+  font-weight: 800;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+}
+
+.rent-month-range {
+  margin-top: 6px;
+  min-height: 13px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #334155;
+  line-height: 1.2;
+}
+
+.rent-month-amount {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #111827;
+  line-height: 1.15;
+}
+
+.rent-month-total {
+  margin-top: 8px;
+}
+
+.rent-mobile-empty {
+  text-align: center;
+  color: #64748b;
+  padding: 16px 8px;
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .rent-mobile-tenant-card {
+    padding: 12px;
+    border-radius: 20px;
+  }
+
+  .rent-mobile-tenant-head {
+    grid-template-columns: 93px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .rent-mobile-tenant-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    font-size: 17px;
+  }
+
+  .rent-mobile-tenant-name {
+    font-size: 14px;
+  }
+
+  .rent-mobile-tenant-actions {
+    margin-top: 8px;
+  }
+
+  .rent-mobile-month-strip {
+    border-radius: 16px;
+  }
+
+  .rent-month-card {
+    padding: 10px 6px 9px;
+  }
+
+  .rent-month-title {
+    font-size: 10px;
+  }
+
+  .rent-month-status-btn {
+    font-size: 10px;
+  }
+
+  .rent-month-range,
+  .rent-month-amount {
+    font-size: 10px;
+  }
+
+  .rent-month-total {
+    margin-top: 6px;
+  }
+}
+
+@media (max-width: 768px) {
+  .rent-mobile-view {
+    display: block;
+    padding-bottom: 104px;
+  }
+
+  .rent-mobile-shell {
+    padding-bottom: 12px;
+  }
+
+  .rent-mobile-bottom-bar {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    z-index: 2200;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(95, 125, 252, 0.14);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.14);
+    backdrop-filter: blur(16px);
+  }
+
+  .rent-mobile-bottom-action {
+    border: none;
+    border-radius: 16px;
+    min-height: 62px;
+    padding: 8px 6px;
+    background: linear-gradient(180deg, #f8fbff, #eef2ff);
+    color: #334155;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.1;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
+  }
+
+  .rent-mobile-bottom-action:active {
+    transform: translateY(1px);
+  }
+
+  .rent-mobile-bottom-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    background: #5f7dfc;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+  }
+}
+
+
+@media (max-width: 769px) {
+    .rent-mobile-tenant-name {
+       
+        margin-bottom: 8px;
+    }
+    .addstaff{
+      height: 48px;
+    min-height: 48px;
+    margin: 10px 0px;
+    }
+    .rent-mobile-actionbar{
+      z-index: 10;
+    }
+}
+
+
+@media screen and (min-width: 500px) and (max-width: 768px) {
+.rent-mobile-tenant-main{
+   /* margin-left: 22px; */
+}
+}
+
+  .rent-mobile-tenant-card {
+    flex-direction: column;
+    gap: 0px;
+    padding: 14px;
+  }
+
+  .rent-mobile-tenant-head {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .rent-mobile-tenant-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    font-size: 19px;
+  }
+
+  .rent-mobile-tenant-name {
+    font-size: 14px;
+  }
+@media screen and (max-width: 768px) {
+  .rent-mobile-tenant-head {
+    align-items: flex-start;
+  }
+
+  .rent-mobile-tenant-main {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .rent-mobile-tenant-name {
+    margin-bottom: 0;
+    line-height: 1.25;
+  }
+
+  .rent-mobile-tenant-meta {
+    margin-top: 0;
+    row-gap: 8px;
+  }
+
+  .rent-mobile-badge-row {
+    margin-top: 2px;
+    gap: 8px;
+  }
+
+  .rent-mobile-advance-pill,
+  .rent-mobile-canteen-pill {
+    margin-top: 0;
+  }
+
+  .rent-mobile-filter-wrap{
+    margin-top: 6px;
+  }
+}
+
+
