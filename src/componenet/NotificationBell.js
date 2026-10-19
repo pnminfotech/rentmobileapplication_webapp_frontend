@@ -1,24 +1,14 @@
 // src/components/NotificationBell.jsx
 import React from "react";
-import axios from "axios";
+import { API_BASE, api } from "../api";
 
 const fmtINR = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 const mmYY = (m, y) => (m && y ? `${String(m).padStart(2, "0")}/${y}` : "—");
 
-// const adminAuthHeader = () => {
-//   const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
-//   return token ? { Authorization: `Bearer ${token}` } : {};
-// };
-const adminAuthHeader = () => {
-  const token =
-    localStorage.getItem("adminToken") ||
-    localStorage.getItem("authToken") || // ✅ added this
-    localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+const axios = api;
 
 export default function NotificationBell({
-  apiUrl = "    http://localhost:8000/api/",
+  apiUrl = `${API_BASE}/`,
   onApproved,
   onLeaveApproved,
 }) {
@@ -50,12 +40,9 @@ const payP = axios.get(`${apiUrl}payments/notifications`, {
 
 const leaveP = axios.get(`${apiUrl}admin/notifications/leave`, {
   params: { status: "pending", limit: 50 },
-  headers: adminAuthHeader(),
 });
 
-const attendanceP = axios.get(`${apiUrl}admin/notifications/attendance`, {
-  headers: adminAuthHeader(),
-});
+const attendanceP = axios.get(`${apiUrl}admin/notifications/attendance`);
 
 const [payRes, leaveRes, attRes] = await Promise.allSettled([payP, leaveP, attendanceP]);
 
@@ -125,7 +112,7 @@ setItems(combined);
   // --- Leave approve/reject ---
   const approveLeave = async (notif) => {
     const id = notif.requestId || notif._id;
-    await axios.post(`${apiUrl}admin/leave/${id}/approve`, {}, { headers: adminAuthHeader() });
+    await axios.post(`${apiUrl}admin/leave/${id}/approve`, {});
     setItems((prev) => prev.filter((x) => x._id !== notif._id));
 
     const tenantId = notif.tenantId?._id || notif.tenantId;
@@ -137,7 +124,7 @@ setItems(combined);
 
   const rejectLeave = async (notif) => {
     const id = notif.requestId || notif._id;
-    await axios.post(`${apiUrl}admin/leave/${id}/reject`, {}, { headers: adminAuthHeader() });
+    await axios.post(`${apiUrl}admin/leave/${id}/reject`, {});
     setItems((prev) => prev.filter((x) => x._id !== notif._id));
   };
 
@@ -149,7 +136,7 @@ const markSeen = async (id) => {
 
   // Fire-and-forget backend call (no alert or blocking)
   try {
-    await axios.post(`${apiUrl}admin/notifications/${id}/seen`, {}, { headers: adminAuthHeader() });
+    await axios.post(`${apiUrl}admin/notifications/${id}/seen`, {});
     console.log("✅ Notification marked as seen:", id);
   } catch (e) {
     console.warn("⚠️ Failed to update read status on backend:", e?.response?.data?.message || e.message);

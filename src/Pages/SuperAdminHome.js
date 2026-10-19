@@ -8,12 +8,34 @@ import {
   FiMenu,
   FiPackage,
   FiRefreshCw,
+  FiShield,
+  FiTag,
   FiUsers,
+  FiX,
 } from "react-icons/fi";
 import { MdBusiness, MdOutlinePendingActions } from "react-icons/md";
 
 import { clearAuthSession } from "../authStorage";
-import { getOrganizations, getSuperAdminDashboard } from "../saasApi";
+import {
+  createSubscriptionPlan,
+  deleteSubscriptionPlan,
+  getAdminSubscriptionPlans,
+  getAppBootstrap,
+  getBillingTransactions,
+  getOrganizations,
+  getReferralCodes,
+  getSecurityPinStatus,
+  getSuperAdminDashboard,
+  requestPasswordReset,
+  requestSuperadminEmailChange,
+  resendSuperadminEmailChangeCode,
+  resetSecurityPin,
+  saveSecurityPin,
+  updateOrganizationStatus,
+  updateSubscriptionPlan,
+  verifySuperadminEmailChange,
+} from "../saasApi";
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from "../notificationApi";
 
 const BRAND = "#1e3a8a";
 const CARD_COLORS = ["#76b1d9", "#efe89e", "#ffe0e0", "#7897af", "#f5d4a0", "#cebaed"];
@@ -70,7 +92,7 @@ function SummaryCard({ label, value, icon, color, onClick }) {
   );
 }
 
-function OrganizationTable({ title, organizations, emptyText }) {
+function OrganizationTable({ title, organizations, emptyText, onChangeStatus }) {
   return (
     <div className="card border-0 shadow-sm mt-3">
       <div className="card-body">
@@ -88,6 +110,7 @@ function OrganizationTable({ title, organizations, emptyText }) {
                 <th>Subscription</th>
                 <th>Ends</th>
                 <th>Status</th>
+                {onChangeStatus && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -114,12 +137,13 @@ function OrganizationTable({ title, organizations, emptyText }) {
                         {statusText(org.status)}
                       </span>
                     </td>
+                    {onChangeStatus && <td><button className={`btn btn-sm ${org.status === "suspended" ? "btn-outline-success" : "btn-outline-danger"}`} onClick={() => onChangeStatus(org)}>{org.status === "suspended" ? "Reactivate" : "Suspend"}</button></td>}
                   </tr>
                 );
               })}
               {!organizations.length ? (
                 <tr>
-                  <td colSpan="6" className="text-muted text-center py-4">{emptyText}</td>
+                  <td colSpan={onChangeStatus ? "7" : "6"} className="text-muted text-center py-4">{emptyText}</td>
                 </tr>
               ) : null}
             </tbody>
@@ -128,6 +152,10 @@ function OrganizationTable({ title, organizations, emptyText }) {
       </div>
     </div>
   );
+}
+
+function Panel({ title, children, action }) {
+  return <div className="card border-0 shadow-sm mt-3"><div className="card-body p-3"><div className="d-flex justify-content-between align-items-center gap-2 mb-3"><h5 className="fw-bold mb-0">{title}</h5>{action}</div>{children}</div></div>;
 }
 
 export default function SuperAdminHome() {
@@ -140,6 +168,16 @@ export default function SuperAdminHome() {
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [plans, setPlans] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [referrals, setReferrals] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [bootstrap, setBootstrap] = useState(null);
+  const [securityConfigured, setSecurityConfigured] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
+  const [planForm, setPlanForm] = useState(null);
+  const [pinForm, setPinForm] = useState({ pin: "", confirm: "", currentPin: "", password: "", reset: false });
+  const [emailForm, setEmailForm] = useState({ newEmail: "", password: "", challengeId: "", code: "", maskedEmail: "" });
 
   const trialOrganizations = useMemo(
     () => organizations.filter((org) => isTrialOrganization(org)),
@@ -177,6 +215,20 @@ export default function SuperAdminHome() {
     load();
   }, []);
 
+  async function loadSection(section = activeSection) {
+    try {
+      setError("");
+      if (section === "plans") setPlans(await getAdminSubscriptionPlans());
+      if (section === "transactions") setTransactions(await getBillingTransactions({ limit: 100 }));
+      if (section === "referrals") setReferrals(await getReferralCodes());
+      if (section === "notifications") setNotifications(await getNotifications({ status: "all", limit: 100 }));
+      if (section === "profile" || section === "security") {
+        const [account, pin] = await Promise.all([getAppBootstrap(), getSecurityPinStatus()]);
+        setBootstrap(account); setSecurityConfigured(Boolean(pin.configured));
+      }
+    } catch (err) { setError(err.response?.data?.message || "Unable to load this section."); }
+  }
+
   useEffect(() => {
     if (!open) return undefined;
 
@@ -201,12 +253,60 @@ export default function SuperAdminHome() {
     navigate("/login", { replace: true });
   }
 
+  async function selectSection(key) {
+    setActiveSection(key); setOpen(false); setActionMessage("");
+    await loadSection(key);
+  }
+
+  async function changeOrganizationStatus(org) {
+    const securityPin = window.prompt(`Enter your security PIN to ${org.status === "suspended" ? "reactivate" : "suspend"} ${org.name}.`);
+    if (!securityPin) return;
+    try { await updateOrganizationStatus(org._id, org.status === "suspended" ? "active" : "suspended", securityPin); await load({ silent: true }); }
+    catch (err) { setError(err.response?.data?.message || "Unable to update account status."); }
+  }
+
+  async function savePlan(event) {
+    event.preventDefault();
+    const form = planForm;
+    const payload = { name: form.name, durationMonths: Number(form.durationMonths), baseAmount: Number(form.baseAmount || 0), discountPercent: Number(form.discountPercent || 0), currency: "INR", isActive: form.isActive !== false, unitPricing: { bedMonthly: Number(form.bedMonthly || 0), roomMonthly: Number(form.roomMonthly || 0), shopMonthly: Number(form.shopMonthly || 0) } };
+    try { if (form._id) await updateSubscriptionPlan(form._id, payload); else await createSubscriptionPlan(payload); setPlanForm(null); await loadSection("plans"); }
+    catch (err) { setError(err.response?.data?.message || "Unable to save plan."); }
+  }
+
+  async function removePlan(plan) {
+    const securityPin = window.prompt(`Enter your security PIN to delete ${plan.name}.`); if (!securityPin) return;
+    try { await deleteSubscriptionPlan(plan._id, securityPin); await loadSection("plans"); } catch (err) { setError(err.response?.data?.message || "Unable to delete plan."); }
+  }
+
+  async function savePin(event) {
+    event.preventDefault();
+    if (!/^\d{4,8}$/.test(pinForm.pin) || pinForm.pin !== pinForm.confirm) return setError("Enter matching 4 to 8 digit PINs.");
+    try { if (pinForm.reset) await resetSecurityPin({ pin: pinForm.pin, password: pinForm.password }); else await saveSecurityPin({ pin: pinForm.pin, currentPin: pinForm.currentPin }); setActionMessage("Security PIN saved."); setPinForm({ pin: "", confirm: "", currentPin: "", password: "", reset: false }); await loadSection("security"); }
+    catch (err) { setError(err.response?.data?.message || "Unable to save security PIN."); }
+  }
+
+  async function startEmailChange(event) {
+    event.preventDefault();
+    try { const data = await requestSuperadminEmailChange(emailForm.newEmail, emailForm.password); setEmailForm((current) => ({ ...current, challengeId: data.challengeId, maskedEmail: data.email || "your new email" })); setActionMessage("Verification code sent."); }
+    catch (err) { setError(err.response?.data?.message || "Unable to start email change."); }
+  }
+
+  async function confirmEmailChange(event) {
+    event.preventDefault();
+    try { await verifySuperadminEmailChange(emailForm.challengeId, emailForm.code); clearAuthSession(); navigate("/login", { replace: true }); }
+    catch (err) { setError(err.response?.data?.message || "Unable to update email."); }
+  }
+
   const menuItems = [
     { key: "dashboard", label: "Dashboard", icon: <FiBarChart2 /> },
     { key: "trial", label: "Trial Accounts", icon: <MdOutlinePendingActions /> },
     { key: "renewed", label: "Renewed Accounts", icon: <FiCreditCard /> },
+    { key: "transactions", label: "Transactions", icon: <FiCreditCard /> },
     { key: "plans", label: "Plans", icon: <FiPackage /> },
+    { key: "referrals", label: "Referral Codes", icon: <FiTag /> },
     { key: "notifications", label: "Notifications", icon: <FiBell /> },
+    { key: "profile", label: "Profile", icon: <FiUsers /> },
+    { key: "security", label: "Security PIN", icon: <FiShield /> },
   ];
 
   const renderDashboard = () => (
@@ -281,6 +381,7 @@ export default function SuperAdminHome() {
         title="Latest accounts"
         organizations={(dashboard?.latestOrganizations || []).map((org) => organizations.find((item) => String(item._id) === String(org._id)) || org)}
         emptyText="No accounts yet."
+        onChangeStatus={changeOrganizationStatus}
       />
     </>
   );
@@ -306,6 +407,7 @@ export default function SuperAdminHome() {
           title="Trial accounts"
           organizations={trialOrganizations}
           emptyText="No trial accounts found."
+          onChangeStatus={changeOrganizationStatus}
         />
       );
     }
@@ -316,38 +418,43 @@ export default function SuperAdminHome() {
           title="Renewed and paid accounts"
           organizations={renewedOrganizations}
           emptyText="No renewed accounts found."
+          onChangeStatus={changeOrganizationStatus}
         />
       );
     }
 
-    if (activeSection === "plans" || activeSection === "notifications") {
-      return (
-        <div className="card border-0 shadow-sm">
-          <div className="card-body p-4">
-            <h5 className="fw-bold mb-2">{activeSection === "plans" ? "Plans" : "Notifications"}</h5>
-            <p className="text-muted mb-0">
-              This menu is ready in the dashboard shell. We can connect the full management screen in the next pass.
-            </p>
-          </div>
-        </div>
-      );
-    }
+    if (activeSection === "plans") return <Panel title="Subscription plans" action={<button className="btn btn-primary btn-sm" onClick={() => setPlanForm({ name: "", durationMonths: 12, bedMonthly: 0, roomMonthly: 0, shopMonthly: 0, baseAmount: 0, discountPercent: 0, isActive: true })}>Add plan</button>}>
+      {planForm && <form onSubmit={savePlan} className="border rounded p-3 mb-3"><div className="row g-2">{[["name", "Plan name"], ["durationMonths", "Duration months"], ["bedMonthly", "Bed monthly price"], ["roomMonthly", "Room monthly price"], ["shopMonthly", "Shop monthly price"], ["baseAmount", "Base amount"], ["discountPercent", "Discount %"]].map(([key, label]) => <div className="col-12 col-md-4" key={key}><label className="form-label small">{label}</label><input required={key === "name"} type={key === "name" ? "text" : "number"} min="0" className="form-control" value={planForm[key]} onChange={(e) => setPlanForm({ ...planForm, [key]: e.target.value })} /></div>)}</div><div className="mt-3 d-flex gap-2"><button className="btn btn-primary">Save plan</button><button type="button" className="btn btn-outline-secondary" onClick={() => setPlanForm(null)}>Cancel</button></div></form>}
+      <div className="table-responsive"><table className="table align-middle"><thead><tr><th>Plan</th><th>Duration</th><th>Unit pricing</th><th>Discount</th><th>Status</th><th /></tr></thead><tbody>{plans.map((plan) => <tr key={plan._id}><td><strong>{plan.name}</strong><div className="small text-muted">Base: {money(plan.baseAmount)}</div></td><td>{plan.durationMonths} months</td><td>Beds {money(plan.unitPricing?.bedMonthly)} · Rooms {money(plan.unitPricing?.roomMonthly)} · Shops {money(plan.unitPricing?.shopMonthly)}</td><td>{plan.discountPercent || 0}%</td><td>{plan.isActive ? "Active" : "Inactive"}</td><td className="text-nowrap"><button className="btn btn-sm btn-outline-primary me-1" onClick={() => setPlanForm({ ...plan, bedMonthly: plan.unitPricing?.bedMonthly || 0, roomMonthly: plan.unitPricing?.roomMonthly || 0, shopMonthly: plan.unitPricing?.shopMonthly || 0 })}>Edit</button><button className="btn btn-sm btn-outline-danger" onClick={() => removePlan(plan)}>Delete</button></td></tr>)}{!plans.length && <tr><td colSpan="6" className="text-center text-muted">No plans found.</td></tr>}</tbody></table></div></Panel>;
+    if (activeSection === "referrals") return <Panel title="Referral codes"><div className="table-responsive"><table className="table align-middle"><thead><tr><th>Code</th><th>Owner</th><th>Discount</th><th>Reward</th><th>Used</th><th>Status</th></tr></thead><tbody>{referrals.map((item) => <tr key={item._id}><td><strong>{item.code}</strong></td><td>{item.ownerOrganizationId?.name || item.ownerOrganizationId?.ownerName || "Not assigned"}</td><td>{item.discountPercent || 0}%</td><td>{item.rewardCoins || 0} coins</td><td>{item.usedCount || 0}</td><td>{item.isActive ? "Active" : "Inactive"}</td></tr>)}{!referrals.length && <tr><td colSpan="6" className="text-center text-muted">No referral codes found.</td></tr>}</tbody></table></div></Panel>;
+    if (activeSection === "transactions") return <Panel title="Billing transactions"><div className="table-responsive"><table className="table align-middle"><thead><tr><th>Date</th><th>Business</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead><tbody>{transactions.map((item) => <tr key={item._id}><td>{formatDate(item.createdAt)}</td><td>{item.organizationId?.name || item.organizationName || "-"}</td><td>{money(item.amount)}</td><td>{item.provider || item.paymentMethod || "-"}</td><td className="text-capitalize">{statusText(item.status)}</td></tr>)}{!transactions.length && <tr><td colSpan="5" className="text-center text-muted">No transactions found.</td></tr>}</tbody></table></div></Panel>;
+    if (activeSection === "notifications") return <Panel title="Notifications" action={<button className="btn btn-outline-primary btn-sm" onClick={async () => { await markAllNotificationsRead(); await loadSection("notifications"); }}>Mark all read</button>}>{notifications.map((item) => <button key={item._id} className="w-100 text-start border rounded bg-white p-3 mb-2" onClick={async () => { if (!item.read) { await markNotificationRead(item._id); await loadSection("notifications"); } }}><strong>{item.title || "Notification"}</strong><div className="small text-muted">{item.message || ""}</div></button>)}{!notifications.length && <div className="text-muted text-center py-4">No notifications.</div>}</Panel>;
+    if (activeSection === "profile") return <><Panel title="Superadmin profile"><div className="row g-3"><div className="col-md-6"><strong>{bootstrap?.user?.name || "Superadmin"}</strong><div>{bootstrap?.user?.email || "-"}</div><div className="text-muted text-capitalize">{bootstrap?.user?.role || "superadmin"}</div></div><div className="col-md-6"><button className="btn btn-outline-primary me-2" onClick={async () => { await requestPasswordReset(bootstrap?.user?.email); setActionMessage("Password reset link sent to your email."); }}>Send password reset</button><button className="btn btn-primary" onClick={() => setActiveSection("email")}>Change sign-in email</button></div></div></Panel>{activeSection === "email"}</>;
+    if (activeSection === "security") return <Panel title="Security PIN"><p className="text-muted">{securityConfigured ? "Your PIN protects sensitive account actions and superadmin login." : "Set a PIN to protect sensitive actions and superadmin login."}</p><form onSubmit={savePin} className="row g-2"><div className="col-md-4"><input type="password" inputMode="numeric" className="form-control" placeholder="New 4–8 digit PIN" value={pinForm.pin} onChange={(e) => setPinForm({ ...pinForm, pin: e.target.value.replace(/\D/g, "").slice(0, 8) })} /></div><div className="col-md-4"><input type="password" inputMode="numeric" className="form-control" placeholder="Confirm PIN" value={pinForm.confirm} onChange={(e) => setPinForm({ ...pinForm, confirm: e.target.value.replace(/\D/g, "").slice(0, 8) })} /></div>{securityConfigured && <div className="col-md-4"><input type="password" className="form-control" placeholder={pinForm.reset ? "Account password" : "Current PIN"} value={pinForm.reset ? pinForm.password : pinForm.currentPin} onChange={(e) => setPinForm(pinForm.reset ? { ...pinForm, password: e.target.value } : { ...pinForm, currentPin: e.target.value.replace(/\D/g, "").slice(0, 8) })} /></div>}<div className="col-12"><button className="btn btn-primary me-2">Save PIN</button>{securityConfigured && <button type="button" className="btn btn-link" onClick={() => setPinForm({ ...pinForm, reset: !pinForm.reset })}>{pinForm.reset ? "Use current PIN" : "Forgot PIN? Use password"}</button>}</div></form></Panel>;
+    if (activeSection === "email") return <Panel title="Change sign-in email"><form onSubmit={emailForm.challengeId ? confirmEmailChange : startEmailChange} className="row g-2">{!emailForm.challengeId ? <><div className="col-md-6"><input className="form-control" type="email" required placeholder="New email address" value={emailForm.newEmail} onChange={(e) => setEmailForm({ ...emailForm, newEmail: e.target.value })} /></div><div className="col-md-6"><input className="form-control" required type="password" placeholder="Current password" value={emailForm.password} onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })} /></div></> : <div className="col-md-6"><p className="small text-muted">Enter the code sent to {emailForm.maskedEmail}.</p><input className="form-control" required maxLength="6" placeholder="6-digit code" value={emailForm.code} onChange={(e) => setEmailForm({ ...emailForm, code: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></div>}<div className="col-12"><button className="btn btn-primary">{emailForm.challengeId ? "Verify and update email" : "Send verification code"}</button>{emailForm.challengeId && <button type="button" className="btn btn-link" onClick={async () => { await resendSuperadminEmailChangeCode(emailForm.challengeId); setActionMessage("New code sent."); }}>Resend code</button>}</div></form></Panel>;
 
     return renderDashboard();
   };
 
   return (
     <div
-      className="d-flex"
+      className="d-flex sa-layout"
       style={{
         minHeight: "100vh",
-        fontFamily: "Inter, sans-serif",
+        fontFamily: "Poppins, sans-serif",
         backgroundColor: "#f8f9fa",
       }}
     >
       <style>{`
         .sa-topbar { display:none; }
+        .sa-layout { width:100%; overflow-x:hidden; }
         .sa-nav-item.is-active { background: rgba(255,255,255,0.16); }
+        nav.sa-drawer { left:0; overflow-y:auto; }
+        .sa-mobile-drawer-head { display:none; }
+        main.sa-shell { width:calc(100% - 250px); min-width:0; overflow-x:hidden; }
+        .sa-page-header { min-width:0; }
+        .sa-page-header > div { min-width:0; }
+        .sa-page-header h1 { overflow-wrap:anywhere; }
         @media (max-width: 991.98px){
           .sa-topbar{
             display:flex;
@@ -371,10 +478,19 @@ export default function SuperAdminHome() {
           }
           nav.sa-drawer.open{ transform: translateX(0); }
           nav.sa-drawer .sa-desktop-heading{ display:none !important; }
+          .sa-mobile-drawer-head { display:flex; align-items:center; justify-content:space-between; margin:-2px 0 14px; }
           main.sa-shell{
+            width:100% !important;
             margin-left: 0 !important;
             padding-top: 72px !important;
           }
+        }
+        @media (max-width: 575.98px){
+          main.sa-shell { padding-left:12px !important; padding-right:12px !important; }
+          .sa-page-header { flex-direction:column; align-items:stretch !important; gap:12px !important; }
+          .sa-page-header .btn { width:100%; justify-content:center; }
+          .sa-topbar { padding-left:12px; padding-right:12px; }
+          nav.sa-drawer { width:min(280px, 86vw) !important; }
         }
       `}</style>
 
@@ -400,14 +516,19 @@ export default function SuperAdminHome() {
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="text-center fw-bold mb-4 mt-2 sa-desktop-heading">Control Center</h2>
+        <div className="sa-mobile-drawer-head">
+          <strong>Control Center</strong>
+          <button className="sa-iconbtn" onClick={() => setOpen(false)} aria-label="Close menu">
+            <FiX size={22} />
+          </button>
+        </div>
 
         <ul className="list-unstyled mt-3" style={{ textAlign: "left" }}>
           {menuItems.map((item) => (
             <li
               key={item.key}
               onClick={() => {
-                setActiveSection(item.key);
-                setOpen(false);
+                selectSection(item.key);
               }}
               className={`sa-nav-item mb-2 px-3 py-2 rounded ${activeSection === item.key ? "is-active" : ""}`}
               style={{ cursor: "pointer" }}
@@ -431,7 +552,7 @@ export default function SuperAdminHome() {
       </nav>
 
       <main className="container-fluid sa-shell" style={{ marginLeft: 250, paddingTop: 24 }}>
-        <div className="d-flex align-items-start justify-content-between gap-3 mb-3 px-2">
+        <div className="d-flex align-items-start justify-content-between gap-3 mb-3 px-2 sa-page-header">
           <div>
             <div className="text-primary text-uppercase fw-bold small">System control center</div>
             <h1 className="fw-bold mt-1 mb-1">Superadmin dashboard</h1>
@@ -443,6 +564,7 @@ export default function SuperAdminHome() {
         </div>
 
         {renderSection()}
+        {actionMessage && <div className="alert alert-success mt-3">{actionMessage}</div>}
       </main>
     </div>
   );

@@ -210,7 +210,7 @@
 // import "../stylecss/LoginRegister.css";
 
 // // Single API base
-// const API = (process.env.REACT_APP_API_BASE || "    http://localhost:8000/api").replace(/\/+$/, "");
+// const API = (process.env.REACT_APP_API_BASE || "    https://rentmobile-api.pnminfotech.com/api").replace(/\/+$/, "");
 // const setTenantToken = (t) => localStorage.setItem("tenantToken", t);
 
 // // (Optional) helper to keep only digits
@@ -693,7 +693,7 @@ import "../../stylecss/LoginRegister.css";
 
 // import { API, setToken } from "../tenant/tenantApi";
 // Single API base
-// const API = (process.env.REACT_APP_API_BASE || "    http://localhost:8000/api").replace(/\/+$/, "");
+// const API = (process.env.REACT_APP_API_BASE || "    https://rentmobile-api.pnminfotech.com/api").replace(/\/+$/, "");
 // const setTenantToken = (t) => localStorage.setItem("tenantToken", t);
 import { API, setToken } from "../../tenant/tenantApi";
 // (Optional) helper to keep only digits

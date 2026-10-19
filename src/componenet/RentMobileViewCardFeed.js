@@ -127,6 +127,7 @@ function getTotalSummaryText(cell) {
 }
 
 function RentMobileViewCardFeed({
+  loading = false,
   visibleTenants = [],
   groupedRooms = [],
   getTenantPhotoMeta,
@@ -536,9 +537,9 @@ function RentMobileViewCardFeed({
                 );
               })}
             </div>
-          ) : (
+          ) : !loading ? (
             <div className="rent-mobile-empty">No occupied tenants found.</div>
-          )}
+          ) : null}
         </section>
 
         <div className="rent-mobile-bottom-bar">

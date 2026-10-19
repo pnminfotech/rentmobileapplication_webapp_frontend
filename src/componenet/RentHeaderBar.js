@@ -6,6 +6,7 @@ function RentHeaderBar({
   selectedYear,
   years = [],
   searchText,
+  searchDisabled = false,
   searchPlaceholder = "Search room, bed, name, mobile...",
   onYearChange,
   onSearchChange,
@@ -41,10 +42,13 @@ function RentHeaderBar({
             <FaSearch className="rent-toolbar-search-icon" />
             <input
               type="text"
+              name="trackerSearch"
+              autoComplete="off"
               placeholder={searchPlaceholder}
               className="form-control rent-toolbar-input"
               value={searchText}
               onChange={onSearchChange}
+              disabled={searchDisabled}
             />
           </div>
 

@@ -149,13 +149,15 @@ export default function CommercialManager() {
   };
 
   const handleDelete = async () => {
-    if (deleteTarget.password !== "987654") {
-      alert("Invalid password.");
+    if (!/^\d{4,8}$/.test(String(deleteTarget.password || "").trim())) {
+      alert("Enter your 4 to 8 digit security PIN.");
       return;
     }
 
     try {
-      await axios.delete(`${apiUrl}/${deleteTarget.unitId}`);
+      await axios.delete(`${apiUrl}/${deleteTarget.unitId}`, {
+        data: { securityPin: String(deleteTarget.password || "").trim() },
+      });
       setDeleteModalOpen(false);
       await fetchUnits();
     } catch (err) {
@@ -596,15 +598,17 @@ export default function CommercialManager() {
               </div>
 
               <div className="mb-3">
-                <label className="form-label mb-2">Password (required to delete)</label>
+                <label className="form-label mb-2">Security PIN (required to delete)</label>
                 <input
                   type="password"
                   className="form-control"
+                  inputMode="numeric"
+                  maxLength="8"
                   value={deleteTarget.password}
                   onChange={(e) =>
-                    setDeleteTarget((prev) => ({ ...prev, password: e.target.value }))
+                    setDeleteTarget((prev) => ({ ...prev, password: e.target.value.replace(/\D/g, "").slice(0, 8) }))
                   }
-                  placeholder="Enter password"
+                  placeholder="Enter 4 to 8 digit security PIN"
                 />
               </div>
 

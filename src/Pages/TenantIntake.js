@@ -4,6 +4,7 @@ import axios from "axios";
 import "../form.css";
 import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../api";
+import { lookupIndianPincode } from "../utils/pincodeLookup";
 
 const API = API_BASE;
 const API_ROOT = String(API).replace(/\/+$/, "");
@@ -71,11 +72,15 @@ function TenantIntake() {
   const [selfAadharFile, setSelfAadharFile] = useState(null);
   const [parentAadharFile, setParentAadharFile] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
+  const [panCardFile, setPanCardFile] = useState(null);
+  const [existingDocuments, setExistingDocuments] = useState([]);
+  const [documentActionMenu, setDocumentActionMenu] = useState("");
 
   const [inviteToken, setInviteToken] = useState(null);
   const [inviteError, setInviteError] = useState("");
   const [formId, setFormId] = useState(null);
   const [lockedFieldMap, setLockedFieldMap] = useState({});
+  const [pinLookupStatus, setPinLookupStatus] = useState("idle");
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -116,6 +121,89 @@ function TenantIntake() {
     return true;
   };
 
+  const normalizeDocumentRelation = (value) => {
+    const relation = String(value || "").trim().toLowerCase().replace(/[._-]+/g, " ").replace(/\s+/g, " ");
+    if (relation === "self" || relation === "aadhaar" || relation === "self aadhaar" || relation === "tenant aadhaar" || relation === "tenant aadhaar card") return "self aadhaar card";
+    if (relation.includes("parent") && relation.includes("aadhaar")) return "parent aadhaar card";
+    if (relation.includes("partner") && relation.includes("aadhaar")) return "partner aadhaar card";
+    if (relation === "tenant photograph" || relation === "tenant photograph (selfie)" || relation === "tenant photo" || relation === "photo") return "tenant photo";
+    if (relation === "pan" || relation === "pan card" || relation === "shop pan") return "pan card";
+    return relation;
+  };
+
+  const getSavedDocument = (relation) =>
+    existingDocuments.find((document) =>
+      Boolean(document?.url || document?.filePath || document?.fileId) &&
+      normalizeDocumentRelation(document?.relation) === normalizeDocumentRelation(relation)
+    );
+
+  const selectDocumentFile = (file, { role, relation, label, setter }) => {
+    if (!handleStrictImageSelection(file, setter, label)) return;
+    setDocFiles((previous) => {
+      const withoutCurrentRole = previous.filter((document) => document.role !== role);
+      return file ? [...withoutCurrentRole, { file, relation, role }] : withoutCurrentRole;
+    });
+  };
+
+  const viewSelectedDocument = (file) => {
+    const url = URL.createObjectURL(file);
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+
+  const renderDocumentField = ({ role, label, relation, file, setter, camera = "environment" }) => {
+    const saved = getSavedDocument(relation);
+    const savedUrl = saved?.url || saved?.filePath || "";
+    const additionalFiles = docFiles.filter((document) => document.role?.startsWith(`additional-${role}-`));
+    const select = (event) => {
+      const selectedFile = event.target.files?.[0] || null;
+      event.target.value = "";
+      setDocumentActionMenu("");
+      if (!selectedFile) return;
+      const isAdditionalResidentialDocument = sharedTrackerType === "room" && Boolean(file || saved);
+      if (!isAdditionalResidentialDocument) {
+        selectDocumentFile(selectedFile, { role, relation, label, setter });
+        return;
+      }
+      if (!isAllowedImageFile(selectedFile)) {
+        setDocMsg(`${label} must be JPG, JPEG, or PNG.`);
+        return;
+      }
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setDocMsg("");
+      setDocFiles((previous) => [...previous, {
+        file: selectedFile,
+        role: `additional-${role}-${id}`,
+        relation: `Additional ${relation} - ${id}`,
+      }]);
+    };
+    return (
+      <div className="tenant-intake-document-field">
+        <label>{label}</label>
+        {saved && (
+          <div className="tenant-intake-saved-document">
+            <span>Saved: {saved.fileName || label}</span>
+            {savedUrl && <a href={savedUrl} target="_blank" rel="noreferrer">View</a>}
+          </div>
+        )}
+        <button type="button" className="tenant-intake-add-document-button" onClick={() => setDocumentActionMenu((current) => current === role ? "" : role)}>+ Add document</button>
+        {documentActionMenu === role && (
+          <div className="tenant-intake-document-menu">
+            <label className="tenant-intake-upload-button">Upload from device<input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" onChange={select} /></label>
+            <label className="tenant-intake-upload-button">Use camera<input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" capture={camera} onChange={select} /></label>
+          </div>
+        )}
+        {file && <div className="tenant-intake-selected-document"><span>New file: {file.name}</span><div><button type="button" onClick={() => viewSelectedDocument(file)}>View</button><button type="button" onClick={() => { setter(null); setDocFiles((previous) => previous.filter((document) => document.role !== role)); }}>Delete</button></div></div>}
+        {additionalFiles.map((document) => (
+          <div className="tenant-intake-selected-document" key={document.role}>
+            <span>Added: {document.file.name}</span>
+            <div><button type="button" onClick={() => viewSelectedDocument(document.file)}>View</button><button type="button" onClick={() => setDocFiles((previous) => previous.filter((item) => item.role !== document.role))}>Delete</button></div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const mergeLockedFields = (source, previous = {}) => {
     const next = { ...previous };
 
@@ -123,17 +211,6 @@ function TenantIntake() {
       if (key === "srNo") return;
       if (value === "" || value == null) return;
       next[key] = true;
-    });
-
-    return next;
-  };
-
-  const mergeNonEmptyFields = (source, previous = {}) => {
-    const next = { ...previous };
-
-    Object.entries(source || {}).forEach(([key, value]) => {
-      if (value === "" || value == null) return;
-      next[key] = value;
     });
 
     return next;
@@ -272,37 +349,37 @@ function TenantIntake() {
   }, []);
 
   /* ===========================
-     Pincode Lookup (City/State)
+     Pincode Lookup (City/State/Nearby Place)
   ============================ */
   useEffect(() => {
     const pin = String(formData?.pincode || "").trim();
-    if (!/^\d{6}$/.test(pin)) return;
+    if (!/^\d{6}$/.test(pin)) {
+      setPinLookupStatus("idle");
+      return;
+    }
 
-    let cancelled = false;
-    // Clear previous city/state so user can enter manually if lookup fails
-    setFormData((prev) => ({ ...prev, city: "", state: "" }));
-
-    const fetchPincodeDetails = async () => {
+    const controller = new AbortController();
+    setPinLookupStatus("loading");
+    const timer = window.setTimeout(async () => {
       try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const office = data?.[0]?.PostOffice?.[0];
-        if (!office || cancelled) return;
-
-        setFormData((prev) => ({
-          ...prev,
-          city: office.District || "",
-          state: office.State || "",
-        }));
+        const details = await lookupIndianPincode(pin, controller.signal);
+        if (controller.signal.aborted) return;
+        setFormData((prev) => String(prev.pincode || "").trim() === pin
+          ? {
+              ...prev,
+              city: prev.city || details.city,
+              state: prev.state || details.state,
+              nearbyPlace: prev.nearbyPlace || details.nearbyPlace,
+            }
+          : prev);
+        setPinLookupStatus("success");
       } catch {
-        // Fail silently to keep form usable
+        if (!controller.signal.aborted) setPinLookupStatus("error");
       }
-    };
-
-    fetchPincodeDetails();
+    }, 350);
     return () => {
-      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
     };
   }, [formData?.pincode]);
 
@@ -343,6 +420,7 @@ function TenantIntake() {
           }));
           setLockedFieldMap((prev) => mergeLockedFields(pre, prev));
         }
+        setExistingDocuments(Array.isArray(r.data?.existingDocuments) ? r.data.existingDocuments : []);
 
         // If backend sends existing form data too (optional)
         if (r.data?.form) {
@@ -356,22 +434,6 @@ function TenantIntake() {
           }));
         }
 
-        if (fid) {
-          try {
-            const formRes = await axios.get(`${API_ROOT}/form/${fid}`);
-            const draft = normalizeFormDates({ ...(formRes.data || {}) });
-            delete draft._id;
-            delete draft.__v;
-            if ((draft.rentAmount === "" || draft.rentAmount == null) && draft.baseRent != null) {
-              draft.rentAmount = draft.baseRent;
-            }
-
-            setFormData((prev) => mergeNonEmptyFields(draft, prev));
-            setLockedFieldMap((prev) => mergeLockedFields(draft, prev));
-          } catch (formErr) {
-            console.warn("Could not fetch linked form data:", formErr);
-          }
-        }
       } catch (err) {
         const code = err?.response?.status;
         if (code === 409) setInviteError("This link has already been used.");
@@ -422,6 +484,18 @@ function TenantIntake() {
       return;
     }
 
+    if (name === "pincode") {
+      const pincode = value.replace(/\D/g, "").slice(0, 6);
+      setFormData((prev) => ({
+        ...prev,
+        pincode,
+        city: isFieldLocked("city") ? prev.city : "",
+        state: isFieldLocked("state") ? prev.state : "",
+        nearbyPlace: isFieldLocked("nearbyPlace") ? prev.nearbyPlace : "",
+      }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -467,28 +541,65 @@ function TenantIntake() {
   /* ===========================
      Upload Docs
   ============================ */
+  async function prepareDocumentForUpload(file) {
+    const maxRequestFileSize = 700 * 1024;
+    if (file.size <= maxRequestFileSize) return file;
+
+    const imageUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = imageUrl;
+      await image.decode();
+
+      for (const maxSide of [1800, 1500, 1200]) {
+        const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+        const context = canvas.getContext("2d");
+        if (!context) break;
+        context.fillStyle = "#fff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        for (const quality of [0.88, 0.78, 0.68]) {
+          const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+          if (blob && blob.size <= maxRequestFileSize) {
+            return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+          }
+        }
+      }
+    } finally {
+      URL.revokeObjectURL(imageUrl);
+    }
+
+    throw new Error(`${file.name} is too large to upload. Please choose a smaller image.`);
+  }
+
   async function uploadDocsIfAny(docs) {
     if (!docs.length) return [];
 
-    const fd = new FormData();
-    docs.forEach((d) => fd.append("documents", d.file));
-    fd.append("source", "tenant-intake");
+    const uploadedDocuments = [];
+    for (const doc of docs) {
+      const file = await prepareDocumentForUpload(doc.file);
+      const fd = new FormData();
+      fd.append("documents", file);
+      fd.append("source", "tenant-intake");
+      fd.append("inviteToken", inviteToken);
 
-    const up = await axios.post(`${API}/uploads/docs`, fd, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-
-    const uploadedFiles = up.data?.files || [];
-    return uploadedFiles.map((f, i) => ({
-      fileName: docs[i]?.file?.name || f.filename || `doc-${i + 1}`,
-      relation: docs[i]?.relation || "Self",
-      url:
-        f.url ||
-        f.path ||
-        f.location ||
-        f.secure_url ||
-        (f._id ? `${API}/documents/${f._id}` : "#"),
-    }));
+      const response = await axios.post(`${API_ROOT}/uploads/docs`, fd, {
+        headers: { "X-Invite-Token": inviteToken },
+      });
+      const uploaded = response.data?.files?.[0];
+      const url = uploaded?.url || uploaded?.path || uploaded?.location || uploaded?.secure_url;
+      if (!url) throw new Error(`Upload failed for ${doc.file.name}. Please try again.`);
+      uploadedDocuments.push({
+        fileName: doc.file.name,
+        relation: doc.relation || "Self",
+        url,
+      });
+    }
+    return uploadedDocuments;
   }
 
   /* ===========================
@@ -516,29 +627,6 @@ function TenantIntake() {
         resolvedRentAmount = String(formData.baseRent).trim();
       }
 
-      if (!resolvedRentAmount) {
-        try {
-          const formRes = await axios.get(`${API_ROOT}/form/${formId}`);
-          const linkedForm = formRes.data || {};
-          resolvedRentAmount =
-            String(linkedForm.rentAmount ?? "").trim() ||
-            String(linkedForm.baseRent ?? "").trim();
-
-          if (resolvedRentAmount) {
-            setFormData((prev) => ({
-              ...prev,
-              rentAmount: resolvedRentAmount,
-              ...(String(prev.baseRent ?? "").trim()
-                ? {}
-                : linkedForm.baseRent != null
-                ? { baseRent: String(linkedForm.baseRent) }
-                : {}),
-            }));
-          }
-        } catch (err) {
-          console.warn("Could not re-fetch linked form before submit:", err);
-        }
-      }
 
       const requiredFields = [
         ...(!isTenant ? [["category", "Category"]] : []),
@@ -592,30 +680,33 @@ function TenantIntake() {
       if (
         (selfAadharFile && !isAllowedImageFile(selfAadharFile)) ||
         (parentAadharFile && !isAllowedImageFile(parentAadharFile)) ||
-        (photoFile && !isAllowedImageFile(photoFile))
+        (photoFile && !isAllowedImageFile(photoFile)) ||
+        (panCardFile && !isAllowedImageFile(panCardFile))
       ) {
         setDocMsg("Only JPG, JPEG, and PNG files are allowed.");
         return;
       }
 
-      // ✅ Documents required (self Aadhaar, parent Aadhaar, photo)
-      const needsPartnerOrParentAadhaar = sharedTrackerType !== "shop";
-      const requiresDocuments = sharedTrackerType !== "shop";
-      if (
-        requiresDocuments &&
-        (
-          !selfAadharFile ||
-          !photoFile ||
-          (needsPartnerOrParentAadhaar && !parentAadharFile)
-        )
-      ) {
-        setDocMsg(
-          needsPartnerOrParentAadhaar
-            ? `Please upload Self Aadhaar, ${
-                sharedTrackerType === "room" ? "Partner Aadhaar" : "Parent Aadhaar"
-              }, and Tenant Photo.`
-            : "Please upload Self Aadhaar and Tenant Photo."
-        );
+      // Show exactly which required document is still missing. Saved documents
+      // from the original tenant record count the same as a newly selected file.
+      const hasSaved = (relation) => Boolean(getSavedDocument(relation));
+      const partnerOrParentRelation = sharedTrackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card";
+      const requiredDocuments = sharedTrackerType === "shop"
+        ? [
+            { label: "Self Aadhaar Card", file: selfAadharFile, relation: "Self Aadhaar Card" },
+            { label: "Tenant Photograph (Selfie)", file: photoFile, relation: "Tenant Photo" },
+            { label: "PAN Card", file: panCardFile, relation: "PAN Card" },
+          ]
+        : [
+            { label: "Self Aadhaar Card", file: selfAadharFile, relation: "Self Aadhaar Card" },
+            { label: sharedTrackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card", file: parentAadharFile, relation: partnerOrParentRelation },
+            { label: "Tenant Photograph (Selfie)", file: photoFile, relation: "Tenant Photo" },
+          ];
+      const missingDocuments = requiredDocuments
+        .filter((document) => !document.file && !hasSaved(document.relation))
+        .map((document) => document.label);
+      if (missingDocuments.length) {
+        setDocMsg(`Please upload: ${missingDocuments.join(", ")}.`);
         return;
       } else {
         setDocMsg("");
@@ -751,12 +842,16 @@ const submitRes = await axios.put(`${API_ROOT}/invites/${inviteToken}/submit`, p
           <label>Pincode</label>
         <input
           name="pincode"
+          inputMode="numeric"
+          maxLength={6}
           value={formData.pincode}
           onChange={handleChange}
           className="form-input"
           readOnly={isFieldLocked("pincode")}
           placeholder="6-digit pincode"
         />
+        {pinLookupStatus === "loading" && <small>Finding city and location...</small>}
+        {pinLookupStatus === "error" && <small>PIN code not found. Enter city and nearby place manually.</small>}
       </div>
         <div className="form-group">
           <label>City</label>
@@ -1074,102 +1169,26 @@ const submitRes = await axios.put(`${API_ROOT}/invites/${inviteToken}/submit`, p
           <label>Upload Documents</label>
           <small className="text-muted d-block mb-2">Only JPG, JPEG, and PNG files are accepted.</small>
 
-          {/* Self Aadhaar */}
-          <div>
-            <label>Self Aadhaar Card</label>
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-              className="form-input"
-              required={sharedTrackerType !== "shop"}
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                if (!handleStrictImageSelection(file, setSelfAadharFile, "Self Aadhaar Card")) return;
-                setDocFiles((prev) => {
-                  const filtered = prev.filter((d) => d.role !== "selfAadhar");
-                  if (!file) return filtered;
-                  return [...filtered, { file, relation: "Self Aadhaar Card", role: "selfAadhar" }];
-                });
-              }}
-            />
-            {selfAadharFile && <small className="text-muted">{selfAadharFile.name}</small>}
-          </div>
+          {renderDocumentField({ role: "selfAadhar", label: "Self Aadhaar Card", relation: "Self Aadhaar Card", file: selfAadharFile, setter: setSelfAadharFile })}
 
           {sharedTrackerType !== "shop" && (
-            <div>
-              <label>{sharedTrackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card"}</label>
-              <input
-                type="file"
-                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                className="form-input"
-                required={sharedTrackerType !== "shop"}
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  const label = sharedTrackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card";
-                  if (!handleStrictImageSelection(file, setParentAadharFile, label)) return;
-                  setDocFiles((prev) => {
-                    const filtered = prev.filter((d) => d.role !== "parentAadhar");
-                    if (!file) return filtered;
-                    return [...filtered, { file, relation: label, role: "parentAadhar" }];
-                  });
-                }}
-              />
-              {parentAadharFile && <small className="text-muted">{parentAadharFile.name}</small>}
-            </div>
+            renderDocumentField({
+              role: "parentAadhar",
+              label: sharedTrackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card",
+              relation: sharedTrackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card",
+              file: parentAadharFile,
+              setter: setParentAadharFile,
+            })
           )}
 
-          {/* Photo */}
-          <div>
-            <label>Tenant Photograph (Selfie)</label>
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-              capture="user"
-              className="form-input"
-              required={sharedTrackerType !== "shop"}
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                if (!handleStrictImageSelection(file, setPhotoFile, "Tenant Photograph")) return;
-                setDocFiles((prev) => {
-                  const filtered = prev.filter((d) => d.role !== "photo");
-                  if (!file) return filtered;
-                  return [...filtered, { file, relation: "Tenant Photo", role: "photo" }];
-                });
-              }}
-            />
-            {photoFile && <small className="text-muted">{photoFile.name}</small>}
-            <small className="text-muted d-block mt-1">
-              On mobile, this will open the camera to take a live selfie.
-            </small>
-          </div>
+          {renderDocumentField({ role: "photo", label: "Tenant Photograph (Selfie)", relation: "Tenant Photo", file: photoFile, setter: setPhotoFile, camera: "user" })}
+
+          {sharedTrackerType === "shop" && (
+            renderDocumentField({ role: "panCard", label: "PAN Card", relation: "PAN Card", file: panCardFile, setter: setPanCardFile })
+          )}
 
           {docMsg && <small className="text-danger mt-1 d-block">{docMsg}</small>}
         </div>
-
-        {/* Uploaded list */}
-        {docFiles.length > 0 && (
-          <div className="form-group">
-            <ul>
-              {docFiles.map((d, i) => (
-                <li key={i} className="doc-row">
-                  {d.relation}: {d.file.name} ({Math.ceil(d.file.size / 1024)} KB)
-                  <button
-                    type="button"
-                    className="btn btn-outline-danger btn-sm ml-2"
-                    onClick={() => {
-                      if (d.role === "selfAadhar") setSelfAadharFile(null);
-                      if (d.role === "parentAadhar") setParentAadharFile(null);
-                      if (d.role === "photo") setPhotoFile(null);
-                      removeDoc(i);
-                    }}
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         {/* ACTION BUTTONS */}
         <button type="submit" className="submit-btn" disabled={submitting}>

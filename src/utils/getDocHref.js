@@ -1,6 +1,5 @@
 // ✅ IMPORTANT: NO SPACE before http
-const API_ORIGIN =
-  (process.env.REACT_APP_API_ORIGIN || "   http://localhost:8000/").trim();
+import { API_ORIGIN } from "../api";
 
 export const getDocHref = (doc) => {
   if (!doc) return "#";
@@ -11,7 +10,7 @@ export const getDocHref = (doc) => {
   if (url && /^https?:\/\//i.test(url)) return url;
 
   // 2) relative URL (disk) -> open from backend origin (8000)
-  //    "/uploads/docs/abc.webp" => "   http://localhost:8000//uploads/docs/abc.webp"
+  //    "/uploads/docs/abc.webp" => "   https://rentmobile-api.pnminfotech.com//uploads/docs/abc.webp"
   if (url) {
     const rel = url.startsWith("/") ? url : `/${url}`;
     return `${API_ORIGIN}${rel}`;

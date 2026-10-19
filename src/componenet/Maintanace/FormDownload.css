@@ -6,7 +6,7 @@
     color: #333;
     margin: 20px auto;
     width: 80%;
-    height: 100%;
+    min-height: 650px;
     max-width: 760px;
     box-sizing: border-box;
     overflow-wrap: anywhere;
@@ -151,6 +151,76 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+
+.form-rules-page { min-height: 900px; display: flex; flex-direction: column; }
+.form-rules-header { display: flex; align-items: center; gap: 16px; padding-bottom: 14px; border-bottom: 2px solid #ff9dae; }
+.form-rules-header h2 { margin: 0 0 5px; font-size: 20px; color: #333; }
+.form-rules-header p { margin: 0; font-size: 12px; color: #555; }
+.form-rules-logo { width: 70px; height: 70px; object-fit: contain; }
+.form-rules-list { margin: 22px 10px; padding-left: 25px; font-size: 13px; line-height: 1.65; }
+.form-rules-list li { margin-bottom: 10px; white-space: pre-wrap; }
+.form-rules-empty { margin: 28px 0; text-align: center; color: #666; font-size: 13px; }
+.form-rules-acknowledgement { margin-top: auto; border-top: 1px solid #ffb8c4; padding-top: 16px; font-size: 12px; line-height: 1.8; }
+.form-document-page {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 0;
+  background: #fff;
+  box-shadow: none;
+}
+.form-document-header { display: flex; align-items: center; gap: 16px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 2px solid #ff9dae; }
+.form-document-header h5 { margin: 0 0 5px; font-size: 18px; color: #333; }
+.form-document-header p { margin: 0; font-size: 12px; color: #555; }
+
+.admission-pdf-rendering .form-container.pdf-render-page {
+  width: 794px !important;
+  max-width: none !important;
+  min-height: 1123px !important;
+  height: 1123px !important;
+  margin: 0 !important;
+  padding: 28px !important;
+  box-shadow: none !important;
+}
+.admission-pdf-rendering .form-admission-page { display: flex; flex-direction: column; }
+.admission-pdf-rendering .form-admission-page .form-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+.admission-pdf-rendering .form-admission-page .form-body p,
+.admission-pdf-rendering .form-admission-page .form-body hr { margin: 0; }
+.admission-pdf-rendering .form-rules-page { min-height: 0; height: 100%; }
+.admission-pdf-rendering .form-rules-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+.admission-pdf-rendering .form-rules-list li { margin: 0; }
+.admission-pdf-rendering .form-document-page {
+  display: flex;
+  padding: 0 !important;
+  border: 0 !important;
+  background: #fff !important;
+}
+.admission-pdf-rendering .form-document-image {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  border: 0;
+  background: #fff;
+  object-fit: contain;
+}
+.admission-pdf-rendering .form-document-link,
+.admission-pdf-rendering .form-document-empty {
+  width: 100%;
+  align-self: center;
+  border: 0;
+  background: #fff;
 }
 
 .form-photo-box[role="button"] {

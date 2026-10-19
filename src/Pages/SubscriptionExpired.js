@@ -53,6 +53,13 @@ function calculatePlanAmount(plan, units = {}) {
   return Math.max(0, Math.round(subtotal - (subtotal * discount) / 100));
 }
 
+function isTrialSubscription(subscription = {}) {
+  return (
+    Number(subscription.amount || 0) === 0 &&
+    !subscription.planId
+  );
+}
+
 function UnitBox({ label, value }) {
   return (
     <div className="subscription-unit-box">
@@ -205,6 +212,7 @@ export default function SubscriptionExpired() {
   const subscription = bootstrap?.subscription || {};
   const units = subscription.units || organization.unitAllocation || {};
   const pendingPayment = isPendingPaymentStatus(subscription.status) || isPendingPaymentStatus(organization.status);
+  const trialEnded = !pendingPayment && isTrialSubscription(subscription);
   const plans = useMemo(
     () => (Array.isArray(bootstrap?.plans) ? bootstrap.plans.filter((plan) => plan.isActive !== false) : []),
     [bootstrap]
@@ -224,7 +232,16 @@ export default function SubscriptionExpired() {
         amountLabel: "Activation amount",
         buttonText: "Complete payment",
       }
-    : {
+    : trialEnded
+      ? {
+          eyebrow: "Free trial ended",
+          title: "Choose a plan to continue",
+          subtitle: `${organization.name || "Your account"} needs a paid plan to continue.`,
+          cardText: "Choose a plan, review its price for your registered units, then complete payment to start using the system again.",
+          amountLabel: "Plan amount",
+          buttonText: "Purchase plan",
+        }
+      : {
         eyebrow: "Subscription required",
         title: "Subscription expired",
         subtitle: `${organization.name || "Your account"} needs renewal to continue.`,
@@ -525,9 +542,93 @@ export default function SubscriptionExpired() {
           color: #991b1b;
           font-weight: 800;
         }
+        /* Match the cards, colors, and spacing used by the main web system. */
+        .subscription-page {
+          padding: 92px 24px 40px;
+          background: linear-gradient(180deg, #f8f6ff 0%, #eef5fc 100%);
+          color: #14213d;
+        }
+        .subscription-header {
+          min-height: 96px;
+          padding: 20px 24px;
+          border: 1px solid #d7e3f4;
+          border-radius: 16px;
+          background: linear-gradient(105deg, #f4f8ff, #ffffff);
+          box-shadow: 0 8px 25px rgba(39, 65, 113, .09);
+        }
+        .subscription-eyebrow { color: #c14436; }
+        .subscription-title { color: #112f5d; font-size: clamp(25px, 3vw, 32px); }
+        .subscription-subtitle { color: #5f718c; }
+        .subscription-logout { border-color: #cfe0f5; border-radius: 11px; color: #1f63dc; box-shadow: 0 5px 16px rgba(36, 64, 112, .09); }
+        .subscription-card {
+          padding: 22px;
+          border: 1px solid #d7e3f4;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, .96);
+          box-shadow: 0 8px 25px rgba(39, 65, 113, .09);
+        }
+        .subscription-side { background: linear-gradient(150deg, #ffffff, #f5f9ff); }
+        .subscription-card-icon { border-radius: 14px; background: #e7efff; color: #1550ce; }
+        .subscription-card-title, .subscription-summary-value, .subscription-unit-value, .subscription-plan-title, .subscription-plan-head { color: #112f5d; }
+        .subscription-card-text, .subscription-subtitle, .subscription-plan-meta, .subscription-wallet-text, .subscription-summary-label, .subscription-unit-label, .subscription-payable-label { color: #62748e; }
+        .subscription-summary-item, .subscription-unit-box { border-color: #d4e3ff; border-radius: 13px; background: #edf4ff; }
+        .subscription-plan-card { border-color: #d7e3f4; border-radius: 13px; }
+        .subscription-plan-card:hover { border-color: #2761d4; box-shadow: 0 8px 18px rgba(39, 65, 113, .11); }
+        .subscription-plan-card.is-active { border-color: #2761d4; background: #edf4ff; box-shadow: inset 0 0 0 1px #2761d4; }
+        .subscription-wallet { border-color: #d7e3f4; border-radius: 13px; background: #f9fbff; }
+        .subscription-wallet-icon { background: #e7efff; color: #1550ce; }
+        .subscription-toggle.is-active { background: #2360d9; }
+        .subscription-payable { border-color: #d7e3f4; border-radius: 13px; }
+        .subscription-primary { border-radius: 10px; background: #2360d9; box-shadow: 0 7px 16px rgba(35, 96, 217, .24); }
+        .subscription-primary:hover:not(:disabled) { background: #174bb4; }
+        /* Use the same Poppins type and blue, green, amber, and purple cards as NewComponant. */
+        .subscription-page,
+        .subscription-page button,
+        .subscription-page input,
+        .subscription-page select {
+          font-family: Poppins, sans-serif !important;
+        }
+        .subscription-page { background: #f7f5ff; }
+        .subscription-shell { width: min(1280px, 100%); }
+        .subscription-header { border-radius: 18px; background: #ffffff; }
+        .subscription-layout { gap: 20px; grid-template-columns: minmax(0, 1fr) 350px; }
+        .subscription-card { border-radius: 18px; }
+        .subscription-main { background: #ffffff; }
+        .subscription-side { background: #ffffff; }
+        .subscription-card-icon { background: #e8f0ff; color: #2d6eef; }
+        .subscription-summary-item:nth-child(1) { background: #e7f0ff; border-color: #c8dbfa; }
+        .subscription-summary-item:nth-child(2) { background: #fff0db; border-color: #f5d3a0; }
+        .subscription-summary-item:nth-child(3) { background: #e6f8ed; border-color: #bfe9d0; }
+        .subscription-summary-value { color: #102c58; }
+        .subscription-plan-card { background: #ffffff; }
+        .subscription-plan-card.is-active { background: #e8f0ff; border-color: #2d6eef; box-shadow: inset 0 0 0 1px #2d6eef; }
+        .subscription-plan-card.is-active .subscription-plan-head { color: #0d3e93; }
+        .subscription-wallet { background: #f8fbff; }
+        .subscription-payable { background: #e8f0ff; border-color: #c8dbfa; }
+        .subscription-payable-value { color: #0d3e93; }
+        .subscription-unit-box:nth-child(1) { background: #dfeeff; border-color: #c3daf8; }
+        .subscription-unit-box:nth-child(2) { background: #dcf6ea; border-color: #b9e6d1; }
+        .subscription-unit-box:nth-child(3) { background: #fff0d8; border-color: #f3d29c; }
+        .subscription-unit-value { color: #102c58; }
+        .subscription-primary { min-height: 48px; background: #2d6eef; box-shadow: 0 8px 18px rgba(45, 110, 239, .26); }
+        .subscription-primary:hover:not(:disabled) { background: #1d57cf; }
+        .subscription-wallet:disabled {
+          opacity: 1;
+          cursor: not-allowed;
+          border-color: #d8d0f5;
+          background: #ece9ff;
+          color: #223a69;
+        }
+        .subscription-wallet:disabled .subscription-wallet-icon {
+          background: #ffffff;
+          color: #5a65b7;
+        }
+        .subscription-wallet:disabled .subscription-wallet-title { color: #223a69; }
+        .subscription-wallet:disabled .subscription-wallet-text { color: #68769b; }
+        .subscription-wallet:disabled .subscription-toggle { background: #cdd7e8; }
         @media (max-width: 860px) {
           .subscription-page {
-            padding: 18px 12px;
+            padding: 76px 13px 28px;
           }
           .subscription-header {
             flex-direction: column;

@@ -896,6 +896,7 @@
 .light-bill-page {  padding: 28px; color: #172033; }
 .light-bill-page *, .light-bill-page *::before, .light-bill-page *::after { box-sizing: border-box; }
 .lb-header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:22px; }
+.lb-header .lb-back-button { margin-bottom: 14px; }
 .lb-header p { margin:0 0 4px; color:#53708d; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
 .lb-header h2 { margin:0; font-size:28px; font-weight:800; display:flex; gap:10px; align-items:center; }
 .lb-header h2 svg { color:#e79b12; }.lb-header > div:last-child { display:flex; gap:10px; }
@@ -915,3 +916,25 @@
 .lb-summary article { background:linear-gradient(180deg,#fff,#f8faff); }.lb-summary article>svg { color:#4f46e5; background:#eef2ff; }.lb-summary .lb-pending>svg { color:#2f3fb8; background:#eaf2ff; }
 .lb-list-title { background:linear-gradient(180deg,#fff,#f7faff); }.lb-list th { background:#f5f7ff; color:#53657f; }.lb-list td { border-color:#edf2f8; }.lb-list td strong { color:#16263f; }.lb-status { border-radius:999px; }.lb-status.paid { background:#e0f2fe; color:#0369a1; }.lb-status.pending { background:#eef2ff; color:#2f3fb8; }
 .lb-modal { border-radius:22px; }.lb-modal header { background:linear-gradient(135deg,#f6f7ff,#eef2ff); border-color:#dbe3f0; }.lb-modal h3 { color:#10233f; }.lb-rule { border-color:#edf2f8; }.lb-form input,.lb-form select,.lb-rule input:not([type=checkbox]),.lb-rule select { border-color:#dbe3f0; border-radius:10px; }.lb-alert { border-color:#fecaca; border-radius:14px; }
+.lb-modal-error { margin:12px 20px 0; padding:10px 12px; border:1px solid #fecaca; border-radius:10px; background:#fff4f2; color:#a4352b; font-size:13px; }
+.lb-automatic { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 18px; padding:12px 14px; border:1px solid #dbe3f0; border-radius:12px; background:#f7faff; color:#244f70; }
+.lb-automatic strong { width:100%; }
+.lb-automatic span { font-weight:600; }
+.lb-automatic small { width:100%; color:#69768b; }
+.lb-list .lb-collection-detail { margin-top:4px; color:#34507b; white-space:normal; }
+.lb-toolbar { flex-wrap:wrap; min-width:0; }
+.lb-month-controls { display:flex; align-items:center; gap:12px; flex:0 0 205px; max-width:100%;justify-content: flex-start;
+    align-items: flex-end; }
+.lb-month-controls strong { min-width:0; text-align:center; white-space:nowrap; }
+.lb-month-controls button { flex:0 0 32px; }
+.lb-month-picker { position:relative; display:inline-flex; flex:0 0 32px; width:32px; height:32px; }
+.lb-month-picker button { display:flex; align-items:center; justify-content:center; width:32px; height:32px; font-size:15px; }
+.lb-month-picker input { position:absolute; right:0; bottom:0; width:1px; height:1px; opacity:0; pointer-events:none; }
+.lb-filter-controls { display:flex; flex:1 1 440px; flex-wrap:wrap; gap:8px; min-width:0; justify-content:flex-end; }
+.lb-filter-controls select, .lb-toolbar .lb-filter-controls select + select { flex:1 1 125px; min-width:0; max-width:100%; margin:0; }
+@media (max-width:700px) {
+  .lb-month-controls { flex:1 1 100%; }
+  .lb-month-controls strong { min-width:0; }
+  .lb-filter-controls { flex-basis:100%; }
+  .lb-filter-controls select, .lb-toolbar .lb-filter-controls select + select { width:auto; margin:0; }
+}

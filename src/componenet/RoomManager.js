@@ -3,6 +3,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { API_BASE, api } from "../api";
+import { getAppBootstrap } from "../saasApi";
+import { getUnitLimits } from "../utils/subscriptionAccess";
 import {
   FaArrowLeft,
   FaBed,
@@ -101,6 +103,28 @@ function normalizePropertyType(value) {
   const raw = String(value || "").trim().toLowerCase();
   if (raw === "room" || raw === "shop") return raw;
   return "bed";
+}
+
+function uniqueRoomBeds(beds) {
+  if (!Array.isArray(beds)) return [];
+  const seen = new Set();
+  return beds.filter((bed) => {
+    const key = String(bed?.bedNo ?? "").trim().toLowerCase();
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function tenantHasLeft(tenant) {
+  if (!tenant?.leaveDate) return false;
+  const leaveDate = new Date(tenant.leaveDate);
+  if (Number.isNaN(leaveDate.getTime())) return false;
+  leaveDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return leaveDate <= today;
 }
 
 function getPropertyTypeLabel(value) {
@@ -242,6 +266,8 @@ export default function RoomManager() {
     { value: "shop", label: "Commercial Shop" },
   ];
   const [rooms, setRooms] = useState([]);
+  const [tenants, setTenants] = useState([]);
+  const [unitLimits, setUnitLimits] = useState({ beds: 0, rooms: 0, shops: 0 });
   const [categories, setCategories] = useState([]);
 
   // ✅ all typeable, including bedCategory
@@ -362,6 +388,9 @@ const [editTarget, setEditTarget] = useState({
       } catch (_) {}
     }
     fetchRooms();
+    getAppBootstrap()
+      .then((bootstrap) => setUnitLimits(getUnitLimits(bootstrap)))
+      .catch(() => setUnitLimits({ beds: 0, rooms: 0, shops: 0 }));
   }, []);
 
   useEffect(() => {
@@ -388,9 +417,16 @@ const [editTarget, setEditTarget] = useState({
 
   const fetchRooms = async () => {
     try {
-      const res = await axios.get(apiUrl);
-      const nextRooms = res.data || [];
+      const [res, tenantsResponse] = await Promise.all([
+        axios.get(apiUrl),
+        axios.get(`${API_BASE}/forms`).catch(() => null),
+      ]);
+      const nextRooms = (Array.isArray(res.data) ? res.data : []).map((room) => ({
+        ...room,
+        beds: uniqueRoomBeds(room?.beds),
+      }));
       setRooms(nextRooms);
+      setTenants(Array.isArray(tenantsResponse?.data) ? tenantsResponse.data : []);
       const mergedCategories = mergeCategoryNames(
         categories,
         nextRooms.map((room) => room?.category)
@@ -611,13 +647,38 @@ const [editTarget, setEditTarget] = useState({
     }, 0);
   }, [rooms]);
 
-  const hasReachedHostelBedLimit = totalHostelBeds >= MAX_HOSTEL_BEDS;
+  const unitUsage = useMemo(() => ({
+    beds: totalHostelBeds,
+    rooms: rooms.filter((room) => normalizePropertyType(room?.propertyType) === "room" && !isPlaceholderUnit(room)).length,
+    shops: rooms.filter((room) => normalizePropertyType(room?.propertyType) === "shop" && !isPlaceholderUnit(room)).length,
+  }), [rooms, totalHostelBeds]);
+  const quotaKeyForType = (type) => type === "bed" ? "beds" : type === "room" ? "rooms" : "shops";
+  const hasQuotaForType = (type) => {
+    const key = quotaKeyForType(type);
+    const limit = Number(unitLimits[key] || 0);
+    return limit <= 0 || unitUsage[key] < limit;
+  };
+  const hasReachedHostelBedLimit = !hasQuotaForType("bed") || totalHostelBeds >= MAX_HOSTEL_BEDS;
   const canAddHostelBed = !hasReachedHostelBedLimit || reusableHostelBedSlots.length > 0;
+  const openQuickAdd = () => {
+    const type = normalizePropertyType(propertyFilter);
+    if (!hasQuotaForType(type)) {
+      const key = quotaKeyForType(type);
+      alert(`${getPropertyTypeLabel(type)} limit reached (${unitUsage[key]} / ${unitLimits[key]}). Add more units to your subscription to continue.`);
+      return;
+    }
+    setShowQuickAddForm(true);
+  };
 
   /* -------- Add Room (with optional first bed) -------- */
 
  const addRoom = async () => {
   const propertyType = String(roomForm.propertyType || "bed").trim().toLowerCase();
+  if (!hasQuotaForType(propertyType)) {
+    const key = quotaKeyForType(propertyType);
+    alert(`${getPropertyTypeLabel(propertyType)} limit reached (${unitUsage[key]} / ${unitLimits[key]}). Add more units to your subscription to continue.`);
+    return;
+  }
   const category = normalizeCategoryName(roomForm.category);
   const hasWing = propertyType !== "bed" ? Boolean(roomForm.hasWing) : false;
   const wingName = hasWing ? String(roomForm.wingName || "").trim() : "";
@@ -848,13 +909,13 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
 
   /* -------- NEW: Delete bed operations -------- */
 
-  const openDeleteBedModal = (room) => {
+  const openDeleteBedModal = (room, selectedBedNo = "") => {
     const beds = room.beds || [];
     setDeleteBedState({
       roomId: room._id || "",
       roomNo: room.roomNo,
       beds,
-      selectedBedNo: beds[0]?.bedNo || "",
+      selectedBedNo: selectedBedNo || beds[0]?.bedNo || "",
       password: "",
     });
     setShowDeleteBedModal(true);
@@ -872,13 +933,15 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
       return;
     }
 
-    if (password !== "987654") {
-      alert("Invalid password. Bed not deleted.");
+    if (!/^\d{4,8}$/.test(String(password || "").trim())) {
+      alert("Enter your 4 to 8 digit security PIN.");
       return;
     }
 
     try {
-      await axios.delete(`${apiUrl}/${roomId}/bed/${encodeURIComponent(selectedBedNo)}`);
+      await axios.delete(`${apiUrl}/${roomId}/bed/${encodeURIComponent(selectedBedNo)}`, {
+        data: { securityPin: String(password || "").trim() },
+      });
       setShowDeleteBedModal(false);
       setDeleteBedState({
         roomId: "",
@@ -1020,13 +1083,41 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
 
   const scopedRooms = useMemo(
     () =>
-      rooms.filter(
+      readyRooms.filter(
         (r) => normalizePropertyType(r.propertyType || "bed") === propertyFilter
       ),
-    [rooms, propertyFilter]
+    [readyRooms, propertyFilter]
   );
   const scopedRoomCount = scopedRooms.length;
   const scopedUnitCount = scopedRooms.reduce((sum, r) => sum + (r.beds?.length || 0), 0);
+  const occupancyStats = useMemo(() => {
+    const occupied = new Set();
+
+    (tenants || []).forEach((tenant) => {
+      if (tenantHasLeft(tenant)) return;
+
+      const tenantRoomId = tenant?.roomId?._id || tenant?.roomId || tenant?.room?._id || tenant?.room;
+      const tenantRoomNo = String(tenant?.roomNo || tenant?.roomId?.roomNo || "").trim();
+      const tenantProperty = String(tenant?.buildingName || tenant?.category || "").trim().toLowerCase();
+      const matchingRoom = scopedRooms.find((room) => {
+        if (tenantRoomId && String(room?._id) === String(tenantRoomId)) return true;
+        if (!tenantRoomNo || String(room?.roomNo || "").trim() !== tenantRoomNo) return false;
+        return !tenantProperty || String(room?.category || "").trim().toLowerCase() === tenantProperty;
+      });
+
+      if (!matchingRoom) return;
+      if (propertyFilter === "bed") {
+        const bedNo = String(tenant?.bedNo || "").trim();
+        if (bedNo) occupied.add(`${matchingRoom._id}::${bedNo}`);
+      } else {
+        occupied.add(String(matchingRoom._id));
+      }
+    });
+
+    const total = propertyFilter === "bed" ? scopedUnitCount : scopedRoomCount;
+    const occupiedCount = Math.min(occupied.size, total);
+    return { total, occupied: occupiedCount, vacant: Math.max(total - occupiedCount, 0) };
+  }, [tenants, scopedRooms, scopedUnitCount, propertyFilter]);
   const statsMeta = useMemo(() => {
     if (propertyFilter === "shop") {
       return {
@@ -2115,7 +2206,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
 
     return (
       <div className="table-responsive">
-        <table className="table table-bordered table-sm align-middle">
+        <table className="table table-bordered table-sm align-middle room-manager-hostel-table">
           <thead>
             <tr className="fw-semibold text-secondary">
               <th style={{ whiteSpace: "nowrap" }}>Unit No</th>
@@ -2127,20 +2218,18 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
             </tr>
           </thead>
           <tbody>
-            {groupedDisplayedRooms.flatMap((buildingGroup) => [
-              <tr key={`building-${buildingGroup.building}`} className="table-light">
-                <td colSpan={6} className="fw-bold">
-                  {getPropertyTypeLabel(propertyFilter)} - {buildingGroup.building}
-                </td>
-              </tr>,
-              ...buildingGroup.wings.flatMap((wingGroup) =>
+            {groupedDisplayedRooms.flatMap((buildingGroup) =>
+              buildingGroup.wings.flatMap((wingGroup) =>
                 wingGroup.floors.flatMap((floorGroup) => [
                   <tr key={`floor-${buildingGroup.building}-${wingGroup.wing}-${floorGroup.floor}`}>
-                    <td colSpan={6} className="text-muted small fw-semibold">
-                      {wingGroup.wing === "No Wing" ? "No Wing" : `Wing ${wingGroup.wing}`} / Floor{" "}
-                      {floorGroup.floor === "No Floor"
-                        ? "-"
-                        : floorLabelFromKey(normalizeFloorKey(floorGroup.floor)) || floorGroup.floor}
+                    <td colSpan={6} className="room-manager-hostel-group-title">
+                      <div>{getPropertyTypeLabel(propertyFilter)} - {buildingGroup.building}</div>
+                      <small>
+                        {wingGroup.wing === "No Wing" ? "No Wing" : `Wing ${wingGroup.wing}`} / Floor{" "}
+                        {floorGroup.floor === "No Floor"
+                          ? "-"
+                          : floorLabelFromKey(normalizeFloorKey(floorGroup.floor)) || floorGroup.floor}
+                      </small>
                     </td>
                   </tr>,
                   ...floorGroup.units.map((room) => {
@@ -2229,6 +2318,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
                           {!room.beds?.length && <span className="text-muted">No beds yet</span>}
                         </td>
                         <td>
+                          <div className="room-manager-bed-room-actions">
                           <button
                             className="btn btn-sm"
                             style={{ backgroundColor: "#5f7dfc", color: "white" }}
@@ -2262,7 +2352,6 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
                             <FaEdit className="me-1" />
                             Edit Room
                           </button>
-
                           <button
                             className="btn btn-sm btn-outline-danger ms-2"
                             onClick={() => openDeleteRoomModal(room)}
@@ -2270,13 +2359,14 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
                             <FaTrash className="me-1" />
                             Delete Room
                           </button>
+                          </div>
                         </td>
                       </tr>
                     );
                   }),
                 ])
-              ),
-            ])}
+              )
+            )}
           </tbody>
         </table>
       </div>
@@ -2887,7 +2977,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
               <button
                 type="button"
                 className="btn text-white room-manager-top-card-btn"
-                onClick={() => setShowQuickAddForm(true)}
+                onClick={openQuickAdd}
               >
                 <FaPlus className="me-1" /> Add Property
               </button>
@@ -2920,20 +3010,20 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
               </button>
             </div>
         </div>
-
-        <div className="row g-3 mb-4 room-manager-top-strip">
-        <div className="col-12 col-lg room-manager-top-strip-title">
+ <div className="col-12 col-lg room-manager-top-strip-title">
           <h1 className="room-manager-top-strip-page-title mb-0">
             Room &amp; Bed Management
           </h1>
         </div>
+        <div className="row g-3 mb-4 room-manager-top-strip">
+       
         {/* Quick Add */}
       <div className="col-12 col-lg-6 room-manager-top-strip-action">
     <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
       <button
         type="button"
         className="btn text-white room-manager-top-card-btn"
-        onClick={() => setShowQuickAddForm(true)}
+        onClick={openQuickAdd}
       >
         <FaPlus className="me-1" /> Add Property
       </button>
@@ -3111,7 +3201,16 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
 
 
         {/* KPI – Primary Total */}
-        <div className="col-12 col-md-6 col-lg-4 room-manager-stat-col ms-lg-auto">
+        <div className="col-12 col-md-4 col-lg-4  room-manager-quota-col">
+          <div className="room-manager-quota-summary">
+            <strong>Registered unit capacity</strong>
+            <span>Beds: {unitUsage.beds} / {unitLimits.beds || "—"}</span>
+            <span>Rooms: {unitUsage.rooms} / {unitLimits.rooms || "—"}</span>
+            <span>Shops: {unitUsage.shops} / {unitLimits.shops || "—"}</span>
+          </div>
+        </div>
+
+        <div className="col-12 col-md-2 col-lg-2  room-manager-stat-col">
           <div className="bg-white border rounded-3 shadow-sm p-3 h-100 d-flex align-items-center room-manager-top-card room-manager-top-card--rooms room-manager-top-card-inner">
             <div
               className="rounded-circle d-inline-flex justify-content-center align-items-center me-3 room-manager-top-card-icon"
@@ -3126,7 +3225,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
         </div>
 
         {/* KPI – Secondary Total */}
-        <div className="col-12 col-md-6 col-lg-4 room-manager-stat-col">
+        <div className="col-12 col-md-2  col-lg-2 room-manager-stat-col">
           <div className="bg-white border rounded-3 shadow-sm p-3 h-100 d-flex align-items-center room-manager-top-card room-manager-top-card--beds room-manager-top-card-inner">
             <div
               className="rounded-circle d-inline-flex justify-content-center align-items-center me-3 room-manager-top-card-icon"
@@ -3136,6 +3235,30 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
             <div>
               <div className="small room-manager-top-card-label">{statsMeta.secondaryLabel}</div>
               <div className="fw-bold fs-4 room-manager-top-card-value">{statsMeta.secondaryValue}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-12 col-md-2 col-lg-2 room-manager-stat-col">
+          <div className="bg-white border rounded-3 shadow-sm p-3 h-100 d-flex align-items-center room-manager-top-card room-manager-top-card--occupied room-manager-top-card-inner">
+            <div className="rounded-circle d-inline-flex justify-content-center align-items-center me-3 room-manager-top-card-icon">
+              <FaBed />
+            </div>
+            <div>
+              <div className="small room-manager-top-card-label">Occupied</div>
+              <div className="fw-bold fs-4 room-manager-top-card-value">{occupancyStats.occupied}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-12 col-md-2 col-lg-2 room-manager-stat-col">
+          <div className="bg-white border rounded-3 shadow-sm p-3 h-100 d-flex align-items-center room-manager-top-card room-manager-top-card--vacant room-manager-top-card-inner">
+            <div className="rounded-circle d-inline-flex justify-content-center align-items-center me-3 room-manager-top-card-icon">
+              <FaBed />
+            </div>
+            <div>
+              <div className="small room-manager-top-card-label">Vacant</div>
+              <div className="fw-bold fs-4 room-manager-top-card-value">{occupancyStats.vacant}</div>
             </div>
           </div>
         </div>
@@ -3879,21 +4002,23 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
 
                 <div className="mb-2">
                   <label className="form-label mb-1">
-                    Password (required to delete)
+                    Security PIN (required to delete)
                   </label>
                   <input
                     type="password"
-                    name="delete-bed-password"
+                    name="delete-bed-security-pin"
                     autoComplete="new-password"
                     className="form-control form-control-sm"
                     value={deleteBedState.password}
+                    inputMode="numeric"
+                    maxLength="8"
                     onChange={(e) =>
                       setDeleteBedState((prev) => ({
                         ...prev,
-                        password: e.target.value,
+                        password: e.target.value.replace(/\D/g, "").slice(0, 8),
                       }))
                     }
-                    placeholder="Enter password"
+                    placeholder="Enter 4 to 8 digit security PIN"
                   />
                
                 </div>

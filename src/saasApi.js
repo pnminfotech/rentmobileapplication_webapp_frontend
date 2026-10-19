@@ -7,11 +7,47 @@ export async function loginSaas(email, password) {
     password,
   });
 
-  saveAuthSession({
-    token: data.token,
-    user: data.user,
-  });
+  if (data.token) {
+    saveAuthSession({
+      token: data.token,
+      user: data.user,
+    });
+  }
 
+  return data;
+}
+
+export async function requestSaasLoginEmailCode(email) {
+  const { data } = await api.post("/saas/auth/login/request-email-code", { email });
+  return data;
+}
+
+export async function verifySaasLoginEmailCode(challengeId, code) {
+  const { data } = await api.post("/saas/auth/login/verify-email", { challengeId, code });
+  if (data.token) saveAuthSession({ token: data.token, user: data.user });
+  return data;
+}
+
+export async function verifySaasLoginSecurityPin(challengeId, pin) {
+  const { data } = await api.post("/saas/auth/login/verify-security-pin", { challengeId, pin });
+  saveAuthSession({ token: data.token, user: data.user });
+  return data;
+}
+
+export async function setupSaasLoginSecurityPin(challengeId, pin) {
+  const { data } = await api.post("/saas/auth/login/setup-security-pin", { challengeId, pin });
+  saveAuthSession({ token: data.token, user: data.user });
+  return data;
+}
+
+export async function resetSaasLoginSecurityPin(challengeId, pin) {
+  const { data } = await api.post("/saas/auth/login/reset-security-pin", { challengeId, pin });
+  saveAuthSession({ token: data.token, user: data.user });
+  return data;
+}
+
+export async function resendSaasLoginEmailCode(challengeId) {
+  const { data } = await api.post("/saas/auth/login/resend-email-code", { challengeId });
   return data;
 }
 
@@ -32,6 +68,11 @@ export async function saveOnboardingUnits(payload = {}) {
 
 export async function requestSubscriptionRenewal(payload = {}) {
   const { data } = await api.post("/saas/subscription/renew-request", payload);
+  return data;
+}
+
+export async function requestSubscriptionUpgrade(payload = {}) {
+  const { data } = await api.post("/saas/subscription/upgrade-request", payload);
   return data;
 }
 
@@ -70,7 +111,102 @@ export async function getOrganizations() {
   return data;
 }
 
+export async function updateOrganizationStatus(organizationId, status, securityPin) {
+  const { data } = await api.patch(`/saas/admin/organizations/${organizationId}/status`, { status, securityPin });
+  return data;
+}
+
+export async function getAdminSubscriptionPlans() {
+  const { data } = await api.get("/saas/admin/plans");
+  return data;
+}
+
+export async function createSubscriptionPlan(payload) {
+  const { data } = await api.post("/saas/admin/plans", payload);
+  return data;
+}
+
+export async function updateSubscriptionPlan(planId, payload) {
+  const { data } = await api.patch(`/saas/admin/plans/${planId}`, payload);
+  return data;
+}
+
+export async function deleteSubscriptionPlan(planId, securityPin) {
+  const { data } = await api.delete(`/saas/admin/plans/${planId}`, { data: { securityPin } });
+  return data;
+}
+
+export async function getReferralCodes() {
+  const { data } = await api.get("/saas/admin/referrals");
+  return data;
+}
+
+export async function getBillingTransactions(params = {}) {
+  const { data } = await api.get("/saas/payments/admin/transactions", { params });
+  return data;
+}
+
+export async function getSecurityPinStatus() {
+  const { data } = await api.get("/saas/admin/security/pin-status");
+  return data;
+}
+
+export async function getSystemSecurityPinStatus() {
+  const { data } = await api.get("/saas/security/pin-status");
+  return data;
+}
+
+export async function saveSecurityPin(payload) {
+  const { data } = await api.post("/saas/admin/security/pin", payload);
+  return data;
+}
+
+export async function resetSecurityPin(payload) {
+  const { data } = await api.post("/saas/admin/security/pin/reset", payload);
+  return data;
+}
+
+export async function saveSystemSecurityPin(payload) {
+  const { data } = await api.post("/saas/security/pin", payload);
+  return data;
+}
+
+export async function resetSystemSecurityPin(payload) {
+  const { data } = await api.post("/saas/security/pin/reset", payload);
+  return data;
+}
+
+export async function requestSuperadminEmailChange(newEmail, password) {
+  const { data } = await api.post("/saas/admin/security/email-change/request", { newEmail, password });
+  return data;
+}
+
+export async function verifySuperadminEmailChange(challengeId, code) {
+  const { data } = await api.post("/saas/admin/security/email-change/verify", { challengeId, code });
+  return data;
+}
+
+export async function resendSuperadminEmailChangeCode(challengeId) {
+  const { data } = await api.post("/saas/admin/security/email-change/resend", { challengeId });
+  return data;
+}
+
+export async function requestPasswordReset(email) {
+  const { data } = await api.post("/saas/auth/forgot-password", { email });
+  return data;
+}
+
 export async function getSystemDashboard() {
   const { data } = await api.get("/saas/dashboard");
+  return data;
+}
+
+export async function getHostelRules() {
+  const { data } = await api.get("/saas/settings/hostel-rules");
+  return data;
+}
+
+export async function saveHostelRules(payload) {
+  const { data } = await api.put("/saas/settings/hostel-rules", payload);
   return data;
 }

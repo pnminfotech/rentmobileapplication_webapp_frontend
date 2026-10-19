@@ -117,5 +117,6 @@
 }
 
 .btn-link:hover {
-  color: #ffc107; /* Hover effect for links */
+  color:black; /* Hover effect for links */
+  font-weight: bold; /* Optional: Make the link bold on hover */
 }

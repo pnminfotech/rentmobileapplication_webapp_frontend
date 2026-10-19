@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 // import { FaRupeeSign } from 'react-icons/fa';
 import {
   FaTachometerAlt,
@@ -23,6 +24,7 @@ const months = [
 ];
 
 const LightBillMatrixView = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState([]);
   const [newEntry, setNewEntry] = useState({
     type: "meter",
@@ -44,7 +46,7 @@ const LightBillMatrixView = () => {
   }, []);
 
   const fetchAll = async () => {
-    const res = await fetch("    http://localhost:8000/api/light-bill/all");
+    const res = await fetch("    https://rentmobile-api.pnminfotech.com/api/light-bill/all");
     const json = await res.json();
     setData(json);
   };
@@ -87,7 +89,7 @@ const LightBillMatrixView = () => {
       date: formattedDate,
     };
 
-    const res = await fetch("    http://localhost:8000/api/light-bill", {
+    const res = await fetch("    https://rentmobile-api.pnminfotech.com/api/light-bill", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -133,6 +135,7 @@ const LightBillMatrixView = () => {
 
   return (
     <div className="container py-4">
+      <button type="button" className="btn btn-outline-primary mb-3" onClick={() => navigate("/admin")}>← Back</button>
       <h2 className="mb-4">Light Bill Monthly Matrix</h2>
       <button
         className="btn btn-success w-100"

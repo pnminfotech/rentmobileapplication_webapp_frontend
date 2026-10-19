@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaUser, FaLock } from 'react-icons/fa';
+import { FaUser } from 'react-icons/fa';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUserPlus } from "@fortawesome/free-solid-svg-icons";
 import logo from '../image/mutkehostel.png'
-import { loginSaas } from "../saasApi";
+import { requestSaasLoginEmailCode, resendSaasLoginEmailCode, verifySaasLoginEmailCode } from "../saasApi";
 import '../stylecss/LoginRegister.css';
 
 const FormPage = () => {
@@ -13,7 +13,9 @@ const FormPage = () => {
 
   // Login State
   const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
+  const [loginChallengeId, setLoginChallengeId] = useState('');
+  const [loginCode, setLoginCode] = useState('');
+  const [loginMaskedEmail, setLoginMaskedEmail] = useState('');
   const [loginMessage, setLoginMessage] = useState('');
 
   // Register State
@@ -29,39 +31,52 @@ const FormPage = () => {
   try {
     setLoginMessage("");
 
-    const data = await loginSaas(
-      loginEmail.trim(),
-      loginPassword
-    );
-
-    const role = data?.user?.role;
-
-    if (role === "superadmin") {
-      navigate("/superadmin");
-      return;
-    }
-
-    if (role === "system_admin" || role === "systemadmin") {
-      navigate("/admin");
-      return;
-    }
-
-    setLoginMessage(`Unsupported account role: ${role || "unknown"}`);
+    const data = await requestSaasLoginEmailCode(loginEmail.trim());
+    setLoginChallengeId(data.challengeId);
+    setLoginMaskedEmail(data.email || "your registered email");
+    setLoginCode('');
   } catch (error) {
     console.error("Login failed:", error);
 
     setLoginMessage(
       error.response?.data?.message ||
-        "Unable to login. Please check your Login ID and password."
+        "Unable to send the OTP. Please check your email address."
     );
   }
 };
+
+ const handleVerifyLoginCode = async (e) => {
+  e.preventDefault();
+  if (!/^\d{6}$/.test(loginCode)) {
+    setLoginMessage("Enter the 6-digit code sent to your email.");
+    return;
+  }
+  try {
+    setLoginMessage("");
+    const data = await verifySaasLoginEmailCode(loginChallengeId, loginCode);
+    const role = data?.user?.role;
+    navigate(role === "superadmin" ? "/superadmin" : "/admin");
+  } catch (error) {
+    setLoginMessage(error.response?.data?.message || "Unable to verify the OTP. Please try again.");
+  }
+ };
+
+ const handleResendLoginCode = async () => {
+  try {
+    setLoginMessage("");
+    const data = await resendSaasLoginEmailCode(loginChallengeId);
+    setLoginMaskedEmail(data.email || loginMaskedEmail);
+    setLoginCode("");
+  } catch (error) {
+    setLoginMessage(error.response?.data?.message || "Unable to resend the OTP. Please try again.");
+  }
+ };
 
   // Handle Register
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('    http://localhost:8000/api/register', {
+      const response = await fetch('    https://rentmobile-api.pnminfotech.com/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email: registerEmail, password: registerPassword }),
@@ -104,7 +119,7 @@ const FormPage = () => {
             Hos<span style={{color:'#de698c'}}>tel</span> Paym<span style={{color:'#de698c'}}>ent</span> <span style={{color:'#de698c'}}>Man</span>agement <span style={{color:'#de698c'}}>Sys</span>tem
           </h1>
           <form
-            onSubmit={handleLogin}
+            onSubmit={loginChallengeId ? handleVerifyLoginCode : handleLogin}
             className="w-75"
             style={{
               border: '2px solid #2c3e50',
@@ -113,14 +128,18 @@ const FormPage = () => {
             }}
           >
             <div className="form-group text-start">
-              <label>Login ID or Email:</label>
+              <label>{loginChallengeId ? "Email OTP:" : "Email address:"}</label>
               <div className="input-group">
               <input
-                type="text"
+                type={loginChallengeId ? "text" : "email"}
                 className="form-control"
-                placeholder="Enter email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder={loginChallengeId ? `OTP sent to ${loginMaskedEmail}` : "Enter registered email"}
+                value={loginChallengeId ? loginCode : loginEmail}
+                onChange={(e) => loginChallengeId
+                  ? setLoginCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  : setLoginEmail(e.target.value)}
+                inputMode={loginChallengeId ? "numeric" : undefined}
+                maxLength={loginChallengeId ? 6 : undefined}
                 required
               />
                <span className="input-group-text">
@@ -128,26 +147,14 @@ const FormPage = () => {
                 </span>
             </div>
             </div>
-            <div className="form-group text-start">
-              <label>Password:</label>
-              <div className="input-group">
-              <input
-                type="password"
-                className="form-control"
-                placeholder="Enter password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                required
-              />
-               <span className="input-group-text">
-                  <FaLock /> {/* Password Icon */}
-                </span>
-            </div>
-            </div>
             <button type="submit" className="back-btn btn">
-              Login
+              {loginChallengeId ? "Verify OTP" : "Send OTP"}
             </button>
             {loginMessage && <p className="text-danger">{loginMessage}</p>}
+            {loginChallengeId && <div className="mt-3 d-flex gap-3 justify-content-center">
+              <button type="button" className="btn btn-link p-0" onClick={handleResendLoginCode}>Resend OTP</button>
+              <button type="button" className="btn btn-link p-0" onClick={() => { setLoginChallengeId(''); setLoginCode(''); setLoginMessage(''); }}>Use another email</button>
+            </div>}
           </form>
         </>
       ) : (

@@ -2,7 +2,7 @@
 import React from 'react';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import TenantIntake from './Pages/TenantIntake';
 import Form from './componenet/form';
@@ -34,6 +34,7 @@ import AddDataDemo from './componenet/Add_Data_Demo';
 import LightbillMaintenace from './componenet/Maintanace/LightbillMaintance';
 import NewComponant from './componenet/NewComponant';
 import MainDashboard from './componenet/MainDashboard';
+import DashboardNavigation from './componenet/DashboardNavigation';
 import NewComponantOriginal from './componenet/NewComponantOriginal';
 import LightBillMatrixView from './componenet/Maintanace/LightBillMatrixView';
 import LightbillOtherExpenses from './componenet/Maintanace/LightbillOtherExpenses';
@@ -42,8 +43,14 @@ import CommercialManager from './componenet/CommercialManager';
 import FormSubmitted from './componenet/FormSubmitted';
 import OtherExpense from "./Pages/OtherExpense";
 import LightBill from "./Pages/LightBill";
+import CanteenSettings from "./Pages/CanteenSettings";
+import CanteenAttendance from "./Pages/CanteenAttendance";
+import HostelRules from "./Pages/HostelRules";
+import ProfileSettings from "./Pages/ProfileSettings";
 // ✅ Import your tenant app (the module you shared at top)
 import TenantApp from './tenant/TenantApp';
+import { api } from './api';
+import { hasRecentUserActivity, recordUserActivity } from './userActivity';
 
 function getRouterBasename() {
   const publicUrl = String(process.env.PUBLIC_URL || "").trim();
@@ -58,20 +65,26 @@ function getRouterBasename() {
 }
 
 function Layout() {
-  const location = useLocation();
-
-  const showSidebarRoutes = [
-    '/dashboard',
-    '/suppliers',
-    '/maintenance',
-    '/record',
-    '/manual-entry',
-  ];
-
-  const shouldShowSidebar = showSidebarRoutes.includes(location.pathname);
+  React.useEffect(() => {
+    const events = ["pointerdown", "keydown", "touchstart", "wheel"];
+    for (const eventName of events) {
+      window.addEventListener(eventName, recordUserActivity, { passive: true });
+    }
+    const activityHeartbeat = window.setInterval(() => {
+      if (!localStorage.getItem("authToken") || !hasRecentUserActivity()) return;
+      api.post("/saas/auth/session/activity").catch(() => {});
+    }, 60 * 1000);
+    return () => {
+      for (const eventName of events) {
+        window.removeEventListener(eventName, recordUserActivity);
+      }
+      window.clearInterval(activityHeartbeat);
+    };
+  }, []);
 
   return (
     <div className="App">
+      <DashboardNavigation />
       <Routes>
         {/* Auth routes */}
         <Route path="/" element={<AppEntry />} />
@@ -152,13 +165,15 @@ function Layout() {
 
         <Route path="/other-expense" element={<ProtectedRoute><OtherExpense /></ProtectedRoute>} />
         <Route path="/light-bill" element={<ProtectedRoute><LightBill /></ProtectedRoute>} />
+        <Route path="/canteen-settings" element={<ProtectedRoute><CanteenSettings /></ProtectedRoute>} />
+        <Route path="/canteen-attendance" element={<ProtectedRoute><CanteenAttendance /></ProtectedRoute>} />
+        <Route path="/hostel-rules" element={<ProtectedRoute><HostelRules /></ProtectedRoute>} />
+        <Route
+          path="/profile"
+          element={<ProtectedRoute allowedRoles={["systemadmin", "system_admin"]}><ProfileSettings /></ProtectedRoute>}
+        />
       </Routes>
 
-      {shouldShowSidebar && (
-        <div className="container" style={{ display: 'flex' }}>
-          {/* <Sidebar /> */}
-        </div>
-      )}
     </div>
   );
 }

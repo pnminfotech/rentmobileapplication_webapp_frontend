@@ -20,7 +20,7 @@ const UpdateForm = ({ formId }) => {
 
   useEffect(() => {
     // Fetch existing data for the given formId
-    fetch(`    http://localhost:8000/api/form/${formId}`)
+    fetch(`    https://rentmobile-api.pnminfotech.com/api/form/${formId}`)
       .then((res) => res.json())
       .then((data) => {
         setFormData(data);
@@ -43,7 +43,7 @@ const UpdateForm = ({ formId }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`    http://localhost:8000/api/form/update/${formId}`, {
+      const response = await fetch(`    https://rentmobile-api.pnminfotech.com/api/form/update/${formId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

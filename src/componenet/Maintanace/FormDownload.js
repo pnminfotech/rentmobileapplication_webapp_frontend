@@ -201,7 +201,6 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import "../Maintanace/FormDownload.css";
 import Img from "../../image/kplogo.png";
-import RuleImg from "../../assets/rulebook.jpg";
 import { api } from "../../api";
 
 const FormDownload = ({ formData }) => {
@@ -217,6 +216,10 @@ const FormDownload = ({ formData }) => {
   const [documentDataUrls, setDocumentDataUrls] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
   const [previewRotation, setPreviewRotation] = useState(0);
+  const [hostelRules, setHostelRules] = useState({
+    title: "Hostel Rules & Regulations",
+    content: "",
+  });
 
   // ---------------- Helpers ----------------
   const safe = (v) =>
@@ -271,7 +274,50 @@ const FormDownload = ({ formData }) => {
   // Prefer fetched doc if available
   const data = tenantDoc || formData;
 
-  const BASE_URL = "   http://localhost:8000/";
+  const rulePages = useMemo(() => {
+    const rules = String(hostelRules.content || "")
+      .split(/\r?\n/)
+      .map((rule) => rule.trim())
+      .filter(Boolean);
+    if (!rules.length) return [[]];
+
+    const pages = [];
+    let current = [];
+    let usedLines = 0;
+    rules.forEach((rule) => {
+      // Keep enough rules on each A4 page. The rendered list then distributes
+      // its entries over the available height rather than leaving a blank block.
+      const estimatedLines = Math.max(1, Math.ceil(rule.length / 86));
+      if (current.length && usedLines + estimatedLines > 38) {
+        pages.push(current);
+        current = [];
+        usedLines = 0;
+      }
+      current.push(rule);
+      usedLines += estimatedLines;
+    });
+    if (current.length) pages.push(current);
+    return pages;
+  }, [hostelRules.content]);
+
+  const BASE_URL = "   https://rentmobile-api.pnminfotech.com/";
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get("/saas/settings/hostel-rules")
+      .then((response) => {
+        if (!cancelled) {
+          setHostelRules({
+            title: response.data?.title || "Hostel Rules & Regulations",
+            content: response.data?.content || "",
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setHostelRules({ title: "Hostel Rules & Regulations", content: "" });
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const allDocuments = useMemo(() => {
     if (Array.isArray(data?.documents)) return data.documents;
@@ -345,12 +391,6 @@ const FormDownload = ({ formData }) => {
   useEffect(() => {
     const id = formData?._id;
     if (!id) return;
-
-    const needsBed = isBadBed(formData?.bedNo);
-    const needsRent =
-      !(Number(formData?.rentAmount) > 0) && !(Number(formData?.baseRent) > 0);
-
-    if (!needsBed && !needsRent) return;
 
     let cancelled = false;
 
@@ -544,31 +584,26 @@ const FormDownload = ({ formData }) => {
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
     const pages = Array.from(document.querySelectorAll("[data-pdf-page='true']"));
-
-    for (let i = 0; i < pages.length; i += 1) {
-      const canvas = await html2canvas(pages[i], {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-      });
-
-      const imgData = canvas.toDataURL("image/png");
-      const imgProps = pdf.getImageProperties(imgData);
-      const imgWidth = pdfWidth;
-      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-      const yOffset = imgHeight < pdfHeight ? (pdfHeight - imgHeight) / 2 : 0;
-
-      if (i > 0) pdf.addPage();
-      pdf.addImage(
-        imgData,
-        "PNG",
-        0,
-        yOffset,
-        imgWidth,
-        imgHeight > pdfHeight ? pdfHeight : imgHeight
-      );
+    document.body.classList.add("admission-pdf-rendering");
+    pages.forEach((page) => page.classList.add("pdf-render-page"));
+    try {
+      for (let i = 0; i < pages.length; i += 1) {
+        const canvas = await html2canvas(pages[i], {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          backgroundColor: "#ffffff",
+        });
+        const imageHeight = (canvas.height * pdfWidth) / canvas.width;
+        if (i > 0) pdf.addPage();
+        // All generated sections use the A4 ratio. This keeps the first page
+        // full size and preserves text size on subsequent pages.
+        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pdfWidth, Math.min(pdfHeight, imageHeight));
+      }
+    } finally {
+      document.body.classList.remove("admission-pdf-rendering");
+      pages.forEach((page) => page.classList.remove("pdf-render-page"));
     }
 
     pdf.save(`Admission_Form_${data?.srNo || ""}.pdf`);
@@ -584,7 +619,7 @@ const FormDownload = ({ formData }) => {
       return ct.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(name);
     };
 
-    const BASE_URL = "   http://localhost:8000/"; // change to your backend URL
+    const BASE_URL = "   https://rentmobile-api.pnminfotech.com/"; // change to your backend URL
 
     const getUrl = (d) => {
       const raw =
@@ -673,7 +708,7 @@ const FormDownload = ({ formData }) => {
   // ---------------- UI ----------------
   return (
     <div>
-      <div id="form-page" className="form-container" data-pdf-page="true">
+      <div id="form-page" className="form-container form-admission-page" data-pdf-page="true">
         <header className="form-header">
           <img src={Img} alt="Logo" className="form-logo" />
           <div className="form-title">
@@ -795,59 +830,52 @@ const FormDownload = ({ formData }) => {
         <h6 className="form-regards">Regards KP Shevkari PG</h6>
       </div>
 
-      <div id="rule-page" className="form-container" data-pdf-page="true">
-        <img src={RuleImg} alt="rules" style={{ width: "100%" }} />
-      </div>
+      {rulePages.map((rules, pageIndex) => <div id={`rule-page-${pageIndex + 1}`} className="form-container form-rules-container" data-pdf-page="true" key={`rules-${pageIndex}`}>
+        <section className="form-rules-page">
+          <header className="form-rules-header">
+            <img src={Img} alt="Logo" className="form-rules-logo" />
+            <div>
+              <h2>{hostelRules.title}</h2>
+              <p>Rules and regulations - page {pageIndex + 1} of {rulePages.length}</p>
+            </div>
+          </header>
+          {rules.length ? (
+            <ol className="form-rules-list">
+              {rules.map((rule, index) => (
+                <li key={`${pageIndex}-${index}-${rule}`} value={rulePages.slice(0, pageIndex).reduce((count, page) => count + page.length, 0) + index + 1}>{rule}</li>
+              ))}
+            </ol>
+          ) : (
+            <p className="form-rules-empty">No hostel rules have been added by the administrator yet.</p>
+          )}
+          {pageIndex === rulePages.length - 1 && <div className="form-rules-acknowledgement">
+            <strong>Occupant acknowledgement:</strong> I have read, understood and agree to follow the above rules.<br />
+            <span>Occupant signature: ____________________________</span>
+          </div>}
+        </section>
+      </div>)}
 
-      <div id="tenant-documents-page" className="form-container" data-pdf-page="true">
-        <h5 className="form-documents-title">Uploaded Documents</h5>
-        {visibleDocuments.length > 0 ? (
-          <div className="form-documents-grid">
-            {visibleDocuments.map((doc, index) => {
+      {visibleDocuments.length > 0 ? visibleDocuments.map((doc, index) => {
               const url = getDocUrl(doc);
               const imgSrc = documentDataUrls[index] || (isImageDoc(doc) ? url : "");
-              return (
-                <div className="form-document-card" key={`${docLabel(doc, index)}-${index}`}>
-                  <div className="form-document-label">
-                    {index + 1}. {docLabel(doc, index)}
-                  </div>
-                  <div className="form-document-name">
-                    {doc.fileName || doc.name || doc.contentType || "Uploaded document"}
-                  </div>
-                  {imgSrc ? (
-                    <img
-                      src={imgSrc}
-                      alt={docLabel(doc, index)}
-                      className="form-document-image form-document-image-clickable"
-                      role="button"
-                      tabIndex={0}
-                      title="Click to zoom"
-                      onClick={() =>
-                        openPreviewImage(imgSrc, docLabel(doc, index))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          openPreviewImage(imgSrc, docLabel(doc, index));
-                        }
-                      }}
-                    />
-                  ) : url ? (
-                    <div className="form-document-link">
-                      <div>Document link:</div>
-                      <div>{url}</div>
-                    </div>
-                  ) : (
-                    <div className="form-document-empty">No document preview available</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="form-document-empty">No documents uploaded</div>
-        )}
-      </div>
+              return <div id={`tenant-document-page-${index + 1}`} className="form-container form-document-page" data-pdf-page="true" key={`${docLabel(doc, index)}-${index}`}>
+                {imgSrc ? <img
+                  src={imgSrc}
+                  alt={docLabel(doc, index)}
+                  className="form-document-image form-document-image-clickable"
+                  role="button"
+                  tabIndex={0}
+                  title="Click to zoom"
+                  onClick={() => openPreviewImage(imgSrc, docLabel(doc, index))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openPreviewImage(imgSrc, docLabel(doc, index));
+                    }
+                  }}
+                /> : url ? <div className="form-document-link">{url}</div> : <div className="form-document-empty">No document preview available</div>}
+              </div>;
+            }) : <div id="tenant-documents-page" className="form-container form-document-page" data-pdf-page="true"><div className="form-document-empty">No documents uploaded</div></div>}
       <button onClick={handleDownload} className="download-button">
         Download as PDF
       </button>

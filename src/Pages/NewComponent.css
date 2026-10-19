@@ -2701,3 +2701,119 @@
     width: fit-content;
   }
 }
+@media screen and (min-width:1200px) and (max-width:1400px){
+  .modal-content{
+    width:758px;
+  }
+}
+
+/* Keep all tracker columns visible on small laptops and large tablets. */
+@media (min-width: 679px) and (max-width: 1160px) {
+  .desktop-rent-tables-group .rent-table-wrapper {
+    padding: 6px;
+    overflow-x: hidden !important;
+  }
+
+  .desktop-rent-tables-group .renttable {
+    display: table !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed;
+    font-size: 11px;
+  }
+
+  .desktop-rent-tables-group .renttable th,
+  .desktop-rent-tables-group .renttable td {
+    min-width: 0 !important;
+    overflow-wrap: anywhere;
+  }
+
+  .desktop-rent-tables-group .renttable thead th {
+    padding: 9px 3px !important;
+    font-size: 11px;
+    white-space: normal;
+  }
+
+  .desktop-rent-tables-group .renttable tbody td {
+    padding: 9px 4px !important;
+    font-size: 11px;
+  }
+
+  .desktop-rent-tables-group .renttable th:nth-child(1) { width: 5% !important; }
+  .desktop-rent-tables-group .renttable th:nth-child(2) { width: 24% !important; }
+  .desktop-rent-tables-group .renttable th:nth-child(3),
+  .desktop-rent-tables-group .renttable th:nth-child(4),
+  .desktop-rent-tables-group .renttable th:nth-child(5) { width: 16% !important; }
+  .desktop-rent-tables-group .renttable th:nth-child(6) { width: 10% !important; }
+  .desktop-rent-tables-group .renttable th:nth-child(7) { width: 13% !important; }
+
+  .desktop-rent-tables-group .tenant-open {
+    gap: 5px !important;
+    min-width: 0;
+  }
+
+  .desktop-rent-tables-group .tenant-open > div:last-child {
+    min-width: 0;
+  }
+
+  .desktop-rent-tables-group .tenant-photo-placeholder,
+  .desktop-rent-tables-group .tenant-photo-frame,
+  .desktop-rent-tables-group .tenant-photo-img {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .desktop-rent-tables-group .tenant-name { font-size: 11px; }
+  .desktop-rent-tables-group .tenant-meta { font-size: 10px; }
+  .desktop-rent-tables-group .room-pill {
+    display: inline-block;
+    padding: 2px 5px;
+    font-size: 9px;
+    line-height: 1.2;
+  }
+
+  .desktop-rent-tables-group .shift-btn {
+    margin-bottom: 4px !important;
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  .desktop-rent-tables-group .tenant-cell .badge {
+    padding: 3px 5px;
+    font-size: 9px;
+  }
+
+  .desktop-rent-tables-group .renttable tbody td.rent-month-window-cell {
+    min-width: 0 !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  .desktop-rent-tables-group .renttable tbody td.rent-month-window-cell.has-prev-nav { padding-left: 17px !important; }
+  .desktop-rent-tables-group .renttable tbody td.rent-month-window-cell.has-next-nav { padding-right: 17px !important; }
+  .desktop-rent-tables-group .month-inline-nav {
+    width: 16px;
+    height: 32px;
+    font-size: 20px;
+  }
+  .desktop-rent-tables-group .month-inline-nav-prev { left: 0; }
+  .desktop-rent-tables-group .month-inline-nav-next { right: 0; }
+
+  .desktop-rent-tables-group .rent-month-window-cell .badge {
+    padding: 4px 21px !important;
+    font-size: 10px !important;
+  }
+  .desktop-rent-tables-group .rent-month-window-cell .badge span:last-child { font-size: 9px !important; }
+  .desktop-rent-tables-group .rent-month-window-cell .small { font-size: 10px !important; }
+
+  .desktop-rent-tables-group .action-btn {
+    width: 30px;
+    height: 30px;
+    margin: 2px;
+  }
+}
+
+@media (min-width: 679px) and (max-width: 768px) {
+  .desktop-rent-tables-group .rent-table-desktop { display: flex !important; }
+  .rent-mobile-view { display: none !important; }
+}

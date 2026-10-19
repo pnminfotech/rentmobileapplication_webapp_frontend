@@ -1,0 +1,1910 @@
+.canteen-page {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 24px 22px 60px;
+    color: #13274a
+}
+
+.canteen-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px
+}
+
+.canteen-header>div {
+    flex: 1
+}
+
+.canteen-header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 2px 0
+}
+
+.canteen-header p,
+.canteen-panel>p {
+    color: #63738a;
+    margin: 0
+}
+
+.canteen-eyebrow {
+    font-size: 11px;
+    letter-spacing: .1em;
+    font-weight: 800;
+    color: #506dff
+}
+
+.canteen-panel {
+    background: #fff;
+    border: 1px solid #dbe5f2;
+    border-radius: 18px;
+    box-shadow: 0 10px 32px rgba(28, 55, 100, .08);
+    padding: 24px
+}
+
+.canteen-panel h2 {
+    font-size: 21px;
+    font-weight: 800
+}
+
+.canteen-panel h3 {
+    font-size: 18px;
+    font-weight: 750
+}
+
+.canteen-back,
+.canteen-primary {
+    border: 1px solid #a9c3ff;
+    background: #fff;
+    color: #1747c7;
+    border-radius: 9px;
+    padding: 9px 15px;
+    font-weight: 700;
+    cursor: pointer
+}
+
+.canteen-primary {
+    background: #2146bc;
+    color: #fff;
+    border-color: #2146bc
+}
+
+.canteen-back:disabled,
+.canteen-primary:disabled {
+    opacity: .55;
+    cursor: not-allowed
+}
+
+.canteen-mode-grid,
+.canteen-price-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 18px 0
+}
+
+.canteen-mode {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    gap: 5px;
+    border: 1px solid #d3e1f5;
+    background: #f7fbff;
+    border-radius: 12px;
+    padding: 18px;
+    color: #173260
+}
+
+.canteen-mode.selected,
+.canteen-choices button.selected {
+    border-color: #4269f5;
+    background: #e9efff;
+    color: #153ec2
+}
+
+.canteen-mode span {
+    font-size: 13px;
+    color: #63738a
+}
+
+.canteen-section {
+    border-top: 1px solid #e2eafa;
+    padding: 20px 0
+}
+
+.canteen-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 12px 0;
+    font-size: 14px;
+    font-weight: 700
+}
+
+.canteen-field>input,
+.canteen-money input,
+.canteen-toolbar input,
+.canteen-toolbar select {
+    border: 1px solid #ccdaee;
+    border-radius: 8px;
+    background: #fff;
+    padding: 10px;
+    min-width: 0;
+    color: #173260
+}
+
+.canteen-money {
+    display: flex;
+    border: 1px solid #ccdaee;
+    border-radius: 8px;
+    overflow: hidden
+}
+
+.canteen-money span {
+    padding: 10px 15px;
+    background: #eef5ff
+}
+
+.canteen-money input {
+    border: 0;
+    flex: 1;
+    width: 100%
+}
+
+.canteen-choices {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap
+}
+
+.canteen-choices button {
+    border: 1px solid #c5d7f4;
+    border-radius: 8px;
+    padding: 8px 13px;
+    background: #f5f9ff;
+    color: #24477b;
+    cursor: pointer
+}
+
+.canteen-check {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer
+}
+
+.canteen-check input {
+    width: 18px;
+    height: 18px
+}
+
+.canteen-check small {
+    display: block;
+    color: #63738a
+}
+
+.canteen-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px
+}
+
+.canteen-error {
+    color: #b42318;
+    background: #fff0ed;
+    border-radius: 8px;
+    padding: 10px;
+    margin: 12px 0
+}
+
+.canteen-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center
+}
+
+.canteen-toolbar>input {
+    flex: 1;
+    min-width: 220px
+}
+
+.canteen-date {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ccdaee;
+    border-radius: 8px;
+    overflow: hidden
+}
+
+.canteen-date input {
+    border: 0
+}
+
+.canteen-date button {
+    border: 0;
+    background: #f4f8ff;
+    padding: 8px 13px;
+    font-size: 20px;
+    color: #24477b
+}
+
+.canteen-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 20px 0
+}
+
+.canteen-summary div {
+    display: flex;
+    justify-content: space-between;
+    background: #eef5ff;
+    border-radius: 10px;
+    padding: 14px;
+    text-transform: capitalize
+}
+
+.canteen-summary strong {
+    font-size: 20px
+}
+
+.canteen-table-wrap {
+    overflow-x: auto;
+    margin-top: 18px
+}
+
+.canteen-table {
+    width: 100%;
+    border-collapse: collapse
+}
+
+.canteen-table th,
+.canteen-table td {
+    padding: 14px;
+    border-bottom: 1px solid #e2eafa;
+    text-align: left
+}
+
+.canteen-table th {
+    background: #f4f7ff
+}
+
+.canteen-table small {
+    display: block;
+    color: #63738a
+}
+
+.canteen-status {
+    text-transform: capitalize;
+    border-radius: 20px;
+    padding: 5px 10px;
+    background: #edf0f5
+}
+
+.canteen-status.present {
+    background: #ddf5e8;
+    color: #176444
+}
+
+.canteen-status.absent {
+    background: #ffe7e7;
+    color: #a13131
+}
+
+.canteen-empty {
+    text-align: center;
+    padding: 45px !important;
+    color: #63738a
+}
+
+@media(max-width:768px) {
+    .canteen-page {
+        padding: 15px
+    }
+
+    .canteen-header {
+        flex-wrap: wrap
+    }
+
+    .canteen-header>div {
+        order: 2;
+        flex-basis: 100%
+    }
+
+    .canteen-panel {
+        padding: 16px
+    }
+
+    .canteen-mode-grid,
+    .canteen-price-grid {
+        grid-template-columns: 1fr
+    }
+
+    .canteen-summary {
+        grid-template-columns: repeat(2, 1fr)
+    }
+}
+
+.canteen-summary-note {
+    font-size: 13px;
+    color: #63738a;
+    margin-top: -10px !important
+}
+
+.canteen-attendance-select {
+    min-width: 122px;
+    padding: 9px 12px;
+    border: 1px solid #c8d6ea;
+    border-radius: 9px;
+    background: #f6f9fd;
+    color: #234269;
+    font-weight: 700;
+    cursor: pointer
+}
+
+.canteen-attendance-select.present {
+    background: #e3f6ea;
+    border-color: #9fd9b4;
+    color: #176444
+}
+
+.canteen-attendance-select.absent {
+    background: #fff0ef;
+    border-color: #f2b6b2;
+    color: #a13131
+}
+
+.canteen-attendance-select:disabled {
+    cursor: wait;
+    opacity: .7
+}
+
+.canteen-saving {
+    display: block;
+    margin-top: 4px;
+    color: #63738a;
+    font-size: 11px
+}
+
+.canteen-view-switch {
+    display: inline-flex;
+    gap: 3px;
+    padding: 4px;
+    margin-bottom: 15px;
+    background: #edf3ff;
+    border-radius: 10px
+}
+
+.canteen-view-switch button {
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #234269;
+    padding: 8px 18px;
+    font-weight: 700
+}
+
+.canteen-view-switch button.selected {
+    background: #fff;
+    color: #2146bc;
+    box-shadow: 0 2px 7px rgba(28, 55, 100, .12)
+}
+
+.canteen-month-view {
+    margin-top: 18px
+}
+
+.canteen-month-tenant {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    flex-wrap: wrap
+}
+
+.canteen-month-tenant select {
+    min-width: min(100%, 340px);
+    max-width: 100%;
+    border: 1px solid #ccdaee;
+    border-radius: 8px;
+    background: #fff;
+    color: #173260;
+    padding: 10px
+}
+
+.canteen-month-summary {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 16px 0
+}
+
+.canteen-month-summary span {
+    background: #eef5ff;
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: #234269
+}
+
+.canteen-day-link {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #1747c7;
+    font-weight: 700;
+    cursor: pointer
+}
+
+.canteen-day-link:hover {
+    text-decoration: underline
+}
+
+.canteen-month-view .canteen-status.unmarked {
+    color: #63738a
+}
+
+/* Meal attendance layout */
+.canteen-attendance-page {
+    max-width: none;
+    min-height: 100vh;
+    padding: 24px clamp(16px, 2.2vw, 34px) 70px;
+    background: linear-gradient(145deg, #eff6ff 0%, #f7fbff 52%, #edf5ff 100%);
+    color: #112653
+}
+
+.canteen-attendance-page .canteen-header {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr minmax(270px, 2fr) 1fr;
+    align-items: start;
+    margin: 0 auto 22px;
+    /* max-width: 1320px; */
+    gap: 16px
+}
+
+.canteen-attendance-page .canteen-header>div {
+    text-align: center
+}
+
+.canteen-attendance-page .canteen-header .canteen-back:first-child {
+    justify-self: start
+}
+
+.canteen-attendance-page .canteen-header .canteen-back:last-child {
+    justify-self: end
+}
+
+.canteen-attendance-page .canteen-header h1 {
+    font-size: 28px;
+    line-height: 1.2;
+    letter-spacing: -.025em;
+    margin: 5px 0 2px
+}
+
+.canteen-attendance-page .canteen-header p {
+    font-size: 14px;
+    color: #6b82a7
+}
+
+.canteen-attendance-page .canteen-eyebrow {
+    font-size: 10px;
+    letter-spacing: .14em;
+    color: #3468ee
+}
+
+.canteen-attendance-page .canteen-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 39px;
+    border-color: #a9c7ff;
+    border-radius: 8px;
+    color: #1658e6;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(25, 80, 160, .04)
+}
+
+.canteen-attendance-page .canteen-back:hover {
+    background: #f0f6ff
+}
+
+.canteen-attendance-page .canteen-panel {
+    /* max-width: 1320px; */
+    margin: auto;
+    padding: 20px 22px 24px;
+    border-color: #d7e5f7;
+    border-radius: 15px;
+    box-shadow: 0 16px 36px rgba(39, 90, 157, .10)
+}
+
+.canteen-attendance-page .canteen-view-switch {
+    display: flex;
+    width: max-content;
+    margin: 0 auto 20px;
+    padding: 4px;
+    gap: 2px;
+    background: #edf4ff;
+    border-radius: 10px
+}
+
+.canteen-attendance-page .canteen-view-switch button {
+    min-width: 88px;
+    padding: 9px 16px;
+    color: #365476
+}
+
+.canteen-attendance-page .canteen-view-switch button.selected {
+    background: linear-gradient(135deg, #2874ff, #1455e9);
+    color: #fff;
+    box-shadow: 0 3px 8px rgba(27, 90, 225, .22)
+}
+
+.canteen-attendance-page .canteen-toolbar {
+    display: grid;
+    grid-template-columns: 215px 155px minmax(230px, 1fr) auto;
+    gap: 10px;
+    align-items: stretch
+}
+
+.canteen-attendance-page .canteen-toolbar>select {
+    width: 100%;
+    height: 44px;
+    padding: 0 12px;
+    border-color: #cddcf0;
+    font-size: 13px
+}
+
+.canteen-attendance-page .canteen-date {
+    height: 44px;
+    justify-content: space-between;
+    border-color: #cddcf0;
+    border-radius: 8px;
+    padding: 4px;
+    min-width: 0
+}
+
+.canteen-attendance-page .canteen-date button {
+    display: grid;
+    place-items: center;
+    width: 31px;
+    height: 33px;
+    padding: 0;
+    border-radius: 7px;
+    color: #1455e9;
+    font-size: 23px;
+    line-height: 1;
+    background: #f0f6ff
+}
+
+.canteen-attendance-page .canteen-date input {
+    width: calc(100% - 70px);
+    height: 34px;
+    padding: 0 3px;
+    font-size: 13px;
+    text-align: center;
+    background: transparent;
+    min-width: 0
+}
+
+.canteen-attendance-page .canteen-search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 0 14px;
+    border: 1px solid #cddcf0;
+    border-radius: 8px;
+    color: #6280ab
+}
+
+.canteen-attendance-page .canteen-search input {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #173260;
+    font-size: 13px
+}
+
+.canteen-attendance-page .canteen-search:focus-within {
+    border-color: #5c91f5;
+    box-shadow: 0 0 0 3px rgba(53, 109, 233, .10)
+}
+
+.canteen-attendance-page .canteen-toolbar>.canteen-back {
+    white-space: nowrap;
+    padding: 0 17px
+}
+
+.canteen-attendance-page .canteen-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 15px;
+    margin: 18px 0 10px
+}
+
+.canteen-attendance-page .canteen-summary .canteen-summary-card {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    min-height: 82px;
+    padding: 14px 18px;
+    border-radius: 9px;
+    background: #edf5ff;
+    color: #193c77;
+    text-transform: none
+}
+
+.canteen-attendance-page .canteen-summary .canteen-summary-card.present {
+    background: #eafaf2;
+    color: #14694d
+}
+
+.canteen-attendance-page .canteen-summary .canteen-summary-card.absent {
+    background: #fff0f0;
+    color: #9c3434
+}
+
+.canteen-attendance-page .canteen-summary .canteen-summary-card.unmarked {
+    background: #f1f5fa;
+    color: #465b77
+}
+
+.canteen-attendance-page .canteen-summary-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #d8e9ff;
+    color: #1559e8;
+    font-size: 22px
+}
+
+.canteen-attendance-page .canteen-summary-card.present .canteen-summary-icon {
+    background: #c6f2dc;
+    color: #11a66d
+}
+
+.canteen-attendance-page .canteen-summary-card.absent .canteen-summary-icon {
+    background: #ffd9da;
+    color: #d84249
+}
+
+.canteen-attendance-page .canteen-summary-card.unmarked .canteen-summary-icon {
+    background: #e2e9f2;
+    color: #364b63
+}
+
+.canteen-attendance-page .canteen-summary-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+    font-weight: 700
+}
+
+.canteen-attendance-page .canteen-summary-copy strong {
+    font-size: 23px;
+    line-height: 1.15;
+    color: #102653
+}
+
+.canteen-attendance-page .canteen-attendance-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 60px;
+    padding-bottom: 13px;
+    border-bottom: 1px solid #dbe6f4
+}
+
+.canteen-attendance-page .canteen-summary-note {
+    flex: 1;
+    margin: 0 !important;
+    text-align: center;
+    color: #6a80a1;
+    font-size: 12px
+}
+
+.canteen-attendance-page .canteen-summary-note svg {
+    margin-right: 5px;
+    color: #4380ef
+}
+
+.canteen-attendance-page .canteen-actions {
+    margin: 0;
+    flex: none
+}
+
+.canteen-attendance-page .canteen-table-wrap {
+    margin-top: 18px;
+    border: 1px solid #dbe6f4;
+    border-radius: 9px;
+    overflow-x: auto
+}
+
+.canteen-attendance-page .canteen-table {
+    min-width: 670px;
+    border-collapse: separate;
+    border-spacing: 0
+}
+
+.canteen-attendance-page .canteen-table th,
+.canteen-attendance-page .canteen-table td {
+    padding: 14px 18px;
+    border-right: 1px solid #e2eafa;
+    border-bottom: 1px solid #e2eafa;
+    font-size: 13px
+}
+
+.canteen-attendance-page .canteen-table th:last-child,
+.canteen-attendance-page .canteen-table td:last-child {
+    border-right: 0
+}
+
+.canteen-attendance-page .canteen-table tbody tr:last-child td {
+    border-bottom: 0
+}
+
+.canteen-attendance-page .canteen-table th {
+    background: #f5f8fe;
+    color: #375272;
+    font-size: 12px;
+    font-weight: 700
+}
+
+.canteen-attendance-page .canteen-table tbody td {
+    background: #f7faff
+}
+
+.canteen-attendance-page .canteen-tenant-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 145px
+}
+
+.canteen-attendance-page .canteen-tenant-avatar {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 39px;
+    height: 39px;
+    border-radius: 50%;
+    background: #deebff;
+    color: #1a61ed;
+    font-weight: 800
+}
+
+.canteen-attendance-page .canteen-tenant-cell strong {
+    display: block;
+    color: #112653;
+    font-size: 13px
+}
+
+.canteen-attendance-page .canteen-tenant-cell small {
+    margin-top: 3px;
+    font-size: 12px
+}
+
+.canteen-attendance-page .canteen-attendance-select {
+    width: 11px;
+    min-width: 128px;
+    border-color: #c7d9f0;
+    font-size: 12px;
+    padding: 8px 10px
+}
+
+.canteen-attendance-page .canteen-attendance-select.present {
+    background: #e1f8ea;
+    border-color: #a6e4bf;
+    color: #10744d
+}
+
+.canteen-attendance-page .canteen-attendance-select.absent {
+    background: #fff0f0;
+    border-color: #edb5b6;
+    color: #a43d40
+}
+
+@media(max-width:900px) {
+    .canteen-attendance-page .canteen-toolbar {
+        grid-template-columns: 1fr 1fr
+    }
+
+    .canteen-attendance-page .canteen-search {
+        grid-column: 1/3
+    }
+
+    .canteen-attendance-page .canteen-toolbar>.canteen-back {
+        grid-column: 2;
+        justify-self: end
+    }
+
+    .canteen-attendance-page .canteen-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr))
+    }
+}
+
+@media(max-width:600px) {
+    .canteen-attendance-page {
+        padding: 18px 12px 45px
+    }
+
+    .canteen-attendance-page .canteen-header {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px
+    }
+
+    .canteen-attendance-page .canteen-header>div {
+        grid-column: 1/3;
+        grid-row: 1;
+        order: 0
+    }
+
+    .canteen-attendance-page .canteen-header .canteen-back:first-child {
+        grid-column: 1;
+        grid-row: 2
+    }
+
+    .canteen-attendance-page .canteen-header .canteen-back:last-child {
+        grid-column: 2;
+        grid-row: 2
+    }
+
+    .canteen-attendance-page .canteen-header h1 {
+        font-size: 24px
+    }
+
+    .canteen-attendance-page .canteen-panel {
+        padding: 15px
+    }
+
+    .canteen-attendance-page .canteen-toolbar {
+        grid-template-columns: 1fr
+    }
+
+    .canteen-attendance-page .canteen-date,
+    .canteen-attendance-page .canteen-toolbar>select,
+    .canteen-attendance-page .canteen-search,
+    .canteen-attendance-page .canteen-toolbar>.canteen-back {
+        grid-column: 1;
+        width: 100%
+    }
+
+    .canteen-attendance-page .canteen-toolbar>.canteen-back {
+        justify-self: stretch
+    }
+
+    .canteen-attendance-page .canteen-summary {
+        gap: 8px
+    }
+
+    .canteen-attendance-page .canteen-summary .canteen-summary-card {
+        min-height: 70px;
+        padding: 10px;
+        gap: 8px
+    }
+
+    .canteen-attendance-page .canteen-summary-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 16px
+    }
+
+    .canteen-attendance-page .canteen-summary-copy strong {
+        font-size: 19px
+    }
+
+    .canteen-attendance-page .canteen-attendance-actions {
+        flex-wrap: wrap;
+        justify-content: center
+    }
+
+    .canteen-attendance-page .canteen-summary-note {
+        flex-basis: 100%
+    }
+
+    .canteen-attendance-page .canteen-actions {
+        width: 100%
+    }
+
+    .canteen-attendance-page .canteen-actions button {
+        width: 100%
+    }
+}
+
+/* Match the Rent Tracker controls, summary cards, and table. */
+.canteen-attendance-page {
+    background: #f4f4ff
+}
+
+.canteen-attendance-page .canteen-panel {
+    background: linear-gradient(180deg, #f8f7ff, #fff);
+    border-color: #e2e5ff;
+    box-shadow: 0 16px 36px rgba(104, 94, 177, .13)
+}
+
+.canteen-attendance-page .canteen-toolbar {
+    padding: 18px;
+    border: 1px solid #e2e6ff;
+    border-radius: 20px;
+    background: #f7f7ff;
+    box-shadow: 0 10px 24px rgba(110, 103, 184, .09)
+}
+
+.canteen-attendance-page .canteen-toolbar>select,
+.canteen-attendance-page .canteen-search,
+.canteen-attendance-page .canteen-date {
+    background: #fff;
+    border: 1px solid #d6dcf3;
+    border-radius: 11px;
+    box-shadow: 0 5px 12px rgba(93, 93, 145, .08)
+}
+
+.canteen-attendance-page .canteen-search {
+    color: #8493ae
+}
+
+.canteen-attendance-page .canteen-search input {
+    background: transparent
+}
+
+.canteen-attendance-page .canteen-toolbar>.canteen-back,
+.canteen-attendance-page .canteen-actions .canteen-back {
+    border-color: #536bff;
+    background: linear-gradient(135deg, #6179ff, #4e65ef);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(76, 96, 227, .2)
+}
+
+.canteen-attendance-page .canteen-toolbar>.canteen-back:hover,
+.canteen-attendance-page .canteen-actions .canteen-back:hover {
+    background: #3e59e5
+}
+
+.canteen-attendance-page .canteen-summary {
+    gap: 14px;
+    margin: 20px 0 12px
+}
+
+.canteen-attendance-page .canteen-summary .canteen-summary-card {
+    min-width: 0;
+    min-height: 72px;
+    padding: 12px 14px;
+    border-radius: 17px;
+    box-shadow: 0 11px 23px rgba(77, 74, 113, .12)
+}
+
+.canteen-attendance-page .canteen-summary .canteen-summary-card.tenants {
+    background: linear-gradient(135deg, #aac5ef, #6d97d0);
+    color: #0d2857
+}
+
+.canteen-attendance-page .canteen-summary .canteen-summary-card.present {
+    background: linear-gradient(135deg, #98e3bc, #a5dec5);
+    color: #103c31
+}
+
+.canteen-attendance-page .canteen-summary .canteen-summary-card.absent {
+    background: linear-gradient(135deg, #f5bcbc, #ffe1e1);
+    color: #5c2424
+}
+
+.canteen-attendance-page .canteen-summary .canteen-summary-card.unmarked {
+    background: linear-gradient(135deg, #d2c5f1, #cbb8f5);
+    color: #322b57
+}
+
+.canteen-attendance-page .canteen-summary-icon {
+    width: 35px;
+    height: 35px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, .75) !important;
+    color: #3455af !important;
+    font-size: 17px
+}
+
+.canteen-attendance-page .canteen-summary-copy {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+    font-size: 12px;
+    color: #142044
+}
+
+.canteen-attendance-page .canteen-summary-copy>span {
+    text-transform: capitalize;
+    white-space: nowrap
+}
+
+.canteen-attendance-page .canteen-summary-copy strong {
+    display: grid;
+    place-items: center;
+    flex: none;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .86);
+    color: #121f45;
+    font-size: 15px
+}
+
+.canteen-attendance-page .canteen-attendance-actions {
+    border-bottom: 0
+}
+
+.canteen-attendance-page .canteen-table-wrap {
+    padding: 14px;
+    background: linear-gradient(180deg, #f7f5ff, #fff);
+    border: 0;
+    border-radius: 18px;
+    box-shadow: 0 16px 33px rgba(115, 103, 183, .16)
+}
+
+.canteen-attendance-page .canteen-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #d7d3e8;
+    border-radius: 13px;
+    overflow: hidden
+}
+
+.canteen-attendance-page .canteen-table th {
+    background: linear-gradient(180deg, #d8ccf5, #c6b8ee);
+    color: #1f2937;
+    font-weight: 700;
+    text-align: center;
+    padding: 13px 14px
+}
+
+.canteen-attendance-page .canteen-table th:first-child {
+    border-top-left-radius: 12px
+}
+
+.canteen-attendance-page .canteen-table th:last-child {
+    border-top-right-radius: 12px
+}
+
+.canteen-attendance-page .canteen-table tbody td {
+    background: #ececf8;
+    border-bottom: 1px solid rgba(70, 61, 96, .2);
+    vertical-align: middle
+}
+
+.canteen-attendance-page .canteen-table tbody tr:nth-child(even) td {
+    background: #f8f7fc
+}
+
+.canteen-attendance-page .canteen-table tbody tr:hover td {
+    background: #f4f0ff
+}
+
+.canteen-attendance-page .canteen-attendance-select {
+    border-radius: 8px
+}
+
+.canteen-attendance-page .canteen-table tbody td:nth-child(n+3) {
+    text-align: center
+}
+
+.canteen-attendance-page .canteen-toolbar .canteen-date,
+.canteen-attendance-page .canteen-toolbar>select,
+.canteen-attendance-page .canteen-toolbar .canteen-search,
+.canteen-attendance-page .canteen-toolbar>.canteen-back {
+    height: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+    align-self: center
+}
+
+.canteen-attendance-page .canteen-toolbar .canteen-search input {
+    height: 100%;
+    box-sizing: border-box
+}
+
+.canteen-attendance-page .canteen-month-view .canteen-table tbody td {
+    text-align: center
+}
+
+@media(max-width:900px) {
+    .canteen-attendance-page .canteen-summary .canteen-summary-card {
+        padding: 10px
+    }
+
+    .canteen-attendance-page .canteen-toolbar {
+        padding: 12px
+    }
+}
+
+@media(max-width:600px) {
+    .canteen-attendance-page .canteen-summary-copy {
+        gap: 5px
+    }
+
+    .canteen-attendance-page .canteen-summary-copy>span {
+        white-space: normal
+    }
+
+    .canteen-attendance-page .canteen-summary-icon {
+        width: 30px;
+        height: 30px;
+        font-size: 14px
+    }
+
+    .canteen-attendance-page .canteen-table-wrap {
+        padding: 9px
+    }
+}
+
+.canteen-attendance-page .canteen-toolbar {
+    grid-template-columns: 215px 155px minmax(230px, 1fr) auto auto
+}
+
+.canteen-attendance-page .canteen-toolbar>.canteen-actions {
+    margin: 0;
+    align-self: center
+}
+
+.canteen-attendance-page .canteen-toolbar>.canteen-actions .canteen-back {
+    height: 44px;
+    min-height: 44px;
+    white-space: nowrap
+}
+
+@media(max-width:900px) {
+    .canteen-attendance-page .canteen-toolbar {
+        grid-template-columns: repeat(2, minmax(0, 1fr))
+    }
+
+    .canteen-attendance-page .canteen-toolbar>.canteen-back {
+        grid-column: 1;
+        justify-self: stretch
+    }
+
+    .canteen-attendance-page .canteen-toolbar>.canteen-actions {
+        grid-column: 2;
+        justify-self: stretch
+    }
+
+    .canteen-attendance-page .canteen-toolbar>.canteen-actions .canteen-back {
+        width: 100%
+    }
+}
+
+@media(max-width:600px) {
+    .canteen-attendance-page .canteen-toolbar {
+        grid-template-columns: 1fr
+    }
+
+    .canteen-attendance-page .canteen-toolbar>.canteen-actions {
+        grid-column: 1;
+        width: 100%
+    }
+
+    .canteen-attendance-page .canteen-toolbar>.canteen-actions .canteen-back {
+        width: 100%
+    }
+}
+
+.canteen-attendance-page .canteen-mobile-cards {
+    display: none
+}
+
+@media(max-width:768px) {
+    .canteen-attendance-page .canteen-table-wrap {
+        display: none
+    }
+
+    .canteen-attendance-page .canteen-mobile-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 16px
+    }
+
+    .canteen-attendance-page .canteen-mobile-card {
+        overflow: hidden;
+        padding: 14px;
+        border: 1px solid #e5e7f7;
+        border-left: 5px solid #5f7dfc;
+        border-radius: 20px;
+        background: linear-gradient(180deg, #fff, #f8faff);
+        box-shadow: 0 12px 24px rgba(15, 23, 42, .07)
+    }
+
+    .canteen-attendance-page .canteen-mobile-card-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e7e8f5
+    }
+
+    .canteen-attendance-page .canteen-mobile-card-head .canteen-tenant-avatar {
+        width: 48px;
+        height: 48px;
+        font-size: 16px
+    }
+
+    .canteen-attendance-page .canteen-mobile-card-head>div {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        gap: 2px
+    }
+
+    .canteen-attendance-page .canteen-mobile-card-head strong {
+        color: #142552;
+        font-size: 15px
+    }
+
+    .canteen-attendance-page .canteen-mobile-card-head small {
+        color: #61738f;
+        font-size: 12px
+    }
+
+    .canteen-attendance-page .canteen-mobile-card-head span:last-child {
+        color: #3f5075;
+        font-size: 12px;
+        overflow-wrap: anywhere
+    }
+
+    .canteen-attendance-page .canteen-mobile-meals {
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        padding-top: 12px
+    }
+
+    .canteen-attendance-page .canteen-mobile-meal {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(125px, 165px);
+        align-items: center;
+        gap: 10px;
+        min-height: 38px
+    }
+
+    .canteen-attendance-page .canteen-mobile-meal label,
+    .canteen-attendance-page .canteen-mobile-meal>span:first-child {
+        margin: 0;
+        text-transform: capitalize;
+        color: #263957;
+        font-size: 13px;
+        font-weight: 700
+    }
+
+    .canteen-attendance-page .canteen-mobile-meal .canteen-attendance-select {
+        width: 100%;
+        min-width: 0
+    }
+
+    .canteen-attendance-page .canteen-mobile-meal>small {
+        grid-column: 2;
+        color: #61738f;
+        font-size: 11px
+    }
+
+    .canteen-attendance-page .canteen-mobile-month-cards .canteen-mobile-card {
+        border-left-color: #a58be7
+    }
+
+    .canteen-attendance-page .canteen-mobile-month-cards .canteen-day-link {
+        display: block;
+        width: 100%;
+        padding: 0 0 10px;
+        border-bottom: 1px solid #e7e8f5;
+        text-align: left;
+        font-size: 14px
+    }
+
+    .canteen-attendance-page .canteen-mobile-month-cards .canteen-mobile-meal .canteen-status {
+        justify-self: end
+    }
+}
+
+/* Meal service setup */
+.canteen-settings-page {
+    max-width: none;
+    min-height: 100vh;
+    padding: 24px clamp(16px, 2.5vw, 36px) 70px;
+    background: linear-gradient(145deg, #eef6ff, #f7fbff 55%, #edf5ff);
+    color: #13274a
+}
+
+.canteen-settings-page .canteen-header {
+    display: grid;
+    grid-template-columns: 1fr minmax(260px, 2fr) 1fr;
+    align-items: start;
+    max-width: 1320px;
+    margin: 0 auto 20px;
+    gap: 14px
+}
+
+.canteen-settings-page .canteen-header>div {
+    text-align: center
+}
+
+.canteen-settings-page .canteen-header .canteen-back {
+    justify-self: start
+}
+
+.canteen-settings-page .canteen-header h1 {
+    margin: 4px 0 2px;
+    font-size: 28px;
+    line-height: 1.2
+}
+
+.canteen-settings-page .canteen-header p {
+    font-size: 14px;
+    color: #7185a5
+}
+
+.canteen-settings-page .canteen-eyebrow {
+    font-size: 10px;
+    letter-spacing: .14em;
+    color: #3468ee
+}
+
+.canteen-settings-page .canteen-header-spacer {
+    display: block
+}
+
+.canteen-settings-page .canteen-settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    max-width: 1320px;
+    margin: auto
+}
+
+.canteen-settings-page .canteen-settings-card {
+    padding: 24px;
+    border: 1px solid #e0eafb;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 12px 30px rgba(39, 90, 157, .09)
+}
+
+.canteen-settings-page .canteen-settings-heading h2 {
+    margin: 0 0 4px;
+    color: #102451;
+    font-size: 19px;
+    font-weight: 800
+}
+
+.canteen-settings-page .canteen-settings-heading p {
+    margin: 0;
+    color: #768bad;
+    font-size: 13px
+}
+
+.canteen-settings-page .canteen-mode-grid {
+    gap: 18px;
+    margin: 18px 0 0
+}
+
+.canteen-settings-page .canteen-mode {
+    position: relative;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 14px;
+    min-height: 84px;
+    padding: 15px;
+    border: 1px solid #d6e3f7;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #fff, #f8fbff);
+    box-shadow: 0 3px 8px rgba(32, 79, 151, .03)
+}
+
+.canteen-settings-page .canteen-mode.selected {
+    border-color: #4777ff;
+    background: #eef4ff;
+    box-shadow: 0 0 0 1px rgba(57, 107, 255, .12)
+}
+
+.canteen-settings-page .canteen-mode-icon,
+.canteen-settings-page .canteen-section-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #e7f0ff;
+    color: #1761ef;
+    font-size: 22px
+}
+
+.canteen-settings-page .canteen-mode-copy {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0
+}
+
+.canteen-settings-page .canteen-mode-copy strong {
+    font-size: 14px;
+    color: #17305e
+}
+
+.canteen-settings-page .canteen-mode.selected .canteen-mode-copy strong {
+    color: #1558e9
+}
+
+.canteen-settings-page .canteen-mode-copy small {
+    font-size: 12px;
+    color: #7084a4
+}
+
+.canteen-settings-page .canteen-mode-radio {
+    width: 19px;
+    height: 19px;
+    border: 1.5px solid #afc1da;
+    border-radius: 50%;
+    background: #fff
+}
+
+.canteen-settings-page .canteen-mode.selected .canteen-mode-radio {
+    border: 5px solid #1764f5
+}
+
+.canteen-settings-page .canteen-settings-heading-icon {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px
+}
+
+.canteen-settings-page .canteen-package-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 14px
+}
+
+.canteen-settings-page .canteen-package-fields .canteen-field {
+    display: grid;
+    grid-template-columns: 155px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    margin: 0;
+    font-size: 13px;
+    color: #253c63
+}
+
+.canteen-settings-page .canteen-field-label {
+    font-weight: 700;
+    color: #263d66
+}
+
+.canteen-settings-page .canteen-field>input,
+.canteen-settings-page .canteen-money {
+    min-height: 43px;
+    border: 1px solid #ccdcf3;
+    border-radius: 8px;
+    background: #fff
+}
+
+.canteen-settings-page .canteen-field>input {
+    width: 100%;
+    padding: 9px 12px;
+    color: #173260
+}
+
+.canteen-settings-page .canteen-money span {
+    display: grid;
+    place-items: center;
+    min-width: 42px;
+    padding: 0;
+    background: #edf4ff;
+    border-right: 1px solid #d6e4f8;
+    color: #193c77
+}
+
+.canteen-settings-page .canteen-money input {
+    min-height: 41px;
+    border: 0;
+    padding: 9px 12px
+}
+
+.canteen-settings-page .canteen-choices button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 14px;
+    border-color: #d3e2fa;
+    background: #f4f8ff;
+    color: #284478;
+    font-size: 13px;
+    font-weight: 700
+}
+
+.canteen-settings-page .canteen-choices button.selected {
+    border-color: #416fff;
+    background: #eaf1ff;
+    color: #0f57ef
+}
+
+.canteen-settings-page .canteen-choices button svg {
+    font-size: 16px
+}
+
+.canteen-settings-page .canteen-price-grid {
+    gap: 20px;
+    margin: 0
+}
+
+.canteen-settings-page .canteen-price-grid .canteen-field {
+    gap: 8px;
+    margin: 0;
+    font-size: 13px
+}
+
+.canteen-settings-page .canteen-guest-card .canteen-settings-heading-icon {
+    margin-bottom: 18px
+}
+
+.canteen-settings-page .canteen-guest-toggle {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-left: auto;
+    white-space: nowrap;
+    color: #193461;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer
+}
+
+.canteen-settings-page .canteen-guest-toggle input {
+    width: 18px;
+    height: 18px;
+    accent-color: #1764f5
+}
+
+.canteen-settings-page .canteen-settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid #dce8f8
+}
+
+.canteen-settings-page .canteen-settings-actions button {
+    min-width: 180px;
+    min-height: 43px
+}
+
+.canteen-settings-page .canteen-settings-actions .canteen-primary {
+    background: linear-gradient(135deg, #2767ef, #1e43bd);
+    border-color: #2957df
+}
+
+@media(max-width:850px) {
+    .canteen-settings-page .canteen-mode-grid {
+        grid-template-columns: 1fr
+    }
+
+    .canteen-settings-page .canteen-guest-card .canteen-settings-heading-icon {
+        flex-wrap: wrap
+    }
+
+    .canteen-settings-page .canteen-guest-toggle {
+        margin-left: 64px
+    }
+}
+
+@media(max-width:600px) {
+    .canteen-settings-page {
+        padding: 18px 12px 44px
+    }
+
+    .canteen-settings-page .canteen-header {
+        grid-template-columns: 1fr;
+        gap: 10px
+    }
+
+    .canteen-settings-page .canteen-header>div {
+        grid-row: 1;
+        order: 0
+    }
+
+    .canteen-settings-page .canteen-header .canteen-back {
+        grid-row: 2
+    }
+
+    .canteen-settings-page .canteen-header-spacer {
+        display: none
+    }
+
+    .canteen-settings-page .canteen-settings-form {
+        gap: 14px
+    }
+
+    .canteen-settings-page .canteen-settings-card {
+        padding: 18px
+    }
+
+    .canteen-settings-page .canteen-package-fields .canteen-field {
+        grid-template-columns: 1fr;
+        gap: 7px
+    }
+
+    .canteen-settings-page .canteen-price-grid {
+        grid-template-columns: 1fr;
+        gap: 13px
+    }
+
+    .canteen-settings-page .canteen-guest-toggle {
+        margin-left: 0
+    }
+
+    .canteen-settings-page .canteen-settings-actions {
+        flex-direction: column
+    }
+
+    .canteen-settings-page .canteen-settings-actions button {
+        width: 100%
+    }
+}
+
+/* Match the Rent Tracker styling in Meal Settings. */
+.canteen-settings-page {
+    max-width: none;
+    min-height: calc(100vh - 24px);
+    margin: 12px;
+    padding: 20px clamp(16px, 2vw, 32px) 40px;
+    border: 1px solid #d6d9e7;
+    border-radius: 7px;
+    background: linear-gradient(180deg, #f5f3ff 0%, #fbfaff 70%, #fff 100%);
+    box-shadow: 0 10px 28px rgba(58, 72, 123, .12)
+}
+
+.canteen-settings-page .canteen-header {
+    max-width: none;
+    align-items: center;
+    margin-bottom: 18px;
+    padding: 3px 4px 16px;
+    border-bottom: 1px solid #e1e0f0
+}
+
+.canteen-settings-page .canteen-header h1 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    margin: 5px 0 0;
+    font-size: 27px;
+    letter-spacing: -.02em;
+    color: #071b41
+}
+
+.canteen-settings-page .canteen-settings-title-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #6179ff, #6373ef);
+    color: #fff;
+    font-size: 22px;
+    box-shadow: 0 8px 18px rgba(83, 102, 221, .22)
+}
+
+.canteen-settings-page .canteen-header .canteen-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 13px;
+    border: 1px solid #4773ff;
+    border-radius: 7px;
+    background: #fff;
+    color: #1559ee;
+    font-weight: 600;
+    box-shadow: none
+}
+
+.canteen-settings-page .canteen-settings-form {
+    max-width: none;
+    gap: 16px
+}
+
+.canteen-settings-page .canteen-settings-card {
+    padding: 20px 22px;
+    border: 1px solid #e1e4fa;
+    border-radius: 19px;
+    background: linear-gradient(180deg, #f9f8ff, #fff);
+    box-shadow: 0 14px 30px rgba(112, 99, 181, .13)
+}
+
+.canteen-settings-page .canteen-settings-heading h2 {
+    font-size: 18px;
+    color: #111e43
+}
+
+.canteen-settings-page .canteen-settings-heading p {
+    font-size: 13px;
+    color: #64738e
+}
+
+.canteen-settings-page .canteen-mode-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 17px
+}
+
+@media(max-width:850px) {
+    .canteen-settings-page .canteen-mode-grid {
+        grid-template-columns: 1fr
+    }
+}
+
+.canteen-settings-page .canteen-mode {
+    min-height: 76px;
+    padding: 13px 15px;
+    border: 1px solid #dce1f7;
+    border-radius: 13px;
+    background: #fff;
+    box-shadow: 0 7px 14px rgba(102, 104, 162, .08)
+}
+
+.canteen-settings-page .canteen-mode.selected {
+    border: 1.5px solid #5672ff;
+    background: #f1f3ff;
+    box-shadow: 0 8px 20px rgba(82, 99, 209, .13)
+}
+
+.canteen-settings-page .canteen-mode-icon,
+.canteen-settings-page .canteen-section-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    background: #e9edff;
+    color: #526cff;
+    font-size: 20px
+}
+
+.canteen-settings-page .canteen-mode-copy strong {
+    font-size: 13px;
+    color: #13284f
+}
+
+.canteen-settings-page .canteen-mode-copy small {
+    font-size: 11px
+}
+
+.canteen-settings-page .canteen-mode.selected .canteen-mode-radio {
+    border-color: #526cff
+}
+
+.canteen-settings-page .canteen-field>input,
+.canteen-settings-page .canteen-money {
+    height: 42px;
+    min-height: 42px;
+    border: 1px solid #d4dcef;
+    border-radius: 11px;
+    background: #fff;
+    box-shadow: 0 5px 12px rgba(91, 101, 151, .08)
+}
+
+.canteen-settings-page .canteen-field>input:focus,
+.canteen-settings-page .canteen-money:focus-within {
+    outline: none;
+    border-color: #5c79ff;
+    box-shadow: 0 0 0 3px rgba(88, 115, 255, .12)
+}
+
+.canteen-settings-page .canteen-money span {
+    background: #f2f4ff;
+    border-color: #d9dff2
+}
+
+.canteen-settings-page .canteen-money input {
+    min-height: 40px;
+    outline: none;
+    background: transparent
+}
+
+.canteen-settings-page .canteen-field-label {
+    font-size: 13px;
+    color: #1c335b
+}
+
+.canteen-settings-page .canteen-choices button {
+    min-height: 39px;
+    border: 1px solid #bac8ff;
+    border-radius: 10px;
+    background: #fff;
+    color: #3155d8;
+    box-shadow: 0 5px 11px rgba(78, 88, 153, .07)
+}
+
+.canteen-settings-page .canteen-choices button.selected {
+    background: linear-gradient(135deg, #2f63ed, #2352d9);
+    border-color: #315be7;
+    color: #fff;
+    box-shadow: 0 7px 16px rgba(52, 84, 207, .19)
+}
+
+.canteen-settings-page .canteen-guest-toggle input {
+    accent-color: #526cff
+}
+
+.canteen-settings-page .canteen-settings-actions {
+    border-top: 0;
+    padding-top: 2px
+}
+
+.canteen-settings-page .canteen-settings-actions .canteen-back,
+.canteen-settings-page .canteen-settings-actions .canteen-primary {
+    border-radius: 10px
+}
+
+.canteen-settings-page .canteen-settings-actions .canteen-back {
+    border-color: #6480ff;
+    color: #2458e9;
+    background: #fff
+}
+
+.canteen-settings-page .canteen-settings-actions .canteen-primary {
+    background: linear-gradient(135deg, #5d76ff, #4763ef);
+    border-color: #526cff;
+    box-shadow: 0 8px 18px rgba(81, 103, 229, .2)
+}
+
+@media(max-width:600px) {
+    .canteen-settings-page {
+        margin: 0;
+        padding: 15px 12px 36px;
+        border: 0;
+        border-radius: 0
+    }
+
+    .canteen-settings-page .canteen-header {
+        align-items: start
+    }
+
+    .canteen-settings-page .canteen-header h1 {
+        font-size: 22px
+    }
+
+    .canteen-settings-page .canteen-settings-title-icon {
+        width: 35px;
+        height: 35px;
+        font-size: 17px
+    }
+
+    .canteen-settings-page .canteen-settings-card {
+        padding: 16px
+    }
+}
+
+.canteen-settings-page .canteen-change-note {
+    margin: 16px 0 0;
+    padding: 11px 13px;
+    border: 1px solid #ffd695;
+    border-radius: 10px;
+    background: #fff8e9;
+    color: #744b13;
+    font-size: 13px;
+    line-height: 1.45
+}

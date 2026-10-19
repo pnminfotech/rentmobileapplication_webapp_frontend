@@ -22,7 +22,7 @@ const Suppliers = () => {
 
   const fetchSuppliers = async () => {
     try {
-      const res = await axios.get("    http://localhost:8000/api/suppliers");
+      const res = await axios.get("    https://rentmobile-api.pnminfotech.com/api/suppliers");
       setSuppliers(res.data);
     } catch (err) {
       console.log(err);
@@ -30,7 +30,7 @@ const Suppliers = () => {
   };
 
   useEffect(() => {
-    fetch("    http://localhost:8000/api/suppliers")
+    fetch("    https://rentmobile-api.pnminfotech.com/api/suppliers")
       .then((res) => res.json())
       .then((data) => setSuppliers(data))
       .catch((err) => console.error("Error fetching suppliers:", err));
@@ -68,7 +68,7 @@ const Suppliers = () => {
         ],
       };
 
-      const res = await axios.post("    http://localhost:8000/api/suppliers", newSupplier);
+      const res = await axios.post("    https://rentmobile-api.pnminfotech.com/api/suppliers", newSupplier);
       setSuppliers([...suppliers, res.data]);
 
       setForm({ name: "", phoneNo: "", address: "", materialName: "", totalPayment: "" });
@@ -82,7 +82,7 @@ const Suppliers = () => {
     if (!selectedSupplier) return;
 
     try {
-      const res = await axios.post(`    http://localhost:8000/api/suppliers/${selectedSupplier._id}/payment`, transaction);
+      const res = await axios.post(`    https://rentmobile-api.pnminfotech.com/api/suppliers/${selectedSupplier._id}/payment`, transaction);
       setSuppliers((prevSuppliers) =>
         prevSuppliers.map((supplier) => (supplier._id === selectedSupplier._id ? res.data : supplier))
       );

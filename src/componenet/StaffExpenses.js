@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 export default function StaffExpenses({ embedded = false, openAddModal = false, onModalOpened }) {
   const navigate = useNavigate();
 
-const apiUrl = (process.env.REACT_APP_API_URL || "   http://localhost:8000/api/")
+const apiUrl = (process.env.REACT_APP_API_URL || "   https://rentmobile-api.pnminfotech.com/api/")
   .replace(/\/?$/, "/"); // ✅ always ends with /
 
 

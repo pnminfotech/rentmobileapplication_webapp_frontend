@@ -98,7 +98,7 @@
 
 .room-manager-top-strip {
   align-items: stretch;
-  justify-content: flex-end;
+  /* justify-content: flex-end; */
 }
 
 .room-manager-top-strip-title {
@@ -177,6 +177,39 @@
 
 .room-manager-top-card--beds {
   background: linear-gradient(135deg, #f3fff8 0%, #edfff6 100%);
+}
+
+.room-manager-top-card--occupied {
+  background: linear-gradient(135deg, #ecfff5 0%, #dff8eb 100%);
+}
+
+.room-manager-top-card--vacant {
+  background: linear-gradient(135deg, #fff8e9 0%, #ffefd2 100%);
+}
+
+.room-manager-quota-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 13px 16px;
+  border: 1px solid #dbe4f3;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f8faff, #eef4ff);
+  color: #27456d;
+  font-size: 13px;
+  box-shadow: 0 10px 24px rgba(28, 56, 102, .06);
+}
+
+.room-manager-quota-summary strong { color: #102a52; font-size: 14px; }
+.room-manager-quota-summary span { padding: 6px 10px; border-radius: 999px; background: #fff; border: 1px solid #dce6f6; font-weight: 700; }
+
+@media (min-width: 992px) {
+  .room-manager-quota-summary {
+    height: 100%;
+    min-height: 92px;
+    align-content: center;
+  }
 }
 
 .room-manager-top-card-icon {
@@ -502,6 +535,478 @@
 
 .room-manager-unit-actions .btn {
   white-space: nowrap;
+}
+
+.room-manager-bed-room-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.room-manager-hostel-table thead th {
+  text-align: center;
+}
+
+/* Hostel Units table: shared visual language with the rent tracker table. */
+.room-manager-hostel-table {
+  overflow: hidden;
+  border: 1px solid #b7bad0;
+  border-radius: 14px;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: #0d284f;
+  font-size: 13px;
+}
+
+.room-manager-hostel-table thead th {
+  padding: 13px 12px;
+  background: linear-gradient(180deg, #d8ccf5, #c6b8ee);
+  border-color: #afa7d1;
+ 
+  /* font-weight: 800; */
+  letter-spacing: .01em;
+      color: #1f2937 !important;
+    font-weight: 600;
+    padding: 14px !important;
+    text-align: center;
+    white-space: nowrap;
+    font-size: 16px;
+        border: 1px solid #ddd;
+}
+
+.room-manager-hostel-table tbody tr:not(.table-light) td:not([colspan]) {
+  padding: 14px 12px;
+  background: #f0f0fa;
+  border-color: #b9bbc9;
+  color: #102a52;
+  vertical-align: middle;
+}
+
+.room-manager-hostel-table tbody tr.table-light td {
+  padding: 14px 16px;
+  background: #d9dae7;
+     border: 1px solid #ddd;
+  color: #071d41;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.room-manager-hostel-table tbody tr:not(.table-light) td[colspan] {
+  padding: 10px 14px;
+  background: #ffffff;
+    border: 1px solid #ddd;
+  color: #344d72 !important;
+  font-size: 12px;
+}
+
+.room-manager-hostel-table .room-manager-hostel-group-title {
+  padding: 12px 16px !important;
+  background: #d9dae7 !important;
+  color: #071d41 !important;
+  font-size: 14px !important;
+  font-weight: 800;
+}
+
+.room-manager-hostel-group-title small {
+  display: block;
+  margin-top: 4px;
+  color: #425e83 !important;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.room-manager-hostel-table .badge {
+  font-size: 11px;
+}
+
+.room-manager-hostel-table small,
+.room-manager-hostel-table .text-muted {
+  color: #425e83 !important;
+}
+
+@media (min-width: 768px) and (max-width: 1200px) {
+  .room-manager-bed-room-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    align-items: center;
+    justify-content: center;
+    gap: 10px 12px;
+  }
+
+  .room-manager-bed-room-actions .btn {
+    margin-left: 0 !important;
+  }
+}
+
+/* Hostel table actions */
+.room-manager-bed-price-action,
+.room-manager-hostel-action {
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+  width:110px;
+}
+
+.room-manager-bed-price-action:hover:not(:disabled),
+.room-manager-hostel-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.room-manager-bed-price-action {
+  color: #ffffff;
+  background: linear-gradient(135deg, #377ef4, #1d64e6);
+  box-shadow: 0 6px 12px rgba(35, 105, 229, .2);
+}
+
+.room-manager-hostel-actions {
+  min-width: 390px;
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) 1px minmax(112px, .72fr);
+  align-items: stretch;
+  gap: 12px;
+}
+
+.room-manager-bed-actions,
+.room-manager-room-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+.room-manager-room-actions{
+  
+     display: flex;
+    align-items: baseline;
+    gap: 7px;
+    flex-direction: row-reverse;
+    flex-wrap: nowrap;
+    align-content: stretch;
+    justify-content: space-evenly;
+}
+
+.room-manager-bed-action-row {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  gap: 8px;
+  border-bottom: 1px solid #9aa0a6;
+}
+
+.room-manager-bed-details-cell,
+.room-manager-bed-actions-cell {
+  vertical-align: top !important;
+}
+
+.room-manager-bed-actions-cell {
+  display: table-cell;
+}
+
+.room-manager-bed-row {
+  min-height: 40px;
+  justify-content: flex-start !important;
+}
+
+.room-manager-bed-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 0;
+  flex: 0 0 auto;
+}
+
+.room-manager-bed-table th:nth-child(5),
+.room-manager-bed-table td:nth-child(5) {
+  width: 500px;
+  min-width: 500px;
+}
+
+.room-manager-bed-table th:last-child,
+.room-manager-bed-table td:last-child {
+  width: 380px;
+  min-width: 380px;
+}
+
+@media (min-width: 769px) {
+  .room-manager-bed-row {
+    flex-wrap: nowrap !important;
+  }
+}
+
+.room-manager-bed-action-row:last-child {
+  border-bottom: 0;
+}
+
+.room-manager-action-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 96px;
+  background: #9aa0a6;
+  margin: 0;
+  flex: 0 0 1px;
+}
+
+.room-manager-hostel-action--add {
+  color: #ffffff;
+  background: linear-gradient(135deg, #44c980, #28a966);
+  box-shadow: 0 6px 12px rgba(40, 169, 102, .2);
+}
+
+.room-manager-hostel-action--delete-bed {
+  color: #b54759;
+  background: #fff8f9;
+  border-color: #f4bec9;
+}
+
+.room-manager-hostel-action--edit-room {
+  color: #55677f;
+  background: #ffffff;
+  border-color: #d9e3f0;
+  box-shadow: 0 3px 8px rgba(32, 52, 82, .05);
+}
+
+.room-manager-hostel-action--delete-room {
+  color: #e4475c;
+  background: #fff4f6;
+  border-color: #ffc1cc;
+}
+
+.room-manager-hostel-action:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .room-manager-hostel-actions {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .room-manager-bed-actions,
+  .room-manager-room-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .room-manager-bed-action-row {
+    min-height: 0;
+    border-bottom: 0;
+  }
+
+  .room-manager-action-divider {
+    display: none;
+  }
+}
+
+/* Tablet and small-laptop Units layout */
+@media (min-width: 99999px) {
+  .room-manager-desktop-header {
+    min-height: 42px;
+    margin-bottom: 14px !important;
+  }
+
+  .room-manager-back-btn {
+    min-width: 70px;
+    min-height: 34px;
+    padding: 0 12px !important;
+    border-radius: 9px !important;
+    font-size: 12px;
+  }
+
+  .room-manager-header-tools {
+    display: grid;
+    grid-template-columns: auto minmax(260px, 1fr) auto;
+    gap: 10px;
+    margin: 0 0 14px !important;
+  }
+
+  .room-manager-header-search {
+    width: auto;
+  }
+
+  .room-manager-header-search .form-control,
+  .room-manager-outline-btn,
+  .room-manager-top-card-btn {
+    min-height: 36px !important;
+    border-radius: 9px !important;
+    font-size: 12px !important;
+  }
+
+  .room-manager-outline-btn::after {
+    font-size: 12px;
+  }
+
+  .room-manager-top-card-btn {
+    min-width: 126px;
+    padding: 0 12px !important;
+  }
+
+  .room-manager-top-strip {
+    display: grid;
+    grid-template-columns: minmax(250px, 1fr) minmax(170px, .52fr) minmax(170px, .52fr);
+    gap: 10px;
+    margin-bottom: 14px !important;
+  }
+
+  .room-manager-top-strip > * {
+    width: auto;
+    max-width: none;
+    margin: 0;
+  }
+
+  .room-manager-top-strip-page-title {
+    font-size: 1.55rem;
+  }
+
+  .room-manager-top-card {
+    min-height: 62px !important;
+    border-radius: 12px !important;
+  }
+
+  .room-manager-top-card-inner {
+    padding: 9px 12px !important;
+  }
+
+  .room-manager-top-card-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 17px;
+  }
+
+  .room-manager-top-card-label {
+    font-size: 11px;
+  }
+
+  .room-manager-top-card-value {
+    font-size: 1.25rem !important;
+  }
+
+  .room-manager-table-card {
+    border-radius: 14px !important;
+  }
+
+  .room-manager-table-card .card-body {
+    padding: 12px !important;
+  }
+
+  .room-manager-filterbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 12px;
+    padding: 0 0 12px;
+    margin-bottom: 10px !important;
+  }
+
+  .room-manager-filterbar-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+    gap: 10px 12px;
+  }
+
+  .room-manager-filter-field {
+    min-width: 0;
+  }
+
+  .room-manager-filter-field .form-label {
+    font-size: 10px;
+    margin-bottom: 3px !important;
+  }
+
+  .room-manager-filter-field .form-select,
+  .room-manager-reset-btn {
+    min-height: 36px;
+    border-radius: 9px !important;
+    font-size: 12px;
+  }
+
+  .room-manager-reset-btn {
+    padding: 0 12px !important;
+  }
+
+  .room-manager-hostel-actions {
+    min-width: 285px;
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) 1px minmax(92px, .72fr);
+    align-items: start;
+    gap: 10px;
+  }
+
+  .room-manager-bed-actions,
+  .room-manager-room-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+  }
+
+  .room-manager-bed-action-row {
+    min-height: 28px;
+    justify-content: flex-start;
+    gap: 7px;
+    border-bottom: 1px solid #9aa0a6;
+  }
+
+  .room-manager-bed-action-row:last-child {
+    border-bottom: 0;
+  }
+
+  .room-manager-action-divider {
+    align-self: stretch;
+    height: auto;
+    min-height: 96px;
+    margin: 0;
+  }
+
+  .room-manager-bed-price-action,
+  .room-manager-hostel-action {
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+
+  .room-manager-hostel-action--add,
+  .room-manager-hostel-action--edit-room,
+  .room-manager-hostel-action--delete-room {
+    width: max-content;
+  }
+
+  .room-manager-table-card table {
+    font-size: 11px;
+  }
+
+  .room-manager-table-card table th,
+  .room-manager-table-card table td {
+    padding: 8px 6px;
+  }
+
+  .room-manager-table-card table td:nth-child(5) {
+    min-width: 150px;
+  }
+
+  .room-manager-table-card table tbody tr:not(.table-light) td:nth-child(5) > div {
+    min-height: 48px;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+  }
+
+  .room-manager-table-card table tbody tr:not(.table-light) td:last-child {
+    vertical-align: top;
+    padding-top: 8px;
+  }
 }
 
 /* ===============================

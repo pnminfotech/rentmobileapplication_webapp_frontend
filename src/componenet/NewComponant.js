@@ -5,8 +5,8 @@ import "../Pages/NewComponent.css";
 
 import { API_BASE, api } from "../api";
 import { getRentSummary, importTenantsFromSheet } from "../api/tenantApi";
-import { getSystemDashboard } from "../saasApi";
-import { allowedUnitTypes, firstAllowedType, isTypeAllowed } from "../utils/subscriptionAccess";
+import { UNIT_TYPES } from "../utils/subscriptionAccess";
+import { lookupIndianPincode } from "../utils/pincodeLookup";
 // import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaEdit, FaBars } from "react-icons/fa";
 import { FaInfoCircle } from "react-icons/fa";
@@ -26,6 +26,8 @@ import {FaUtensils} from "react-icons/fa";
 import { FaThLarge } from "react-icons/fa";
  import OtherExpense from "../Pages/OtherExpense";
 import LightBill from "../Pages/LightBill";
+import { getLightBillSettings } from "../api/lightBillApi";
+import { canteenApi, meals as canteenMeals } from "../Pages/canteenShared";
 import { FaSearch } from "react-icons/fa";
 import { FaSignOutAlt, FaUndo, FaDownload } from "react-icons/fa";
 import FormDownload from "../componenet/Maintanace/FormDownload";
@@ -45,6 +47,47 @@ import RoomManager from "./RoomManager"; // adjust path if needed
 // import { useNavigate } from 'react-router-dom';
 import { FaMoneyBillWave, FaPhoneAlt, FaCalendarAlt } from "react-icons/fa";
 const axios = api;
+
+const canteenPlanLabels = { per_meal: "Per meal", meal_package: "Meal package", full_package: "Full package" };
+const canteenPlansFor = (settings) => (settings?.activeModes || []).filter((mode) => canteenPlanLabels[mode]);
+function tenantCanteenFields(tenant, settings, propertyType) {
+  const hasCanteen = propertyType === "bed" && normalizeCanteenValue(tenant?.canteen ?? tenant?.hasCanteen) === "yes";
+  const canteenPlanType = hasCanteen ? tenant?.canteenPlanType || canteenPlansFor(settings)[0] || "" : "";
+  const enteredPrices = tenant?.canteenMealPrices || {};
+  const hasIndividualPrices = canteenMeals.some((meal) => Number(enteredPrices[meal]) > 0);
+  return {
+    hasCanteen,
+    canteenPlanType,
+    canteenStartDate: hasCanteen ? tenant?.canteenStartDate || tenant?.joiningDate || undefined : undefined,
+    canteenMonthlyAmount: hasCanteen && canteenPlanType !== "per_meal" ? Number(tenant?.canteenMonthlyAmount || 0) : 0,
+    canteenMealPrices: Object.fromEntries(canteenMeals.map((meal) => [meal, hasCanteen && canteenPlanType === "per_meal" && hasIndividualPrices ? Number(enteredPrices[meal] || settings?.perMeal?.[meal] || 0) : 0])),
+    canteenIncludedMeals: hasCanteen && canteenPlanType !== "per_meal" ? settings?.[canteenPlanType === "meal_package" ? "mealPackage" : "fullPackage"]?.includedMeals || tenant?.canteenIncludedMeals || [] : [],
+  };
+}
+function CanteenTenantRates({ tenant, setTenant, settings }) {
+  if (normalizeCanteenValue(tenant?.canteen ?? tenant?.hasCanteen) !== "yes") return null;
+  const plans = canteenPlansFor(settings);
+  const selectedPlan = tenant?.canteenPlanType || plans[0] || "";
+  const commonAmount = settings?.[selectedPlan === "meal_package" ? "mealPackage" : "fullPackage"]?.monthlyAmount || 0;
+  return <div className="col-12">
+    {!settings?.isConfigured || !plans.length ? <div className="alert alert-warning py-2">Configure canteen rates in Meal settings before assigning canteen service.</div> : <>
+      <label className="form-label">Canteen billing plan</label>
+      <select className="form-select mb-2" value={selectedPlan} onChange={(e) => setTenant((prev) => ({ ...prev, canteenPlanType: e.target.value, canteenMonthlyAmount: "", canteenMealPrices: { breakfast: "", lunch: "", dinner: "" } }))}>
+        {plans.map((plan) => <option key={plan} value={plan}>{canteenPlanLabels[plan]}</option>)}
+      </select>
+      {selectedPlan === "per_meal" ? <div className="row g-2">
+        {canteenMeals.map((meal) => <div className="col-12 col-md-4" key={meal}>
+          <label className="form-label">Individual {meal} price</label>
+          <input type="number" min="0" step="0.01" className="form-control" value={tenant?.canteenMealPrices?.[meal] ?? ""} placeholder={`Common: ₹${settings?.perMeal?.[meal] || 0}`} onChange={(e) => setTenant((prev) => ({ ...prev, canteenMealPrices: { ...prev.canteenMealPrices, [meal]: e.target.value } }))} />
+        </div>)}
+      </div> : <>
+        <label className="form-label">Individual monthly amount</label>
+        <input type="number" min="0" step="0.01" className="form-control" value={tenant?.canteenMonthlyAmount ?? ""} placeholder={`Common: ₹${commonAmount}`} onChange={(e) => setTenant((prev) => ({ ...prev, canteenMonthlyAmount: e.target.value }))} />
+      </>}
+      <small className="text-muted">Leave individual rates blank to use the common canteen settings.</small>
+    </>}
+  </div>;
+}
 
 const TRACKER_TYPES = ["bed", "room", "shop"];
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -133,10 +176,25 @@ function buildApiUrl(base) {
 
   const fallbackOrigin =
     typeof window !== "undefined" && LOCAL_HOSTS.has(window.location.hostname)
-      ? "   http://localhost:8000/"
-      : " http://localhost:8000/";
+      ? "   https://rentmobile-api.pnminfotech.com/"
+      : " https://rentmobile-api.pnminfotech.com/";
 
   return new URL("/api/", fallbackOrigin).toString();
+}
+
+function getWebTenantInviteUrl(invite, appBasePath) {
+  const returnedUrl = invite?.url ? new URL(invite.url, window.location.origin) : null;
+  const token = invite?.token || returnedUrl?.searchParams.get("inv");
+  if (!token) return "";
+
+  const configuredWebUrl = String(process.env.REACT_APP_TENANT_FORM_BASE_URL || "").trim();
+  const webUrl = configuredWebUrl
+    ? new URL(configuredWebUrl, window.location.origin)
+    : new URL(`${appBasePath || ""}/tenant-intake`, window.location.origin);
+  webUrl.search = returnedUrl?.search || "";
+  webUrl.searchParams.set("tenant", "true");
+  webUrl.searchParams.set("inv", token);
+  return webUrl.toString();
 }
 
 function normalizeTrackerType(value) {
@@ -145,7 +203,7 @@ function normalizeTrackerType(value) {
 }
 
 function normalizeCanteenValue(value) {
-  return String(value || "").trim().toLowerCase() === "yes" ? "yes" : "no";
+  return value === true || String(value || "").trim().toLowerCase() === "yes" ? "yes" : "no";
 }
 
 const CANTEEN_MEAL_RATE = 75;
@@ -274,6 +332,15 @@ function normalizeRoomPropertyType(room) {
   if (bedNos.some((bedNo) => bedNo === "SHOP-1")) return "shop";
   if (bedNos.some((bedNo) => bedNo === "ROOM-1")) return "room";
 
+  return "bed";
+}
+
+function normalizeTenantPropertyType(tenant) {
+  const explicitType = String(tenant?.propertyType || "").trim().toLowerCase();
+  if (explicitType === "room" || explicitType === "shop") return explicitType;
+  const bedNo = String(tenant?.bedNo || "").trim().toUpperCase();
+  if (bedNo === "ROOM-1") return "room";
+  if (bedNo === "SHOP-1") return "shop";
   return "bed";
 }
 
@@ -485,13 +552,14 @@ function NewComponant() {
   const navigate = useNavigate();
   const trackerTypeFromLocation = useMemo(() => getTrackerTypeFromLocation(location), [location]);
   const [trackerType, setTrackerType] = useState(trackerTypeFromLocation);
-  const [unitAccess, setUnitAccess] = useState(null);
-  const [unitAccessLoaded, setUnitAccessLoaded] = useState(false);
-  const allowedTrackerTypes = useMemo(() => allowedUnitTypes(unitAccess || {}), [unitAccess]);
-  const allowedTrackerTypeValues = useMemo(
-    () => new Set(allowedTrackerTypes.map((item) => item.value)),
-    [allowedTrackerTypes]
-  );
+  const [canteenSettings, setCanteenSettings] = useState(null);
+  useEffect(() => {
+    if (trackerType !== "bed") return;
+    let active = true;
+    canteenApi.settings().then((data) => { if (active) setCanteenSettings(data); }).catch(() => { if (active) setCanteenSettings(null); });
+    return () => { active = false; };
+  }, [trackerType]);
+  const trackerNavigationTypes = UNIT_TYPES;
   const trackerGroupLabel = trackerType === "bed" ? "Hostel" : "Property";
   const trackerLabel = trackerType === "shop"
     ? "Commercial Shop"
@@ -513,6 +581,10 @@ function NewComponant() {
       const roomValue = String(roomNo || "").trim() || "-";
       const bedValue = String(bedNo || "").trim();
 
+      if (/^UNASSIGNED-/i.test(roomValue)) {
+        return "Details pending";
+      }
+
       if (trackerType === "shop") return `Shop ${roomValue}`;
       if (trackerType === "room") return `Room ${roomValue}`;
       return `Room ${roomValue}${bedValue ? ` - Bed ${bedValue}` : ""}`;
@@ -522,6 +594,8 @@ function NewComponant() {
   const [formData, setFormData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [unitsLoadFailed, setUnitsLoadFailed] = useState(false);
+  const [tenantsLoadFailed, setTenantsLoadFailed] = useState(false);
   const [roomsData, setRoomsData] = useState([]);
   const [allRoomsData, setAllRoomsData] = useState([]);
   const [allTenantsData, setAllTenantsData] = useState([]);
@@ -529,17 +603,22 @@ function NewComponant() {
   // Map shape: month key (e.g. "Sep-26") -> Map(tenantId -> summary row).
   const [rentSummaryByMonth, setRentSummaryByMonth] = useState(new Map());
   const [rentSummaryRevision, setRentSummaryRevision] = useState(0);
+  const rentSummaryCacheRef = useRef(new Map());
+  const rentSummaryCacheRevisionRef = useRef(0);
+  const lastFocusRefreshAtRef = useRef(0);
   const importFileInputRef = useRef(null);
   const [templateType, setTemplateType] = useState("");
   const [importingType, setImportingType] = useState("");
 // 📌 New state for Aadhaar + Photo
-const [selfAadharFile, setSelfAadharFile] = useState(null);
-const [parentAadharFile, setParentAadharFile] = useState(null);
-const [photoFile, setPhotoFile] = useState(null);
+const [selfAadharFile, setSelfAadharFile] = useState([]);
+const [parentAadharFile, setParentAadharFile] = useState([]);
+const [photoFile, setPhotoFile] = useState([]);
+const [panCardFile, setPanCardFile] = useState([]);
 // Edit Tenant: document uploads
-const [editSelfAadharFile, setEditSelfAadharFile] = useState(null);
-const [editParentAadharFile, setEditParentAadharFile] = useState(null);
-const [editPhotoFile, setEditPhotoFile] = useState(null);
+const [editSelfAadharFile, setEditSelfAadharFile] = useState([]);
+const [editParentAadharFile, setEditParentAadharFile] = useState([]);
+const [editPhotoFile, setEditPhotoFile] = useState([]);
+const [editPanCardFile, setEditPanCardFile] = useState([]);
 const [editDocMsg, setEditDocMsg] = useState("");
 // For Staff & Other Expenses
   const [showExpensesModal, setShowExpensesModal] = useState(false);
@@ -563,6 +642,8 @@ const [showCanteenTenantModal, setShowCanteenTenantModal] = useState(false);
 const [showMonthBreakdownModal, setShowMonthBreakdownModal] = useState(false);
 const [selectedMonthBreakdown, setSelectedMonthBreakdown] = useState(null);
 const [showTenantLightBillModal, setShowTenantLightBillModal] = useState(false);
+const [rentLightBillSettings, setRentLightBillSettings] = useState(null);
+const [rentLightBillSettingsError, setRentLightBillSettingsError] = useState(false);
 const [updatingBreakdownStatusKey, setUpdatingBreakdownStatusKey] = useState("");
 
 const [pendingTenants, setPendingTenants] = useState([]);
@@ -606,7 +687,23 @@ const [rentUpdateMode, setRentUpdateMode] = useState("add");
   const [rowMonthStarts, setRowMonthStarts] = useState({});
   const [docs, setDocs] = useState([]);
   const [editingTenant, setEditingTenant] = useState(null);
+  useEffect(() => {
+    if (!editingTenant) return undefined;
+    let active = true;
+    setRentLightBillSettings(null);
+    setRentLightBillSettingsError(false);
+    getLightBillSettings().then((settings) => {
+      if (active) setRentLightBillSettings(settings);
+    }).catch(() => {
+      if (active) setRentLightBillSettingsError(true);
+    });
+    return () => { active = false; };
+  }, [editingTenant, showTenantLightBillModal]);
 const [editRentAmount, setEditRentAmount] = useState("");
+const [editRentCanteenAmount, setEditRentCanteenAmount] = useState("");
+const [editRentQuote, setEditRentQuote] = useState(null);
+const [editRentQuoteLoading, setEditRentQuoteLoading] = useState(false);
+const [editRentQuoteError, setEditRentQuoteError] = useState("");
   const [editRentDate, setEditRentDate] = useState("");
   const [editRentCanteen, setEditRentCanteen] = useState("no");
 const [editRentDiscount, setEditRentDiscount] = useState("");
@@ -712,12 +809,16 @@ const [editReceiptUrl, setEditReceiptUrl] = useState("");
     __bedMsg: "",
     __savingBed: false,
     canteen: "no",
+    canteenPlanType: "",
+    canteenMonthlyAmount: "",
+    canteenMealPrices: { breakfast: "", lunch: "", dinner: "" },
 
   firstRentStatus: "ADVANCE_PAID",
   firstRentPaidDate: "",
   });
   const [tenantUnitSetupTarget, setTenantUnitSetupTarget] = useState(null);
   const [tenantUnitSetupSaving, setTenantUnitSetupSaving] = useState(false);
+  const [tenantUnitSetupCustom, setTenantUnitSetupCustom] = useState({});
   const [tenantUnitSetupForm, setTenantUnitSetupForm] = useState({
     category: "",
     hasWing: false,
@@ -728,28 +829,30 @@ const [editReceiptUrl, setEditReceiptUrl] = useState("");
     price: "",
     bedCategory: "",
   });
+  const [newTenantPinStatus, setNewTenantPinStatus] = useState("idle");
   useEffect(() => {
     const pin = String(newTenant?.pincode || "").trim();
-    if (!/^\d{6}$/.test(pin)) return;
+    if (!showAddModal || !/^\d{6}$/.test(pin)) {
+      setNewTenantPinStatus("idle");
+      return;
+    }
 
-    let cancelled = false;
+    const controller = new AbortController();
+    setNewTenantPinStatus("loading");
     const timer = window.setTimeout(() => {
       const fetchPincodeDetails = async () => {
         try {
-          const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
-          if (!res.ok) return;
-          const data = await res.json();
-          const office = data?.[0]?.PostOffice?.[0];
-          if (!office || cancelled) return;
-
-          // Only autofill blanks so we don't fight with the user's manual typing.
+          const details = await lookupIndianPincode(pin, controller.signal);
+          if (controller.signal.aborted) return;
           setNewTenant((prev) => ({
             ...prev,
-            city: String(prev?.city || "").trim() ? prev.city : office.District || "",
-            state: String(prev?.state || "").trim() ? prev.state : office.State || "",
+            city: String(prev?.pincode || "").trim() === pin ? (prev.city || details.city) : prev.city,
+            state: String(prev?.pincode || "").trim() === pin ? (prev.state || details.state) : prev.state,
+            nearbyPlace: String(prev?.pincode || "").trim() === pin ? (prev.nearbyPlace || details.nearbyPlace) : prev.nearbyPlace,
           }));
+          setNewTenantPinStatus("success");
         } catch {
-          // Fail silently to keep form usable
+          if (!controller.signal.aborted) setNewTenantPinStatus("error");
         }
       };
 
@@ -757,10 +860,10 @@ const [editReceiptUrl, setEditReceiptUrl] = useState("");
     }, 350);
 
     return () => {
-      cancelled = true;
+      controller.abort();
       window.clearTimeout(timer);
     };
-  }, [newTenant?.pincode]);
+  }, [newTenant?.pincode, showAddModal]);
 
   const [firstRentStatusSelection, setFirstRentStatusSelection] = useState("ADVANCE_PAID");
   const [sortConfig, setSortConfig] = useState({
@@ -815,7 +918,7 @@ const totalBeds = (Array.isArray(roomsData) ? roomsData : []).reduce(
       },
     };
 
-    const enabled = allowedTrackerTypes
+    const enabled = trackerNavigationTypes
       .map((item) => typeMeta[item.value])
       .filter(Boolean);
 
@@ -841,7 +944,7 @@ const totalBeds = (Array.isArray(roomsData) ? roomsData : []).reduce(
       },
       { key: "staff", label: "Staff", icon: <MdPerson /> },
     ];
-  }, [allowedTrackerTypes]);
+  }, [trackerNavigationTypes]);
 
 
 
@@ -1104,15 +1207,33 @@ const getTrackerPropertyLabel = (item) => {
   return String(item?.buildingName || item?.category || "").trim();
 };
 
-const getTrackerPropertyLabelForTenant = (tenant) => {
-  const matchedRoom = (allRoomsData || []).find((room) => {
-    const tenantRoomId = tenant?.roomId?._id || tenant?.roomId;
-    if (tenantRoomId && String(room?._id) === String(tenantRoomId)) {
-      return true;
-    }
+const findTrackerRoomForTenant = (tenant, rooms = allRoomsData) => {
+  const roomList = Array.isArray(rooms) ? rooms : [];
+  const roomId = tenant?.roomId?._id || tenant?.roomId || tenant?.room?._id || tenant?.room;
+  if (roomId) {
+    const byId = roomList.find((room) => String(room?._id) === String(roomId));
+    if (byId) return byId;
+  }
 
-    return String(room?.roomNo ?? "").trim() === String(tenant?.roomNo ?? "").trim();
-  });
+  const roomNo = String(tenant?.roomNo || tenant?.roomId?.roomNo || "").trim();
+  if (!roomNo) return null;
+  const matchingNumber = roomList.filter((room) => String(room?.roomNo || "").trim() === roomNo);
+  const property = String(tenant?.buildingName || tenant?.category || "").trim().toLowerCase();
+  if (property) {
+    const byProperty = matchingNumber.find((room) => getTrackerPropertyLabel(room).toLowerCase() === property);
+    if (byProperty) return byProperty;
+  }
+  const wing = String(tenant?.wingName || "").trim().toLowerCase();
+  const floor = String(tenant?.floorNo || "").trim().toLowerCase();
+  const byLocation = matchingNumber.filter((room) =>
+    (!wing || String(room?.wingName || "").trim().toLowerCase() === wing) &&
+    (!floor || String(room?.floorNo || "").trim().toLowerCase() === floor)
+  );
+  return byLocation.length === 1 ? byLocation[0] : matchingNumber.length === 1 ? matchingNumber[0] : null;
+};
+
+const getTrackerPropertyLabelForTenant = (tenant) => {
+  const matchedRoom = findTrackerRoomForTenant(tenant);
 
   const roomLabel = getTrackerPropertyLabel(matchedRoom);
   if (roomLabel) return roomLabel;
@@ -1124,14 +1245,7 @@ const getTrackerFlatTypeForTenant = (tenant) => {
   const directFlatType = String(tenant?.flatType || "").trim();
   if (directFlatType) return directFlatType;
 
-  const matchedRoom = (allRoomsData || []).find((room) => {
-    const tenantRoomId = tenant?.roomId?._id || tenant?.roomId;
-    if (tenantRoomId && String(room?._id) === String(tenantRoomId)) {
-      return true;
-    }
-
-    return String(room?.roomNo ?? "").trim() === String(tenant?.roomNo ?? "").trim();
-  });
+  const matchedRoom = findTrackerRoomForTenant(tenant);
 
   return String(matchedRoom?.flatType || "").trim();
 };
@@ -1146,6 +1260,14 @@ const getTrackerRoomKey = (roomNo, propertyLabel = "") => {
 // ✅ ONE source of truth: occupied beds/units
 const makeOccKey = (roomNo, bedNo, propertyLabel = "") =>
   `${getTrackerRoomKey(roomNo, propertyLabel)}-${String(bedNo ?? "").trim()}`;
+
+const physicalBedKey = (slot) => [
+  slot.propertyLabel || slot.category,
+  slot.wingName,
+  slot.floorNo,
+  slot.roomNo,
+  slot.bedNo,
+].map((value) => String(value ?? "").trim().toLowerCase()).join("::");
 
 const occupiedBedSet = useMemo(() => {
   const s = new Set();
@@ -1513,41 +1635,38 @@ const getStatusWeight = (status) => {
     windowEnd.setHours(23, 59, 59, 999);
     return today >= createdAt && today <= windowEnd;
   }, [editTenantData?.createdAt, editTenantData?.joiningDate]);
+  const [editTenantPinStatus, setEditTenantPinStatus] = useState("idle");
   useEffect(() => {
     const pin = String(editTenantData?.pincode || "").trim();
-    if (!/^\d{6}$/.test(pin)) return;
+    if (!showEditModal || !/^\d{6}$/.test(pin)) {
+      setEditTenantPinStatus("idle");
+      return;
+    }
 
-    let cancelled = false;
-    // Clear previous city/state so user can enter manually if lookup fails
-    setEditTenantData((prev) => (prev ? { ...prev, city: "", state: "" } : prev));
-
-    const fetchPincodeDetails = async () => {
+    const controller = new AbortController();
+    setEditTenantPinStatus("loading");
+    const timer = window.setTimeout(async () => {
       try {
-        const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const office = data?.[0]?.PostOffice?.[0];
-        if (!office || cancelled) return;
-
-        setEditTenantData((prev) =>
-          prev
-            ? {
-                ...prev,
-                city: office.District || "",
-                state: office.State || "",
-              }
-            : prev
-        );
+        const details = await lookupIndianPincode(pin, controller.signal);
+        if (controller.signal.aborted) return;
+        setEditTenantData((prev) => prev && String(prev.pincode || "").trim() === pin
+          ? {
+              ...prev,
+              city: prev.city || details.city,
+              state: prev.state || details.state,
+              nearbyPlace: prev.nearbyPlace || details.nearbyPlace,
+            }
+          : prev);
+        setEditTenantPinStatus("success");
       } catch {
-        // Fail silently to keep form usable
+        if (!controller.signal.aborted) setEditTenantPinStatus("error");
       }
-    };
-
-    fetchPincodeDetails();
+    }, 350);
     return () => {
-      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
     };
-  }, [editTenantData?.pincode]);
+  }, [editTenantData?.pincode, showEditModal]);
 
   const residentialEditRooms = useMemo(() => {
     if (trackerType !== "room") return [];
@@ -1913,6 +2032,7 @@ const handleRentYearChange = (nextValueOrEvent) => {
 };
 
 const handleRentSearchChange = (nextValueOrEvent) => {
+  if (showAddModal) return;
   const value =
     typeof nextValueOrEvent === "string"
       ? nextValueOrEvent
@@ -1931,33 +2051,6 @@ const existingForm = formData?.find(
   const apiUrl = useMemo(() => buildApiUrl(API_BASE), []);
 
 const ROOMS_API = `${apiUrl}rooms`;
-const COMMERCIAL_UNITS_API = `${apiUrl}commercial-units`;
-
-  const getCommercialUnitTrackerType = useCallback((unit) => {
-    const explicitType = String(unit?.unitType || unit?.propertyType || "").trim().toLowerCase();
-    return explicitType === "shop" ? "shop" : "room";
-  }, []);
-
-  const mapCommercialUnitToTrackerRoom = useCallback((unit) => {
-    const propertyType = getCommercialUnitTrackerType(unit);
-    return {
-      _id: unit?._id,
-      propertyType,
-      category: String(unit?.buildingName || unit?.category || "").trim(),
-      commercialCategory: String(unit?.category || "").trim(),
-      buildingName: String(unit?.buildingName || "").trim(),
-      floorNo: String(unit?.floorNo || "").trim(),
-      roomNo: String(unit?.unitNo || "").trim(),
-      beds: [
-        {
-          bedNo: getPrimaryUnitBedNo(propertyType),
-          bedCategory: "Primary",
-          price: unit?.price ?? null,
-        },
-      ],
-    };
-  }, [getCommercialUnitTrackerType]);
-
   const filterRoomsForTracker = useCallback(
     (rooms = []) =>
       (Array.isArray(rooms) ? rooms : []).filter((room) => {
@@ -1967,66 +2060,24 @@ const COMMERCIAL_UNITS_API = `${apiUrl}commercial-units`;
   );
 
   const filterTenantsForTracker = useCallback(
-    (tenants = [], rooms = []) => {
-      const scopedRooms = filterRoomsForTracker(Array.isArray(rooms) ? rooms : []);
-
-      return (Array.isArray(tenants) ? tenants : []).filter((tenant) => {
-        const tenantCategory = String(tenant?.category || "").trim().toLowerCase();
-        const tenantRoom = scopedRooms.find((room) => {
-          const tenantRoomId = tenant?.roomId?._id || tenant?.roomId;
-          if (tenantRoomId && String(room?._id) === String(tenantRoomId)) {
-            return true;
-          }
-          if (tenant?.roomNo && String(room?.roomNo) === String(tenant.roomNo)) {
-            if (!tenantCategory) return true;
-            return String(room?.category || "").trim().toLowerCase() === tenantCategory;
-          }
-          if (tenant?.roomNo && tenantCategory) {
-            return (
-              String(room?.roomNo) === String(tenant.roomNo) &&
-              String(room?.category || "").trim().toLowerCase() === tenantCategory
-            );
-          }
-          return false;
-        });
-
-        if (!tenantRoom) return false;
-        return normalizeRoomPropertyType(tenantRoom) === trackerType;
-      });
-    },
-    [filterRoomsForTracker, trackerType]
+    (tenants = []) => (Array.isArray(tenants) ? tenants : []).filter(
+      (tenant) => normalizeTenantPropertyType(tenant) === trackerType
+    ),
+    [trackerType]
   );
 
   const fetchTrackerUnits = useCallback(async () => {
-    if (trackerType === "bed" || trackerType === "room") {
-      const { data } = await axios.get(`${apiUrl}rooms`);
-      return Array.isArray(data) ? data : [];
-    }
-
-    const { data } = await axios.get(COMMERCIAL_UNITS_API);
-    return (Array.isArray(data) ? data : [])
-      .filter((unit) => getCommercialUnitTrackerType(unit) === "shop")
-      .map(mapCommercialUnitToTrackerRoom);
-  }, [apiUrl, COMMERCIAL_UNITS_API, getCommercialUnitTrackerType, mapCommercialUnitToTrackerRoom, trackerType]);
+    const { data } = await api.get("/rooms");
+    return filterRoomsForTracker(Array.isArray(data) ? data : []);
+  }, [filterRoomsForTracker]);
   const fetchAllUnits = useCallback(async () => {
-    const [hostelRes, commercialRes] = await Promise.all([
-      axios.get(`${apiUrl}rooms`),
-      axios.get(COMMERCIAL_UNITS_API),
-    ]);
-
-    const hostelUnits = Array.isArray(hostelRes?.data) ? hostelRes.data : [];
-    const commercialUnits = Array.isArray(commercialRes?.data)
-      ? commercialRes.data
-          .filter((unit) => getCommercialUnitTrackerType(unit) === "shop")
-          .map(mapCommercialUnitToTrackerRoom)
-      : [];
-
-    return [...hostelUnits, ...commercialUnits];
-  }, [apiUrl, COMMERCIAL_UNITS_API, getCommercialUnitTrackerType, mapCommercialUnitToTrackerRoom]);
+    const { data } = await api.get("/rooms");
+    return Array.isArray(data) ? data : [];
+  }, []);
 
   const refreshTenants = React.useCallback(async () => {
     try {
-      const { data } = await axios.get(`${apiUrl}forms`);
+      const { data } = await api.get("/forms");
       setAllTenantsData(Array.isArray(data) ? data : []);
       setFormData(
         filterTenantsForTracker(data, Array.isArray(allRoomsData) ? allRoomsData : [])
@@ -2068,7 +2119,7 @@ const COMMERCIAL_UNITS_API = `${apiUrl}commercial-units`;
 
   const refreshLightBills = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${apiUrl}light-bill/all`);
+      const { data } = await api.get("/light-bill/all");
       const normalizedBills = Array.isArray(data)
         ? data.map((bill) => ({
             ...bill,
@@ -2082,35 +2133,44 @@ const COMMERCIAL_UNITS_API = `${apiUrl}commercial-units`;
   }, [allRoomsData, apiUrl, normalizeLightBillPropertyType]);
 
 const refreshAllData = useCallback(async () => {
-    try {
-      const [trackerUnits, allUnits, { data: allTenants }, { data: allBills }] = await Promise.all([
-        fetchTrackerUnits(),
-        fetchAllUnits(),
-        axios.get(`${apiUrl}forms`),
-        axios.get(`${apiUrl}light-bill/all`),
-      ]);
+    setError(null);
+    setUnitsLoadFailed(false);
+    setTenantsLoadFailed(false);
+    const unitsRequest = fetchAllUnits().then((units) => {
+      setAllRoomsData(units);
+      return units;
+    });
+    const tenantsRequest = api.get("/forms").then(({ data }) => {
+      setAllTenantsData(Array.isArray(data) ? data : []);
+    });
+    const billsRequest = api.get("/light-bill/all").then(({ data }) => data).catch((error) => {
+      console.error("Failed to refresh light bills:", error);
+      return null;
+    });
 
-      setAllRoomsData(Array.isArray(allUnits) ? allUnits : []);
-      setAllTenantsData(Array.isArray(allTenants) ? allTenants : []);
-      const normalizedBills = Array.isArray(allBills)
-        ? allBills.map((bill) => ({
-            ...bill,
-            propertyType: normalizeLightBillPropertyType(bill, allUnits),
-          }))
-        : [];
-      setLightBills(normalizedBills);
-      const scopedRooms = filterRoomsForTracker(trackerUnits);
-      setRoomsData(scopedRooms);
-      setFormData(filterTenantsForTracker(allTenants, scopedRooms));
-      // Rent/light-bill/canteen totals can change whenever tenant/unit data refreshes.
-      setRentSummaryRevision((value) => value + 1);
-      setLoading(false);
-    } catch (e) {
-      console.error("Failed to refresh tracker data:", e);
-      setError("Failed to fetch data");
-      setLoading(false);
+    const [unitsResult, tenantsResult] = await Promise.allSettled([unitsRequest, tenantsRequest]);
+    setUnitsLoadFailed(unitsResult.status === "rejected");
+    setTenantsLoadFailed(tenantsResult.status === "rejected");
+    if (unitsResult.status === "rejected" || tenantsResult.status === "rejected") {
+      const failure = unitsResult.status === "rejected" ? unitsResult.reason : tenantsResult.reason;
+      console.error("Failed to refresh tracker data:", failure);
+      setError(failure?.code === "ECONNABORTED"
+        ? "The server took too long to return tracker records. Please retry."
+        : failure?.response?.data?.message || "Some tracker records could not be loaded. Please try again.");
     }
-  }, [apiUrl, fetchAllUnits, fetchTrackerUnits, filterRoomsForTracker, filterTenantsForTracker, normalizeLightBillPropertyType]);
+    if (unitsResult.status === "fulfilled" || tenantsResult.status === "fulfilled") {
+      setRentSummaryRevision((value) => value + 1);
+    }
+    setLoading(false);
+    const billData = await billsRequest;
+    if (Array.isArray(billData)) {
+      const units = unitsResult.status === "fulfilled" ? unitsResult.value : [];
+      setLightBills(billData.map((bill) => ({
+        ...bill,
+        propertyType: normalizeLightBillPropertyType(bill, units),
+      })));
+    }
+  }, [fetchAllUnits, normalizeLightBillPropertyType]);
 
   async function downloadImportTemplate(type) {
     try {
@@ -2191,7 +2251,7 @@ const refreshAllData = useCallback(async () => {
   const canteenTenants = useMemo(
     () =>
       (Array.isArray(formData) ? formData : []).filter(
-        (tenant) => normalizeRoomPropertyType(tenant) === "bed" && normalizeCanteenValue(tenant?.canteen) === "yes"
+        (tenant) => normalizeRoomPropertyType(tenant) === "bed" && (tenant?.hasCanteen === true || normalizeCanteenValue(tenant?.canteen) === "yes")
       ),
     [formData]
   );
@@ -2259,7 +2319,6 @@ const refreshAllData = useCallback(async () => {
     const scopedRooms = filterRoomsForTracker(Array.isArray(allRoomsData) ? allRoomsData : []);
     setRoomsData(scopedRooms);
     setFormData(filterTenantsForTracker(Array.isArray(allTenantsData) ? allTenantsData : [], scopedRooms));
-    setLoading(false);
   }, [allRoomsData, allTenantsData, filterRoomsForTracker, filterTenantsForTracker]);
 
   const lastModalStateRef = useRef(null);
@@ -2531,18 +2590,21 @@ const refreshAllData = useCallback(async () => {
   ]);
 
   useEffect(() => {
-    const handleFocus = () => {
+    const refreshOnReturn = () => {
+      const now = Date.now();
+      if (now - lastFocusRefreshAtRef.current < 30000) return;
+      lastFocusRefreshAtRef.current = now;
       refreshAllData();
     };
     const handleVisibilityChange = () => {
-      if (!document.hidden) refreshAllData();
+      if (!document.hidden) refreshOnReturn();
     };
 
-    window.addEventListener("focus", handleFocus);
+    window.addEventListener("focus", refreshOnReturn);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("focus", refreshOnReturn);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshAllData]);
@@ -2567,6 +2629,33 @@ const getEditRentMonthKey = (editMonthYM, fallbackDate) => {
 
   return "";
 };
+
+useEffect(() => {
+  if (!editingTenant?._id || editMonthYM.y == null || editMonthYM.m == null) {
+    setEditRentQuote(null);
+    return undefined;
+  }
+  let active = true;
+  setEditRentQuote(null);
+  setEditRentQuoteLoading(true);
+  setEditRentQuoteError("");
+  setEditRentCanteenAmount("");
+  const month = fmtMonthKey(editMonthYM.y, editMonthYM.m);
+  api.get(`/form/${editingTenant._id}/rent-quote`, { params: { month } })
+    .then(({ data }) => {
+      if (!active) return;
+      setEditRentQuote(data);
+      setEditRentAmount(String(Math.max(Number(data?.balance || 0), 0) || ""));
+      if (editingTenant.hasCanteen === true) {
+        setEditRentCanteenAmount(String(Math.max(Number(data?.canteen?.balance || 0), 0) || ""));
+      }
+    })
+    .catch((error) => {
+      if (active) setEditRentQuoteError(error?.response?.data?.message || "Unable to load this month's rent and canteen amounts.");
+    })
+    .finally(() => { if (active) setEditRentQuoteLoading(false); });
+  return () => { active = false; };
+}, [editingTenant?._id, editingTenant?.hasCanteen, editMonthYM.y, editMonthYM.m]);
 
 const getFirstRentMonthForStatus = (joiningDate, firstRentStatus) => {
   if (!joiningDate) return "";
@@ -2777,7 +2866,7 @@ useEffect(() => {
       setNewTenant((p) => ({
         ...p,
         ...(r.data?.prefill || {}),
-        canteen: normalizeCanteenValue(r.data?.prefill?.canteen ?? p.canteen),
+        canteen: normalizeCanteenValue(r.data?.prefill?.hasCanteen ?? p.hasCanteen ?? r.data?.prefill?.canteen ?? p.canteen),
       }));
     } catch (e) {
       console.error(e);
@@ -2863,6 +2952,8 @@ const handleShareAddTenantModal = React.useCallback(async () => {
       dateOfJoiningCollege: newTenant.dateOfJoiningCollege || undefined,
       dob: newTenant.dob || undefined,
       canteen: trackerType === "bed" ? normalizeCanteenValue(newTenant.canteen) : undefined,
+      hasCanteen: trackerType === "bed" && normalizeCanteenValue(newTenant.canteen) === "yes",
+      ...tenantCanteenFields(newTenant, canteenSettings, trackerType),
       firstRentStatus: newTenant.firstRentStatus || "ADVANCE_PAID",
       firstRentMonth: newTenant.firstRentMonth || undefined,
       firstRentPaidDate: newTenant.firstRentPaidDate || undefined,
@@ -2875,7 +2966,7 @@ setFormId(res.data?.formId || null);
 
 setFormId(res.data?.formId || null);
 setInviteToken(res.data?.token || null);
-    const url = res.data?.url;
+    const url = getWebTenantInviteUrl(res.data, appBasePath);
     if (!url) {
       alert("Failed to create invite link");
       return;
@@ -2905,7 +2996,7 @@ setInviteToken(res.data?.token || null);
     console.error("Share failed:", err.response?.data || err);
     alert(err.response?.data?.message || "Share failed. Check console.");
   }
-}, [newTenant, trackerType, roomsData]);
+}, [newTenant, trackerType, roomsData, appBasePath]);
 
 
 
@@ -2947,8 +3038,8 @@ const isActiveTenant = (t) => {
 };
 
 const vacantBedsList = useMemo(() => {
-  // ✅ Occupied set = ACTIVE tenants only (includes upcoming leaveDate)
   const list = [];
+  const seenBeds = new Set();
   (roomsData || []).forEach((room) => {
     const roomNo = room.roomNo ?? room.room ?? room.number ?? "";
     const floorNo = room.floorNo ?? room.floor ?? "";
@@ -2958,6 +3049,9 @@ const vacantBedsList = useMemo(() => {
     (room.beds || []).forEach((bed) => {
       const bedNo = bed.bedNo ?? bed.no ?? bed.number ?? bed;
       const key = makeOccKey(roomNo, bedNo, propertyLabel);
+      const physicalKey = physicalBedKey({ propertyLabel, wingName: room.wingName, floorNo, roomNo, bedNo });
+      if (seenBeds.has(physicalKey)) return;
+      seenBeds.add(physicalKey);
 
       // ✅ vacant only if not in occupiedSet
       if (!occupiedBedSet.has(key)) {
@@ -3274,7 +3368,6 @@ function getCycleRangeStr(tenant, cycleIndex) {
     setShowAddModal(true);
   };
 
-  const correctPassword = "987654";
 
  
 
@@ -3296,23 +3389,46 @@ function getCycleRangeStr(tenant, cycleIndex) {
     return ALLOWED_IMAGE_MIME_TYPES.has(mime) && ALLOWED_IMAGE_EXTENSIONS.has(ext);
   };
 
-  const handleStrictImageSelection = (file, setter, messageSetter, label) => {
-    if (!file) {
-      setter(null);
-      if (messageSetter) messageSetter("");
-      return false;
-    }
-
-    if (!isAllowedImageFile(file)) {
-      setter(null);
+  const handleStrictImageSelection = (selectedFiles, setter, messageSetter, label) => {
+    const files = Array.from(selectedFiles || []).filter(Boolean);
+    if (!files.length) return false;
+    if (files.some((file) => !isAllowedImageFile(file))) {
       if (messageSetter) messageSetter(`${label} must be JPG, JPEG, or PNG.`);
       return false;
     }
 
     if (messageSetter) messageSetter("");
-    setter(file);
+    setter((current) => [...(Array.isArray(current) ? current : current ? [current] : []), ...files]);
     return true;
   };
+
+  const removeSelectedUpload = (setter, index) => {
+    setter((current) => (Array.isArray(current) ? current : []).filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const renderDocumentUploader = ({ id, label, files, setFiles, messageSetter, capture = false, hint = "JPG, JPEG, or PNG only." }) => (
+    <div className="border rounded p-3 h-100">
+      <label className="form-label fw-semibold small d-block">{label}</label>
+      <input
+        id={id}
+        type="file"
+        className="d-none"
+        accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+        multiple
+        capture={capture ? "user" : undefined}
+        onChange={(event) => {
+          handleStrictImageSelection(event.target.files, setFiles, messageSetter, label);
+          event.target.value = "";
+        }}
+      />
+      <label htmlFor={id} className="btn btn-outline-primary btn-sm mb-2">+ Add document</label>
+      <small className="text-muted d-block">{hint}</small>
+      {(files || []).map((file, index) => <div className="d-flex align-items-center justify-content-between gap-2 mt-2" key={`${file.name}-${file.lastModified}-${index}`}>
+        <small className="text-truncate">{file.name}</small>
+        <button type="button" className="btn btn-outline-danger btn-sm py-0" onClick={() => removeSelectedUpload(setFiles, index)}>Remove</button>
+      </div>)}
+    </div>
+  );
 
   // onChange for <input type="file" multiple>
   function handleDocsChange(e) {
@@ -3403,18 +3519,7 @@ function logAxiosError(err, label = "Axios error") {
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 const findSelectedTenantRoom = (tenant = {}) => {
-  return (Array.isArray(roomsData) ? roomsData : []).find((room) => {
-    const tenantRoomId = tenant?.roomId?._id || tenant?.roomId;
-    if (tenantRoomId && String(room?._id) === String(tenantRoomId)) return true;
-
-    if (tenant?.roomNo && String(room?.roomNo) === String(tenant.roomNo)) {
-      const tenantCategory = String(tenant?.category || "").trim();
-      if (!tenantCategory) return true;
-      return getRoomBuildingLabel(room) === tenantCategory;
-    }
-
-    return false;
-  });
+  return findTrackerRoomForTenant(tenant, roomsData);
 };
 
 const validateAssignableTenantUnit = (tenant = {}) => {
@@ -3486,16 +3591,26 @@ const tenantUnitSetupReadyRooms = useMemo(() => {
     );
   });
 }, [allRoomsData, tenantUnitSetupType]);
+// A building/property name can be shared by hostels, residential rooms, and shops.
+// Keep the other setup fields scoped to the selected property type, but let this
+// dropdown reuse every existing building name.
+const tenantUnitSetupAllReadyRooms = useMemo(
+  () =>
+    (Array.isArray(allRoomsData) ? allRoomsData : []).filter(
+      (room) => !hasPendingUnitDetails(room)
+    ),
+  [allRoomsData]
+);
 const tenantUnitBuildingOptions = useMemo(
   () =>
     Array.from(
       new Set(
-        tenantUnitSetupReadyRooms
+        tenantUnitSetupAllReadyRooms
           .map((room) => getRoomBuildingLabel(room))
           .filter(Boolean)
       )
     ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
-  [tenantUnitSetupReadyRooms]
+  [tenantUnitSetupAllReadyRooms]
 );
 const tenantUnitWingOptions = useMemo(() => {
   const selectedBuilding = String(tenantUnitSetupForm.category || "").trim();
@@ -3576,6 +3691,7 @@ const openTenantUnitSetupModal = (room = addTenantSelectedRoom) => {
   const hasWing = Boolean(String(room?.wingName || "").trim());
 
   setTenantUnitSetupTarget(room);
+  setTenantUnitSetupCustom({});
   setTenantUnitSetupForm({
     category: hasPendingUnitDetails(room) ? "" : getRoomBuildingLabel(room),
     hasWing,
@@ -3586,7 +3702,14 @@ const openTenantUnitSetupModal = (room = addTenantSelectedRoom) => {
       hasPendingUnitDetails(room) || /^UNASSIGNED-/i.test(String(room?.roomNo || ""))
         ? ""
         : String(room?.roomNo || "").trim(),
-    price: firstBed?.price != null && firstBed?.price !== "" ? String(firstBed.price) : "",
+    // Placeholder units store a default price of 0. Start with an empty field so
+    // the admin can type the monthly rent immediately.
+    price:
+      hasPendingUnitDetails(room)
+        ? ""
+        : firstBed?.price != null && firstBed?.price !== ""
+          ? String(firstBed.price)
+          : "",
     bedCategory:
       String(firstBed?.bedCategory || "").trim().toLowerCase() === "unassigned"
         ? ""
@@ -3597,6 +3720,7 @@ const openTenantUnitSetupModal = (room = addTenantSelectedRoom) => {
 const closeTenantUnitSetupModal = () => {
   setTenantUnitSetupTarget(null);
   setTenantUnitSetupSaving(false);
+  setTenantUnitSetupCustom({});
   setTenantUnitSetupForm({
     category: "",
     hasWing: false,
@@ -3878,37 +4002,54 @@ if (firstRentStatus === "ADVANCE_PAID") {
     const cat = (newTenant.category || existingForm?.category || "").trim();
     if (cat) fd.append("category", cat);
     
-    if (newTenant.canteen) fd.append("canteen", normalizeCanteenValue(newTenant.canteen));
-
-    if (selfAadharFile && !isAllowedImageFile(selfAadharFile)) {
-      setDocMsg("Self Aadhaar Card must be JPG, JPEG, or PNG.");
-      return;
+    if (trackerType === "bed") {
+      fd.append("canteen", normalizeCanteenValue(newTenant.canteen));
+      fd.append("hasCanteen", String(normalizeCanteenValue(newTenant.canteen) === "yes"));
+      const canteenFields = tenantCanteenFields(newTenant, canteenSettings, trackerType);
+      fd.append("canteenPlanType", canteenFields.canteenPlanType);
+      fd.append("canteenMonthlyAmount", String(canteenFields.canteenMonthlyAmount));
+      if (canteenFields.canteenStartDate) fd.append("canteenStartDate", canteenFields.canteenStartDate);
+      canteenMeals.forEach((meal) => fd.append(`canteenMealPrices[${meal}]`, String(canteenFields.canteenMealPrices[meal])));
+      canteenFields.canteenIncludedMeals.forEach((meal) => fd.append("canteenIncludedMeals[]", meal));
     }
-    if (parentAadharFile && !isAllowedImageFile(parentAadharFile)) {
+
+    if (selfAadharFile.some((file) => !isAllowedImageFile(file))) {
+      setDocMsg("Self Aadhaar Card must be JPG, JPEG, or PNG."); return;
+    }
+    if (parentAadharFile.some((file) => !isAllowedImageFile(file))) {
       setDocMsg(
         `${trackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card"} must be JPG, JPEG, or PNG.`
-      );
-      return;
+      ); return;
     }
-    if (photoFile && !isAllowedImageFile(photoFile)) {
-      setDocMsg("Tenant Photograph must be JPG, JPEG, or PNG.");
-      return;
+    if (photoFile.some((file) => !isAllowedImageFile(file))) {
+      setDocMsg("Tenant Photograph must be JPG, JPEG, or PNG."); return;
+    }
+    if (panCardFile.some((file) => !isAllowedImageFile(file))) {
+      setDocMsg("PAN Card must be JPG, JPEG, or PNG."); return;
+    }
+    if (selfAadharFile.length + parentAadharFile.length + photoFile.length + panCardFile.length > 10) {
+      setDocMsg("You can upload a maximum of 10 documents for one tenant."); return;
     }
 
-    if (selfAadharFile) {
-      const f = await compressForUpload(selfAadharFile);
+    for (const file of selfAadharFile) {
+      const f = await compressForUpload(file);
       fd.append("documents", f);
       fd.append("relations", "Self Aadhaar Card");
     }
-    if (parentAadharFile) {
-      const f = await compressForUpload(parentAadharFile);
+    for (const file of parentAadharFile) {
+      const f = await compressForUpload(file);
       fd.append("documents", f);
       fd.append("relations", trackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card");
     }
-    if (photoFile) {
-      const f = await compressForUpload(photoFile);
+    for (const file of photoFile) {
+      const f = await compressForUpload(file);
       fd.append("documents", f);
       fd.append("relations", "Tenant Photo");
+    }
+    for (const file of panCardFile) {
+      const f = await compressForUpload(file);
+      fd.append("documents", f);
+      fd.append("relations", "PAN Card");
     }
 
     // ✅ safe URL build (won’t affect other code)
@@ -3929,9 +4070,9 @@ if (firstRentStatus === "ADVANCE_PAID") {
       ? "Admission message sent successfully."
       : messageStatus?.reason
         ? `Admission message not sent: ${messageStatus.reason}`
-        : "Admission message status unavailable.";
+        : "";
 
-    alert(`Tenant saved successfully.\n\n${messageNotice}`);
+    alert(`Tenant saved successfully.${messageNotice ? `\n\n${messageNotice}` : ""}`);
 
     const savedTenant = res?.data?.form || res?.data;
 
@@ -3994,9 +4135,10 @@ const closeAddTenantModal = () => {
   setFirstRentStatusSelection("ADVANCE_PAID");
 
   // ✅ clear files + message
-  setSelfAadharFile(null);
-  setParentAadharFile(null);
-  setPhotoFile(null);
+  setSelfAadharFile([]);
+  setParentAadharFile([]);
+  setPhotoFile([]);
+  setPanCardFile([]);
   setDocMsg("");
 
   // ✅ clear locking states (if you have these)
@@ -4141,49 +4283,6 @@ const closeAddTenantModal = () => {
   // --- Memoize months + visible window so header & rows stay in sync ---
   const months = useMemo(() => buildMonthsTimeline(timelineYear), [timelineYear]);
 
-  // Keep web tenant rent cells in parity with mobile. The backend endpoint already
-  // applies the organization's selected Light Bill and Canteen billing modes.
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadRentSummaries = async () => {
-      try {
-        const responses = await Promise.all(
-          months.map(async (month) => {
-            const key = fmtMonthKey(month.y, month.m);
-            const summary = await getRentSummary(key);
-            return [key, summary];
-          })
-        );
-
-        if (cancelled) return;
-
-        const next = new Map();
-        responses.forEach(([key, summary]) => {
-          next.set(
-            key,
-            new Map(
-              (Array.isArray(summary?.rows) ? summary.rows : []).map((row) => [
-                String(row?.tenantId || ""),
-                row,
-              ])
-            )
-          );
-        });
-        setRentSummaryByMonth(next);
-      } catch (summaryError) {
-        // Keep the legacy local fallback available if the summary endpoint is
-        // temporarily unavailable, but never overwrite the last good summary.
-        console.error("Failed to load rent summaries:", summaryError);
-      }
-    };
-
-    loadRentSummaries();
-    return () => {
-      cancelled = true;
-    };
-  }, [months, rentSummaryRevision]);
-
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   const maxStart = Math.max(0, months.length - PAGE);
@@ -4195,6 +4294,67 @@ const closeAddTenantModal = () => {
   const canLeft = start > 0;
   const canRight = start + PAGE < months.length;
   const visibleMonths = months.slice(start, start + PAGE);
+  const summaryMonthKeys = useMemo(() => {
+    const starts = new Set([start, ...Object.values(rowMonthStarts)]);
+    const keys = new Set();
+    starts.forEach((monthStart) => {
+      months.slice(monthStart, monthStart + PAGE).forEach((month) => {
+        keys.add(fmtMonthKey(month.y, month.m));
+      });
+    });
+    return [...keys];
+  }, [months, start, rowMonthStarts]);
+  const summaryMonthKeyList = summaryMonthKeys.join(",");
+
+  // The backend applies the organization's billing modes. Load only the
+  // months visible in the table, including independently shifted tenant rows.
+  useEffect(() => {
+    if (!allTenantsData.length) return;
+    if (rentSummaryCacheRevisionRef.current !== rentSummaryRevision) {
+      rentSummaryCacheRef.current.clear();
+      rentSummaryCacheRevisionRef.current = rentSummaryRevision;
+    }
+
+    let cancelled = false;
+    const loadRentSummaries = async () => {
+      const responses = await Promise.all(
+        summaryMonthKeyList.split(",").filter(Boolean).map(async (key) => {
+          let request = rentSummaryCacheRef.current.get(key);
+          if (!request) {
+            request = getRentSummary(key);
+            rentSummaryCacheRef.current.set(key, request);
+            request.catch(() => {
+              if (rentSummaryCacheRef.current.get(key) === request) {
+                rentSummaryCacheRef.current.delete(key);
+              }
+            });
+          }
+          try {
+            return [key, await request];
+          } catch (error) {
+            console.error(`Failed to load rent summary for ${key}:`, error);
+            return null;
+          }
+        })
+      );
+
+      if (cancelled) return;
+      setRentSummaryByMonth((previous) => {
+        const next = new Map(previous);
+        responses.filter(Boolean).forEach(([key, summary]) => {
+          next.set(key, new Map(
+            (Array.isArray(summary?.rows) ? summary.rows : []).map((row) => [
+              String(row?.tenantId || ""), row,
+            ])
+          ));
+        });
+        return next;
+      });
+    };
+
+    loadRentSummaries();
+    return () => { cancelled = true; };
+  }, [summaryMonthKeyList, rentSummaryRevision, allTenantsData.length]);
   const getRowWindowStart = useCallback(
     (rowKey) => {
       if (!rowKey) return start;
@@ -4742,17 +4902,32 @@ const getHostelLightBillMonthDetails = (tenant, y, m) => {
 
   const monthStart = new Date(y, m, 1);
   const monthEnd = new Date(y, m + 1, 1);
+  const selectedMonthKey = fmtMonthKey(y, m);
+  const sameRoom = (record, other) => {
+    if (normRoomNo(record?.roomNo) !== normRoomNo(other?.roomNo)) return false;
+    const recordRoomId = String(record?.roomId?._id || record?.roomId || "");
+    const otherRoomId = String(other?.roomId?._id || other?.roomId || "");
+    if (recordRoomId && otherRoomId) return recordRoomId === otherRoomId;
+    for (const field of ["category", "wingName", "floorNo"]) {
+      if (record?.[field] && other?.[field] && String(record[field]).trim().toLowerCase() !== String(other[field]).trim().toLowerCase()) return false;
+    }
+    return true;
+  };
 
   const matchingRoomBills = (Array.isArray(lightBills) ? lightBills : []).filter((bill) => {
     const type = String(bill?.type || "").trim().toLowerCase();
     const propertyType = String(bill?.propertyType || "").trim().toLowerCase();
-    if (type !== "meter" || propertyType !== "bed") return false;
+    if (type !== "meter" || propertyType !== "bed" || bill?.billPayer === "owner" || bill?.isUnitLinked === false) return false;
 
-    const billDate = new Date(bill?.date);
-    if (Number.isNaN(billDate.getTime())) return false;
-    if (billDate.getFullYear() !== y || billDate.getMonth() !== m) return false;
+    if (bill?.billingMonth) {
+      if (bill.billingMonth !== selectedMonthKey) return false;
+    } else {
+      const billDate = new Date(bill?.date);
+      if (Number.isNaN(billDate.getTime())) return false;
+      if (billDate.getFullYear() !== y || billDate.getMonth() !== m) return false;
+    }
 
-    return normRoomNo(bill?.roomNo) === roomNo;
+    return sameRoom(bill, tenant);
   });
 
   const roomBillAmount = matchingRoomBills.reduce(
@@ -4772,13 +4947,13 @@ const getHostelLightBillMonthDetails = (tenant, y, m) => {
   }
 
   const occupancySource =
-    Array.isArray(formData) && formData.length ? formData : Array.isArray(allTenantsData) ? allTenantsData : [];
+    Array.isArray(allTenantsData) && allTenantsData.length ? allTenantsData : Array.isArray(formData) ? formData : [];
 
   const matchingTenants = occupancySource.filter((candidate) => {
     const candidateRoomNo = normRoomNo(candidate?.roomNo);
     const candidateBedNo = normBedNo(candidate?.bedNo || candidate?.bed?.bedNo);
     if (!candidateRoomNo || !candidateBedNo) return false;
-    if (candidateRoomNo !== roomNo) return false;
+    if (candidateRoomNo !== roomNo || !sameRoom(candidate, tenant)) return false;
 
     const joinDate = parseOccupancyDate(candidate?.joiningDate);
     if (!joinDate || Number.isNaN(joinDate.getTime()) || joinDate >= monthEnd) return false;
@@ -4789,14 +4964,17 @@ const getHostelLightBillMonthDetails = (tenant, y, m) => {
     return true;
   });
 
-  const occupiedBedSet = new Set(
-    matchingTenants
-      .map((candidate) => normBedNo(candidate?.bedNo || candidate?.bed?.bedNo))
-      .filter(Boolean)
-  );
-
-  const occupiedBedsCount = occupiedBedSet.size;
-  if (occupiedBedsCount <= 0) {
+  const occupantsByBed = new Map();
+  matchingTenants.forEach((candidate) => {
+    const bedNo = normBedNo(candidate?.bedNo || candidate?.bed?.bedNo);
+    const previous = occupantsByBed.get(bedNo);
+    if (!previous || parseOccupancyDate(candidate?.joiningDate) > parseOccupancyDate(previous?.joiningDate)) {
+      occupantsByBed.set(bedNo, candidate);
+    }
+  });
+  const occupiedBedsCount = occupantsByBed.size;
+  const tenantIsOccupant = [...occupantsByBed.values()].some((candidate) => String(candidate?._id) === String(tenant?._id));
+  if (occupiedBedsCount <= 0 || !tenantIsOccupant) {
     return {
       extraAmount: 0,
       shareAmount: 0,
@@ -4807,8 +4985,20 @@ const getHostelLightBillMonthDetails = (tenant, y, m) => {
     };
   }
 
-  const includedAmount = occupiedBedsCount * 100;
-  const extraAmount = roomBillAmount - includedAmount;
+  const extraAmount = matchingRoomBills.reduce((sum, bill) => {
+    const amount = Number(bill?.amount ?? bill?.salary ?? 0) || 0;
+    const mode = String(bill?.billingMode || "");
+    const consumed = Number(bill?.consumedUnits);
+    const measured = Number.isFinite(consumed) ? consumed : Number(bill?.totalReading);
+    const included = Number(bill?.includedUnits || 0);
+    if (mode === "room_meter_actual_bill" && Number.isFinite(measured) && measured > 0) {
+      return sum + amount * Math.max(measured - included, 0) / measured;
+    }
+    if (["room_meter_rate", "room_meter_split"].includes(mode) && Number.isFinite(measured) && Number(bill?.ratePerUnit) > 0) {
+      return sum + Math.max(measured - included, 0) * Number(bill.ratePerUnit);
+    }
+    return sum + amount;
+  }, 0);
   const normalizedStatuses = Array.from(
     new Set(
       matchingRoomBills
@@ -4972,6 +5162,8 @@ const getMonthCell = (tenant, y, m) => {
     summary?.expected ?? Math.max(0, Number(localExpected ?? tenant?.baseRent ?? 0) - localDiscount)
   );
   const amountPaid = Number(summary?.paid ?? localRentPaid ?? 0);
+  const canteenPaid = Number(summary?.canteenPaid ?? rentRec?.canteenAmount ?? 0);
+  const lightBillPaid = Number(summary?.lightBillPaid ?? rentRec?.lightBillAmount ?? 0);
   const canteenAmount = Number(summary?.canteenExpected ?? localCanteenEntry?.amount ?? 0);
   const lightBillExtraAmount = Number(
     summary?.lightBillExpected ?? localLightBillDetails?.shareAmount ?? 0
@@ -4981,7 +5173,7 @@ const getMonthCell = (tenant, y, m) => {
   );
   const totalPaid = Number(
     summary?.totalPaid ??
-      amountPaid + Number(rentRec?.canteenAmount || 0) + Number(rentRec?.lightBillAmount || 0)
+      amountPaid + canteenPaid + lightBillPaid
   );
   const totalBalance = Math.max(
     Number(summary?.totalBalance ?? totalExpected - totalPaid),
@@ -4989,8 +5181,15 @@ const getMonthCell = (tenant, y, m) => {
   );
   const rentOutstanding = Math.max(Number(summary?.balance ?? expected - amountPaid), 0);
 
-  const periodStart = cycleStartForRentMonth(tenant, monthDate);
-  const periodEnd = cycleStartForRentMonth(tenant, shiftRentMonth(monthDate, 1));
+  // A column is named for the month in which that rent cycle is due.  For a
+  // tenant who joined on 25 August, the September column is 25 Aug–25 Sep.
+  // Using the calendar month's 25th here turned that column into 25 Sep–25
+  // Oct, so an already overdue September rent was incorrectly shown as
+  // Upcoming until October 25.
+  const periodStart =
+    getCycleStartForMonth(tenant, y, m) || cycleStartForRentMonth(tenant, monthDate);
+  const periodEnd = new Date(periodStart);
+  periodEnd.setMonth(periodEnd.getMonth() + 1);
   const paymentDate = latestRentPaymentDate(rentRec);
   const today = new Date();
   const cycleStarted = periodStart <= today;
@@ -5071,6 +5270,8 @@ const getMonthCell = (tenant, y, m) => {
     amountText: `₹${expected.toLocaleString("en-IN")}`,
     dateStr,
     amountPaid,
+    canteenPaid,
+    lightBillPaid,
     totalPaid,
     expected,
     totalExpected,
@@ -5126,6 +5327,12 @@ const getSuggestedEditRentAmount = (
   if (!tenant || y == null || m == null) return "";
   const normalizedCanteen = normalizeCanteenValue(canteenValue);
   const cell = getMonthCell(tenant, y, m);
+  if (cell?.usesBackendRentSummary) {
+    const grossExpected = Number(cell.expected || 0) + Number(cell.discountAmount || 0);
+    const adjustedExpected = Math.max(grossExpected - Math.max(0, Number(discountValue || 0)), 0);
+    const balance = Math.max(adjustedExpected - Number(cell.amountPaid || 0), 0);
+    return balance > 0 ? String(balance) : "";
+  }
   const paidAmount = Number(cell?.amountPaid || 0);
   const rentRec = (Array.isArray(tenant?.rents) ? tenant.rents : []).find((r) => {
     const ym = getYMFromRecord(r);
@@ -5477,29 +5684,21 @@ const updateBreakdownItemStatus = async (item, nextStatus) => {
 };
 
   useEffect(() => {
+    lastFocusRefreshAtRef.current = Date.now();
     refreshAllData();
   }, [refreshAllData]);
 
   useEffect(() => {
-    refreshLightBills();
-  }, [refreshLightBills]);
-
-  useEffect(() => {
-    axios
-      .get(`${apiUrl}forms`)
-      .then((response) => {
-        const leaveMap = {};
-        response.data.forEach((item) => {
-          if (item.leaveDate) {
-            leaveMap[item._id] = new Date(item.leaveDate)
-              .toISOString()
-              .split("T")[0];
-          }
-        });
-        setLeaveDates(leaveMap);
-      })
-      .catch((err) => console.error("Error fetching leave data:", err));
-  }, []);
+    const leaveMap = {};
+    allTenantsData.forEach((item) => {
+      if (item.leaveDate) {
+        leaveMap[item._id] = new Date(item.leaveDate)
+          .toISOString()
+          .split("T")[0];
+      }
+    });
+    setLeaveDates(leaveMap);
+  }, [allTenantsData]);
   // useEffect(() => {
   //   axios
   //     .get(`${apiUrl}forms/archived`)
@@ -5508,7 +5707,7 @@ const updateBreakdownItemStatus = async (item, nextStatus) => {
   // }, []);
   // useEffect(() => {
   //   axios
-  //     .get("    http://localhost:8000/api/rooms")
+  //     .get("    https://rentmobile-api.pnminfotech.com/api/rooms")
   //     .then((response) => setRoomsData(response.data))
   //     .catch((err) => console.error("Failed to fetch rooms:", err));
   // }, []);
@@ -5518,6 +5717,7 @@ const updateBreakdownItemStatus = async (item, nextStatus) => {
     if (!photoUrl) {
       return (
         <div
+          className="tenant-photo-placeholder"
           style={{
             width: 75,
             height: 70,
@@ -5548,7 +5748,7 @@ const updateBreakdownItemStatus = async (item, nextStatus) => {
         <div className="tenant-photo-frame">
           <img
             src={photoUrl}
-            alt="photo"
+            alt="Tenant"
             crossOrigin="anonymous"
             className="tenant-photo-img"
             style={{
@@ -5615,7 +5815,7 @@ const updateBreakdownItemStatus = async (item, nextStatus) => {
         ? "Admission message sent successfully."
         : messageStatus?.reason
           ? `Admission message not sent: ${messageStatus.reason}`
-          : "Admission message status unavailable.";
+          : "";
 
       if (savedTenant?._id) {
         setAllTenantsData((prev) => {
@@ -5631,7 +5831,7 @@ const updateBreakdownItemStatus = async (item, nextStatus) => {
         });
       }
 
-      alert(`Tenant added successfully\n\n${messageNotice}`);
+      alert(`Tenant added successfully${messageNotice ? `\n\n${messageNotice}` : ""}`);
       setShowAddModal(false);
 
       setNewTenant({
@@ -5659,6 +5859,10 @@ const updateBreakdownItemStatus = async (item, nextStatus) => {
         dob: "",
         baseRent: "",
         rentAmount: "",
+        canteen: "no",
+        canteenPlanType: "",
+        canteenMonthlyAmount: "",
+        canteenMealPrices: { breakfast: "", lunch: "", dinner: "" },
         firstRentStatus: "ADVANCE_PAID",
         firstRentPaidDate: "",
         firstRentMonth: "",
@@ -5824,9 +6028,13 @@ const futureOnLeaveTenants = useMemo(() => {
 
 
   const slots = useMemo(() => {
-    return (roomsData || []).flatMap((room) =>
+    const uniqueSlots = new Map();
+    (roomsData || []).flatMap((room) =>
       (room.beds || []).map((bed) => ({
+        roomId: room._id,
         roomNo: String(room.roomNo),
+        isPlaceholder: Boolean(room.isPlaceholder),
+        wingName: String(room.wingName || "").trim(),
         floorNo: room.floorNo,
         bedNo: String(bed.bedNo),
         price: toNum(bed.price),
@@ -5838,7 +6046,12 @@ const futureOnLeaveTenants = useMemo(() => {
             : getTrackerPropertyLabel(room) || "",
         propertyLabel: getTrackerPropertyLabel(room) || "",
       }))
-    );
+    ).forEach((slot) => {
+      const key = physicalBedKey(slot);
+      const previous = uniqueSlots.get(key);
+      if (!previous || (previous.isPlaceholder && !slot.isPlaceholder)) uniqueSlots.set(key, slot);
+    });
+    return [...uniqueSlots.values()];
   }, [roomsData, trackerType]);
 const getBillingMonthsUpToNow = (tenant) => {
   if (!tenant?.joiningDate) return [];
@@ -6156,23 +6369,25 @@ return sorted;
   })
   .sort(compareRoomBed); // ✅ vacant flow
 
-  }, [slots, formData, leaveDates, searchText, selectedYear, trackerType, visibleTenants]);
+  }, [slots, formData, leaveDates, searchText, selectedYear, trackerType, visibleTenants, allRoomsData]);
 
   // Build combined rows (occupied + vacant) in room-wise flow when no sorting selected
   const combinedRows = useMemo(() => {
     if (sortConfig.column) return null;
 
     const byProperty = new Map();
-    const getSetupGroupLabel = () =>
-      trackerType === "shop" ? "Shops to set up" : trackerType === "room" ? "Rooms to set up" : "Units to set up";
+    const getSetupGroupLabel = () => "Added units - details pending";
     const getRowPropertyLabel = (propertyLabel = "", roomNo = "") => {
       const label = String(propertyLabel || "").trim();
-      if (label) return label;
-      return /^UNASSIGNED-/i.test(String(roomNo || "").trim()) ? getSetupGroupLabel() : "Unassigned property";
+      if (/^UNASSIGNED-/i.test(String(roomNo || "").trim())) return getSetupGroupLabel();
+      if (label && !/^unassigned(?:-.*)?$/i.test(label)) return label;
+      return /^unassigned/i.test(label)
+        ? getSetupGroupLabel()
+        : "Property not named";
     };
     const propertySort = (a, b) => {
-      const aSetup = /to set up$/i.test(String(a?.propertyLabel || ""));
-      const bSetup = /to set up$/i.test(String(b?.propertyLabel || ""));
+      const aSetup = String(a?.propertyLabel || "") === getSetupGroupLabel();
+      const bSetup = String(b?.propertyLabel || "") === getSetupGroupLabel();
       if (aSetup !== bSetup) return aSetup ? 1 : -1;
       return String(a?.propertyLabel || "").localeCompare(String(b?.propertyLabel || ""), undefined, {
         sensitivity: "base",
@@ -6263,7 +6478,7 @@ return sorted;
     });
 
     return rows;
-  }, [visibleTenants, extraVacantSlots, roomsData, sortConfig, trackerType]);
+  }, [visibleTenants, extraVacantSlots, roomsData, sortConfig, trackerType, allRoomsData]);
 
   const propertyBuildingByRoomKey = useMemo(() => {
     const map = new Map();
@@ -6409,6 +6624,15 @@ return sorted;
 
   }, [slots, formData, leaveDates, trackerType, allRoomsData]);
 
+  const getShiftSlotKey = (slot) =>
+    `${String(slot?.roomId || slot?._id || slot?.roomNo || "")}::${String(slot?.bedNo || "")}`;
+  const selectedShiftSlot = useMemo(() =>
+    allVacantSlots.find((slot) => getShiftSlotKey(slot) === shiftTargetKey) || null,
+  [allVacantSlots, shiftTargetKey]);
+  const selectedShiftSlotNeedsDetails = Boolean(
+    selectedShiftSlot?.isPlaceholder || /^UNASSIGNED-/i.test(String(selectedShiftSlot?.roomNo || ""))
+  );
+
   // ADD THIS helper in NewComponant component (near other handlers)
   const openEditForTenantMonth = (tenantId, monthIdx, year) => {
     const tenant = formData.find((t) => t._id === tenantId);
@@ -6428,6 +6652,7 @@ const savedDiscountValue = getSavedRentDiscountValue(tenant, year, monthIdx);
 setEditRentCanteen(savedCanteenValue);
 setEditRentDiscount(savedDiscountValue);
 setEditRentAmount(getSuggestedEditRentAmount(tenant, year, monthIdx, savedCanteenValue, savedDiscountValue));
+setEditRentCanteenAmount("");
 setRentUpdateMode("add");
     // Optional: clear or auto-suggest amount
     // setEditRentAmount(expectFromTenant(tenant, roomsData));
@@ -6438,7 +6663,12 @@ setRentUpdateMode("add");
     const roomNo = slot ? slot.roomNo : slotOrRoomNo;
     const bedNo = slot ? slot.bedNo : bedNoArg;
 
-    const room = roomsData.find((r) => String(r.roomNo) === String(roomNo));
+    const room = roomsData.find((r) =>
+      slot?.roomId
+        ? String(r._id) === String(slot.roomId)
+        : String(r.roomNo) === String(roomNo) &&
+          (!slot?.propertyLabel || getTrackerPropertyLabel(r) === slot.propertyLabel)
+    );
     const bed = room?.beds?.find((b) => String(b.bedNo) === String(bedNo));
     const price =
       toNum(slot?.price) || toNum(bed?.price) || toNum(bed?.baseRent) || "";
@@ -6473,12 +6703,14 @@ setRentUpdateMode("add");
 
     const room =
       roomsData.find((r) => {
+        if (slot?.roomId && String(r?._id) !== String(slot.roomId)) return false;
         const sameRoom = String(r?.roomNo) === String(roomNo);
         if (!sameRoom) return false;
         if (!bedNo) return true;
         return (r?.beds || []).some((bed) => String(bed?.bedNo) === String(bedNo));
       }) ||
       allRoomsData.find((r) => {
+        if (slot?.roomId && String(r?._id) !== String(slot.roomId)) return false;
         const sameRoom = String(r?.roomNo) === String(roomNo);
         if (!sameRoom) return false;
         if (!bedNo) return true;
@@ -6490,7 +6722,11 @@ setRentUpdateMode("add");
       return;
     }
 
-    openTenantUnitSetupModal(room);
+    if (hasPendingUnitDetails(room)) {
+      openTenantUnitSetupModal(room);
+    } else {
+      openAddForSlot(slot || roomNo, bedNo);
+    }
   };
 
 
@@ -6534,29 +6770,15 @@ setRentUpdateMode("add");
     const tenantRoomNo =
       copy?.roomNo || copy?.roomId?.roomNo || copy?.room?.roomNo || "";
     const tenantBuilding = String(copy?.buildingName || copy?.category || "").trim();
-    const tenantWing = String(copy?.wingName || "").trim();
-    const tenantFloor = String(copy?.floorNo || "").trim();
-    const tenantFlatType = String(copy?.flatType || "").trim();
-    const matchedRoom =
-      (Array.isArray(roomsData) ? roomsData : []).find(
-        (room) =>
-          String(room?._id || "") === String(tenantRoomId) ||
-          String(room?.roomNo || "") === String(tenantRoomNo) ||
-          (
-            tenantBuilding &&
-            getRoomBuildingLabel(room) === tenantBuilding &&
-            (!tenantWing || getRoomWingValue(room) === tenantWing) &&
-            (!tenantFloor || getRoomFloorValue(room) === tenantFloor) &&
-            (!tenantFlatType || String(room?.flatType || "").trim() === tenantFlatType)
-          )
-      ) || null;
+    const matchedRoom = findTrackerRoomForTenant(copy, roomsData);
     const matchedBed =
       (matchedRoom?.beds || []).find(
         (bed) => String(bed?.bedNo || "") === String(copy.bedNo || "")
       ) ||
       getPrimaryUnitBed(matchedRoom, "room");
     const matchedBedPrice = getUnitPriceFromBed(matchedBed);
-    copy.canteen = normalizeCanteenValue(copy.canteen);
+    copy.canteen = normalizeCanteenValue(copy.hasCanteen === true ? true : copy.canteen);
+    copy.canteenMealPrices = copy.canteenMealPrices || { breakfast: "", lunch: "", dinner: "" };
     copy.roomId = matchedRoom?._id || tenantRoomId || "";
     copy.roomNo = matchedRoom?.roomNo || tenantRoomNo || "";
     if (trackerType === "room") {
@@ -6575,6 +6797,10 @@ setRentUpdateMode("add");
       copy.flatType = copy.flatType || matchedRoom?.flatType || "";
       copy.bedNo = copy.bedNo || matchedBed?.bedNo || "";
       copy.bedPrice = matchedBedPrice !== "" ? matchedBedPrice : copy.baseRent ?? copy.rentAmount ?? "";
+      // Hostel beds and shops use the configured unit/bed price as their
+      // monthly rent. Populate it when opening Edit Tenant as Add Tenant does.
+      copy.baseRent = matchedBedPrice !== "" ? matchedBedPrice : copy.baseRent ?? copy.rentAmount ?? "";
+      copy.rentAmount = matchedBedPrice !== "" ? matchedBedPrice : copy.rentAmount ?? copy.baseRent ?? "";
     }
     copy.__priceMode = "current";
     copy.__newBedPriceEdit = "";
@@ -6599,6 +6825,7 @@ setRentUpdateMode("add");
         copy.firstRentStatus || "NOT_PAID"
       );
     }
+    copy.canteen = copy.hasCanteen === true ? "yes" : normalizeCanteenValue(copy.canteen);
     setEditTenantData(copy);
     setShowEditModal(true);
   };
@@ -7208,53 +7435,10 @@ const currentSectionHeading =
   sectionHeadingMap[activeTab] || `${trackerLabel} Rent and Deposit Tracker`;
 
 useEffect(() => {
-  let cancelled = false;
-
-  getSystemDashboard()
-    .then((dashboardData) => {
-      if (cancelled) return;
-      setUnitAccess(dashboardData?.units || dashboardData || {});
-    })
-    .catch((dashboardError) => {
-      // Keep the existing page usable if access metadata cannot be loaded.
-      // The backend still enforces the organization's actual permissions.
-      console.error("Unable to load subscription unit access:", dashboardError);
-      if (!cancelled) setUnitAccess({});
-    })
-    .finally(() => {
-      if (!cancelled) setUnitAccessLoaded(true);
-    });
-
-  return () => {
-    cancelled = true;
-  };
-}, []);
-
-useEffect(() => {
-  if (!unitAccessLoaded) return;
-  if (isTypeAllowed(trackerTypeFromLocation, unitAccess || {})) return;
-
-  const fallbackType = firstAllowedType(unitAccess || {});
-  navigate(`/tracker/${fallbackType}`, {
-    replace: true,
-    state: {
-      ...(location.state || {}),
-      trackerType: fallbackType,
-    },
-  });
-}, [location.state, navigate, trackerTypeFromLocation, unitAccess, unitAccessLoaded]);
-
-useEffect(() => {
   setTrackerType((prev) =>
     prev === trackerTypeFromLocation ? prev : trackerTypeFromLocation
   );
 }, [trackerTypeFromLocation]);
-
-useEffect(() => {
-  setLoading(true);
-  setRoomsData([]);
-  setFormData([]);
-}, [trackerType]);
 
 useEffect(() => {
   if (location.state?.tab) {
@@ -7268,7 +7452,6 @@ const openNewComponantSection = (tab) => {
 
 const openTrackerView = (nextTrackerType, tab = activeTab) => {
   const normalizedType = normalizeTrackerType(nextTrackerType);
-  if (unitAccessLoaded && !allowedTrackerTypeValues.has(normalizedType)) return;
   const targetPath = `/tracker/${normalizedType}`;
   const isSamePath = location.pathname === targetPath;
   const isSameTab = (location.state?.tab || "rent") === tab;
@@ -7572,8 +7755,11 @@ const getAllPendingMonths = (tenant) => {
   const handleEdit = (tenant) => {
     const { rentAmount, date } = getDisplayedRent(tenant.rents);
     const latestRent = (Array.isArray(tenant?.rents) ? tenant.rents : []).slice(-1)[0];
+    const rentDate = date ? new Date(date) : new Date();
+    setEditMonthYM({ y: rentDate.getFullYear(), m: rentDate.getMonth() });
     setEditingTenant(tenant);
     setEditRentCanteen(normalizeCanteenValue(tenant?.canteen));
+    setEditRentCanteenAmount("");
     setEditRentDiscount("");
 setEditRentAmount(rentAmount);
 setEditRentDate(date || new Date().toISOString().split("T")[0]);
@@ -8312,10 +8498,28 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
 
   const closeEditTenantModal = () => {
     setShowEditModal(false);
-    setEditSelfAadharFile(null);
-    setEditParentAadharFile(null);
-    setEditPhotoFile(null);
+    setEditSelfAadharFile([]);
+    setEditParentAadharFile([]);
+    setEditPhotoFile([]);
+    setEditPanCardFile([]);
     setEditDocMsg("");
+  };
+
+  const deleteSavedTenantDocument = async (documentIndex) => {
+    const documents = Array.isArray(editTenantData?.documents) ? editTenantData.documents : [];
+    const document = documents[documentIndex];
+    if (!document || !window.confirm(`Delete ${document.fileName || document.relation || "this document"}?`)) return;
+
+    try {
+      setEditDocMsg("");
+      const remainingDocuments = documents.filter((_, index) => index !== documentIndex);
+      const response = await axios.put(`${apiUrl}forms/${editTenantData._id}`, { documents: remainingDocuments });
+      const updated = response.data?.form || { ...editTenantData, documents: remainingDocuments };
+      setEditTenantData(updated);
+      setFormData((current) => current.map((tenant) => tenant._id === updated._id ? updated : tenant));
+    } catch (err) {
+      setEditDocMsg(err.response?.data?.message || "Unable to delete this document.");
+    }
   };
 
   const handleShareEditTenantLink = async () => {
@@ -8386,6 +8590,8 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
         depositAmount: toNumLocal(editTenantData.depositAmount),
         category: inferredCategory,
         canteen: normalizeCanteenValue(editTenantData.canteen),
+        hasCanteen: trackerType === "bed" && normalizeCanteenValue(editTenantData.canteen || editTenantData.hasCanteen) === "yes",
+        ...tenantCanteenFields(editTenantData, canteenSettings, trackerType),
         firstRentStatus: editTenantData.firstRentStatus || undefined,
         firstRentMonth: editTenantData.firstRentMonth || undefined,
         firstRentPaidDate: editTenantData.firstRentPaidDate || undefined,
@@ -8397,7 +8603,7 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
         { headers: { "X-Origin": window.location.origin } }
       );
 
-      const url = res.data?.url;
+      const url = getWebTenantInviteUrl(res.data, appBasePath);
       if (!url) {
         alert("Invite created but URL missing.");
         setCreatingEditInvite(false);
@@ -8436,7 +8642,7 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
     try {
       setEditDocMsg("");
       const hasEditDocs =
-        !!editSelfAadharFile || !!editParentAadharFile || !!editPhotoFile;
+        editSelfAadharFile.length > 0 || editParentAadharFile.length > 0 || editPhotoFile.length > 0 || editPanCardFile.length > 0;
       const firstRentStatus = String(
         editTenantData.firstRentStatus || "NOT_PAID"
       ).trim();
@@ -8509,8 +8715,18 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
         );
         fd.append("category", editTenantData.category || "");
         fd.append("canteen", normalizeCanteenValue(editTenantData.canteen));
+        fd.append("hasCanteen", String(trackerType === "bed" && normalizeCanteenValue(editTenantData.canteen || editTenantData.hasCanteen) === "yes"));
+        if (trackerType === "bed") {
+          const canteenFields = tenantCanteenFields(editTenantData, canteenSettings, trackerType);
+          fd.append("canteenPlanType", canteenFields.canteenPlanType);
+          fd.append("canteenMonthlyAmount", String(canteenFields.canteenMonthlyAmount));
+          if (canteenFields.canteenStartDate) fd.append("canteenStartDate", canteenFields.canteenStartDate);
+          canteenMeals.forEach((meal) => fd.append(`canteenMealPrices[${meal}]`, String(canteenFields.canteenMealPrices[meal])));
+          canteenFields.canteenIncludedMeals.forEach((meal) => fd.append("canteenIncludedMeals[]", meal));
+        }
 
         if (trackerType === "bed") {
+          fd.append("relativeAddress", editTenantData.relativeAddress || "");
           fd.append("relative1Relation", editTenantData.relative1Relation || "");
           fd.append("relative1Name", editTenantData.relative1Name || "");
           fd.append("relative1Phone", editTenantData.relative1Phone || "");
@@ -8522,35 +8738,48 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
           fd.append("familyMembers", String(editTenantData.familyMembers));
         }
 
-        if (editSelfAadharFile && !isAllowedImageFile(editSelfAadharFile)) {
+        if (editSelfAadharFile.some((file) => !isAllowedImageFile(file))) {
           setEditDocMsg("Self Aadhaar Card must be JPG, JPEG, or PNG.");
           return;
         }
-        if (editParentAadharFile && !isAllowedImageFile(editParentAadharFile)) {
+        if (editParentAadharFile.some((file) => !isAllowedImageFile(file))) {
           setEditDocMsg(
             `${trackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card"} must be JPG, JPEG, or PNG.`
           );
           return;
         }
-        if (editPhotoFile && !isAllowedImageFile(editPhotoFile)) {
+        if (editPhotoFile.some((file) => !isAllowedImageFile(file))) {
           setEditDocMsg("Tenant Photograph must be JPG, JPEG, or PNG.");
           return;
         }
+        if (editPanCardFile.some((file) => !isAllowedImageFile(file))) {
+          setEditDocMsg("PAN Card must be JPG, JPEG, or PNG.");
+          return;
+        }
+        if (editSelfAadharFile.length + editParentAadharFile.length + editPhotoFile.length + editPanCardFile.length > 10) {
+          setEditDocMsg("You can upload a maximum of 10 documents at one time.");
+          return;
+        }
 
-        if (editSelfAadharFile) {
-          const f = await compressForUpload(editSelfAadharFile);
+        for (const file of editSelfAadharFile) {
+          const f = await compressForUpload(file);
           fd.append("documents", f);
           fd.append("relations", "Self Aadhaar Card");
         }
-        if (editParentAadharFile) {
-          const f = await compressForUpload(editParentAadharFile);
+        for (const file of editParentAadharFile) {
+          const f = await compressForUpload(file);
           fd.append("documents", f);
           fd.append("relations", trackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card");
         }
-        if (editPhotoFile) {
-          const f = await compressForUpload(editPhotoFile);
+        for (const file of editPhotoFile) {
+          const f = await compressForUpload(file);
           fd.append("documents", f);
           fd.append("relations", "Tenant Photo");
+        }
+        for (const file of editPanCardFile) {
+          const f = await compressForUpload(file);
+          fd.append("documents", f);
+          fd.append("relations", "PAN Card");
         }
 
         const API_ROOT = String(apiUrl).replace(/\/+$/, "");
@@ -8575,6 +8804,8 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
       const updatePayload = {
         ...editTenantData,
         canteen: normalizeCanteenValue(editTenantData.canteen),
+        hasCanteen: trackerType === "bed" && normalizeCanteenValue(editTenantData.canteen || editTenantData.hasCanteen) === "yes",
+        ...tenantCanteenFields(editTenantData, canteenSettings, trackerType),
         firstRentStatus,
         firstRentMonth,
       };
@@ -8589,6 +8820,13 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
       delete updatePayload.bedPrice;
 
       if (trackerType !== "bed") {
+        updatePayload.canteen = undefined;
+        updatePayload.hasCanteen = undefined;
+        updatePayload.canteenPlanType = undefined;
+        updatePayload.canteenMonthlyAmount = undefined;
+        updatePayload.canteenStartDate = undefined;
+        updatePayload.canteenMealPrices = undefined;
+        updatePayload.canteenIncludedMeals = undefined;
         updatePayload.relativeAddress = undefined;
         updatePayload.relative1Relation = undefined;
         updatePayload.relative1Name = undefined;
@@ -8640,37 +8878,35 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
       return;
     }
 
-    const [roomNo, bedNo] = shiftTargetKey.split("-");
+    const slot = allVacantSlots.find((candidate) => getShiftSlotKey(candidate) === shiftTargetKey);
+    if (!slot) {
+      alert("The selected vacant unit is no longer available. Please refresh and choose another unit.");
+      return;
+    }
+    const roomNo = slot.roomNo;
+    const bedNo = slot.bedNo;
 
-    // Find selected vacant slot to get price/baseRent
-    const slot = allVacantSlots.find(
-      (s) =>
-        String(s.roomNo) === String(roomNo) &&
-        String(s.bedNo) === String(bedNo)
+    const targetUnit = (allRoomsData || []).find((room) =>
+      (slot?.roomId && String(room?._id) === String(slot.roomId)) ||
+      (String(room?.roomNo) === String(roomNo) && String(room?.propertyType || "") === String(trackerType || ""))
     );
-
-    const newBaseRent = slot ? toNum(slot.price) : toNum(shiftTenant.baseRent);
-    const agreedRentAmount = newBaseRent;
+    const targetUnitId = slot?.roomId || targetUnit?._id;
+    if (!targetUnitId) {
+      alert("Unable to identify the selected vacant unit. Please refresh and try again.");
+      return;
+    }
 
     try {
       // ⛏️ Uses your existing update endpoint
-      const payload = {
-        ...shiftTenant,
-        roomNo,
-        bedNo,
-        baseRent: newBaseRent,
-        rentAmount: agreedRentAmount,
-        shiftEffectiveFrom: shiftEffectiveDate,
-      };
-
-      const res = await axios.put(
-        `${apiUrl}update/${shiftTenant._id}`,
-        payload
-      );
+      const res = await axios.post(`${apiUrl}forms/${shiftTenant._id}/shift`, {
+        targetUnitId: String(targetUnitId),
+        targetBedNo: bedNo,
+        effectiveDate: shiftEffectiveDate,
+      });
 
       // Update UI
       setFormData((prev) =>
-        prev.map((t) => (t._id === shiftTenant._id ? res.data : t))
+        prev.map((t) => (t._id === shiftTenant._id ? (res.data?.tenant || res.data) : t))
       );
 
       setShowShiftModal(false);
@@ -8695,24 +8931,30 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
 
   const openDeleteConfirmation = (tenantId) => {
     setCurrentDeleteId(tenantId);
-    setShowPasswordPrompt(true); // Show password modal
+    setPassword("");
+    setShowPasswordPrompt(true);
   };
   const verifyPassword = () => {
-    if (password === correctPassword) {
+    if (/^\d{4,8}$/.test(String(password || "").trim())) {
       setShowPasswordPrompt(false);
       setShowDeleteConfirmation(true);
     } else {
-      alert("Incorrect password. Please try again.");
+      alert("Enter your 4 to 8 digit security PIN.");
     }
   };
   const handleDeleteConfirm = async () => {
     try {
       await axios.delete(`${apiUrl}form/${currentDeleteId}`, {
-        data: { password: String(password || "").trim() },
+        data: { securityPin: String(password || "").trim() },
       });
       setFormData((prev) => prev.filter((t) => t._id !== currentDeleteId));
       alert("Tenant deleted successfully.");
       setShowDeleteConfirmation(false);
+      setShowPasswordPrompt(false);
+      setCurrentDeleteId(null);
+      setPassword("");
+      // The edit form belongs to the deleted tenant, so close it immediately.
+      closeEditTenantModal();
     } catch (error) {
       console.error("Error deleting:", error);
       alert("Failed to delete tenant.");
@@ -8815,12 +9057,41 @@ const handleSave = async () => {
       return;
     }
 
-    const addedAmount = Number(editRentAmount) || 0;
+    const rentPaymentAmount = Number(editRentAmount || 0);
+    const canteenPaymentAmount = Number(editRentCanteenAmount || 0);
+    if (!Number.isFinite(rentPaymentAmount) || rentPaymentAmount < 0 || !Number.isFinite(canteenPaymentAmount) || canteenPaymentAmount < 0) {
+      alert("Enter valid rent and canteen amounts.");
+      return;
+    }
+    const addedAmount = rentPaymentAmount + canteenPaymentAmount;
+    if (addedAmount <= 0) {
+      alert("Enter a payment amount greater than zero.");
+      return;
+    }
     const existingCell = getMonthCell(editingTenant, editMonthYM.y, editMonthYM.m);
     const existingPaidAmount = Number(existingCell?.amountPaid || 0);
+    if (canteenPaymentAmount > 0 && rentUpdateMode === "replace") {
+      alert("Use Add to existing when collecting a canteen amount.");
+      return;
+    }
     const totalPaidAmount =
       rentUpdateMode === "replace" ? addedAmount : existingPaidAmount + addedAmount;
     const normalizedDiscountAmount = Math.max(0, Number(editRentDiscount || 0) || 0);
+    if (canteenPaymentAmount > 0) {
+      const quote = editRentQuote?.month === monthKey
+        ? editRentQuote
+        : (await api.get(`/form/${editingTenant._id}/rent-quote`, { params: { month: monthKey } })).data;
+      const remainingRent = Math.max(Number(quote.expected || 0) + Number(quote.discount || 0) - normalizedDiscountAmount - Number(quote.paid || 0), 0);
+      const remainingCanteen = Math.max(Number(quote.canteen?.balance || 0), 0);
+      if (rentPaymentAmount < remainingRent) {
+        alert("Pay the remaining rent first. The system applies payments to rent before canteen dues.");
+        return;
+      }
+      if (canteenPaymentAmount > remainingCanteen) {
+        alert("Canteen amount cannot exceed the canteen due for this month.");
+        return;
+      }
+    }
     const adjustedExpectedRent =
       Number(
         getSuggestedEditRentAmount(
@@ -8848,50 +9119,33 @@ const handleSave = async () => {
       note: editNote || "", // ✅ NEW (optional)
     };
 
-    await axios.put(`${apiUrl}form/${editingTenant._id}`, payload);
+    const savedRentResponse = await axios.put(`${apiUrl}form/${editingTenant._id}`, payload);
+    const savedTenant = savedRentResponse.data;
+    const savedRentEntry = (savedTenant?.rents || []).find((rent) => rent.month === monthKey);
+    const savedPayment = (savedRentEntry?.payments || []).slice(-1)[0];
     setPaymentReceipt({
-      tenant: editingTenant,
-      rent: { month: monthKey, rentAmount: totalPaidAmount },
-      payment: {
-        amount: addedAmount,
-        date: paymentISO,
-        paymentMode: payload.paymentMode,
-        utr: payload.utr,
-        note: payload.note,
-      },
+      tenant: savedTenant || editingTenant,
+      rent: savedRentEntry || { month: monthKey, rentAmount: totalPaidAmount },
+      payment: savedPayment || { amount: addedAmount, date: paymentISO, paymentMode: payload.paymentMode, utr: payload.utr, note: payload.note },
     });
 
     setFormData((prev) =>
       prev.map((t) =>
-        t._id === editingTenant._id
-          ? {
-              ...t,
-              rents: upsertRentForMonth(t, {
-                y: editMonthYM.y,
-                m: editMonthYM.m,
-                amount: totalPaidAmount,
-                date: paymentISO,
-                mode: editPaymentMode || "Cash",
-                expectedRent: adjustedExpectedRent,
-                canteenApplied: editRentCanteen,
-                discountAmount: normalizedDiscountAmount,
-                note: editNote || "", // ✅ NEW
-              }),
-            }
-          : t
+        t._id === editingTenant._id ? (savedTenant || t) : t
       )
     );
 
     await refreshTenants();
     setRentSummaryRevision((value) => value + 1);
     setEditRentCanteen("no");
+    setEditRentCanteenAmount("");
     setEditRentDiscount("");
     setEditUtr("");
     setEditReceiptUrl("");
     setEditingTenant(null);
   } catch (error) {
     console.error(error);
-    alert("Failed to update rent");
+    alert(error?.response?.data?.message || "Failed to update rent");
   }
 };
 
@@ -9016,7 +9270,7 @@ const summaryCounts = useMemo(() => {
 
   if (trackerType === "bed") {
     return {
-      total: units.reduce((sum, room) => sum + (room.beds?.length || 0), 0),
+      total: slots.length,
       occupied: activeTenants.length,
       vacant: vacantBedsList.length,
     };
@@ -9060,11 +9314,8 @@ const summaryCounts = useMemo(() => {
     occupied: occupiedUnits,
     vacant: vacantUnits,
   };
-}, [formData, roomsData, trackerType, vacantBedsList]);
+}, [formData, roomsData, trackerType, vacantBedsList, slots]);
 
-
-  if (loading) return <div className="text-center mt-5">Loading...</div>;
-  if (error) return <div className="text-center text-danger mt-5">{error}</div>;
 
   // Filter only tenants who left in the last month or this month
   // const filteredDeletedData = deletedData.filter((t) => t.leaveDate);
@@ -9123,6 +9374,14 @@ const isTodayOrFuture = (iso) => {
       className="container-fluid  py-3"
       style={{ fontFamily: "Poppins, sans-serif" }}
     >
+      {error && (
+        <div className="alert alert-danger d-flex align-items-center justify-content-between gap-3" role="alert">
+          <span>{error}</span>
+          <button type="button" className="btn btn-sm btn-outline-danger" onClick={refreshAllData}>
+            Retry
+          </button>
+        </div>
+      )}
      
     
       
@@ -9451,21 +9710,24 @@ const isTodayOrFuture = (iso) => {
 
 {['light-hostel', 'light-room-shop', 'light-room', 'light-shop'].includes(activeTab) && (
   <>
-    {/* BACK BUTTON */}
-    {/* <div className="mb-3 d-flex">
+    <div className="mb-3 d-flex">
       <button
-        className="btn btn-dark me-3"
+        type="button"
+        className="btn btn-outline-primary"
         onClick={() => setActiveTab("rent")}
       >
         ← Back
       </button>
-    </div> */}
+    </div>
     {/* FULL LIGHT BILL UI INSIDE CARD */}
     <div className="card  p-3 mb-4 lightbill-card">
       <LightBill
         embedded={true}
         propertyScope={lightBillPropertyScope}
-        onBillsChange={setLightBills}
+        onBillsChange={() => {
+          refreshLightBills();
+          setRentSummaryRevision((value) => value + 1);
+        }}
       />
     </div>
   </> 
@@ -9698,6 +9960,7 @@ const isTodayOrFuture = (iso) => {
   selectedYear={selectedYear}
   years={years}
   searchText={searchText}
+  searchDisabled={showAddModal}
   onYearChange={handleRentYearChange}
   onSearchChange={handleRentSearchChange}
   onManageRooms={handleManageUnitsNavigation}
@@ -9712,7 +9975,7 @@ const isTodayOrFuture = (iso) => {
 />
 
 <div className="rent-tracker-tabs">
-  {allowedTrackerTypes.map(({ value: type }) => (
+  {trackerNavigationTypes.map(({ value: type }) => (
     <button
       key={type}
       type="button"
@@ -9726,13 +9989,13 @@ const isTodayOrFuture = (iso) => {
 
 {/* Rent-only summary cards */}
 <RentSummaryCards
-  totalBeds={summaryCounts.total}
-  occupiedBeds={summaryCounts.occupied}
-  vacantBeds={summaryCounts.vacant}
-  pendingRents={pendingRents}
-  upcomingRents={upcomingRentEntries.length}
-  canteenDues={canteenDueEntries.length}
-  canteenTenants={canteenTenants.length}
+  totalBeds={loading ? "—" : summaryCounts.total}
+  occupiedBeds={loading ? "—" : summaryCounts.occupied}
+  vacantBeds={loading ? "—" : summaryCounts.vacant}
+  pendingRents={loading ? "—" : pendingRents}
+  upcomingRents={loading ? "—" : upcomingRentEntries.length}
+  canteenDues={loading ? "—" : canteenDueEntries.length}
+  canteenTenants={loading ? "—" : canteenTenants.length}
   trackerType={trackerType}
   onVacantClick={() => setShowVacantModal(true)}
   onPendingClick={() => setShowPendingModal(true)}
@@ -9801,6 +10064,7 @@ const isTodayOrFuture = (iso) => {
   ) : (
     <>
       <RentTenantListView
+        loading={loading}
         visibleTenants={visibleTenants}
         visibleMonths={visibleMonths}
         groupedRooms={groupedRooms}
@@ -9974,7 +10238,11 @@ const isTodayOrFuture = (iso) => {
                       colSpan={visibleMonths.length + 4}
                       className="text-center text-muted py-4"
                     >
-                      {trackerType === "room"
+                      {unitsLoadFailed || tenantsLoadFailed
+                        ? "Unable to load all records. Please use Retry above."
+                        : loading
+                        ? "Loading records..."
+                        : trackerType === "room"
                         ? "No other property room data found."
                         : trackerType === "shop"
                           ? "No other property shop data found."
@@ -10022,6 +10290,19 @@ const isTodayOrFuture = (iso) => {
 
                       if (rowType === "vacant") {
                         const slot = row?.slot;
+                        const pendingDetails = Boolean(slot?.isPlaceholder) || /^UNASSIGNED-/i.test(String(slot?.roomNo || ""));
+                        const vacantType = slot?.propertyType || trackerType;
+                        const vacantTitle = vacantType === "shop" ? "Shop" : vacantType === "room" ? "Rental room" : "Bed";
+                        const vacantRent = Number(slot?.price || 0).toLocaleString("en-IN");
+                        const vacantLocation = pendingDetails
+                          ? `Room or unit number is not set yet | Rs. ${vacantRent}`
+                          : [
+                              slot?.wingName ? `Wing ${slot.wingName}` : null,
+                              `Floor ${slot?.floorNo || "-"}`,
+                              vacantType === "shop" ? `Shop ${slot.roomNo}` : vacantType === "room" ? `Rental room ${slot.roomNo}` : `Room ${slot.roomNo}`,
+                              vacantType === "bed" && slot?.bedNo ? `Bed ${slot.bedNo}` : null,
+                              `Rs. ${vacantRent}`,
+                            ].filter(Boolean).join(" | ");
                         const key = `${slot?._id || slot?.roomId || slot?.roomNo}-${slot?.bedNo || "unit"}-${rowIdx}`;
                         const rowKey = `vacant-${key}`;
                         const rowVisibleMonths = getVisibleMonthsForRow(rowKey);
@@ -10044,7 +10325,7 @@ const isTodayOrFuture = (iso) => {
                                 <div
                                   role="button"
                                   tabIndex={0}
-                                  title="Set unit details"
+                                  title={pendingDetails ? "Set unit details" : "Add tenant"}
                                   onClick={() => openUnitSetupForSlot(slot)}
                                   onKeyDown={(event) => {
                                     if (event.key === "Enter" || event.key === " ") {
@@ -10054,18 +10335,8 @@ const isTodayOrFuture = (iso) => {
                                   }}
                                   style={{ cursor: "pointer" }}
                                 >
-                                  <div className="fw-semibold text-danger text-decoration-underline">Empty</div>
-                                  <div className="text-muted small">
-                                    {formatTrackerUnit(slot?.roomNo, slot?.bedNo)}{" "}
-                                    {(trackerType === "room" ? slot?.flatType : slot?.category)
-                                      ? `- ${trackerType === "room" ? slot.flatType : slot.category}`
-                                      : ""}
-                                  </div>
-                                  {toNum(slot?.price) > 0 && (
-                                    <small className="text-muted d-block">
-                                      Base Rent: &#8377;{toNum(slot.price).toLocaleString("en-IN")}
-                                    </small>
-                                  )}
+                                  <div className="fw-semibold text-decoration-underline">{vacantTitle}</div>
+                                  <div className="text-muted small">{vacantLocation}</div>
                                 </div>
                               </td>
 
@@ -10419,9 +10690,10 @@ const isTodayOrFuture = (iso) => {
                                 className="action-btn action-edit"
                                 onClick={() => {
                                   setEditTenantData(tenant);
-                                  setEditSelfAadharFile(null);
-                                  setEditParentAadharFile(null);
-                                  setEditPhotoFile(null);
+                                  setEditSelfAadharFile([]);
+                                  setEditParentAadharFile([]);
+                                  setEditPhotoFile([]);
+                                  setEditPanCardFile([]);
                                   setEditDocMsg("");
                                   setShowEditModal(true);
                                 }}
@@ -11054,6 +11326,8 @@ const isTodayOrFuture = (iso) => {
                 </label>
                 <BufferedInput
                   type="tel"
+                  name="tenantPhoneNo"
+                  autoComplete="tel"
                   className="form-control"
                   value={newTenant.phoneNo || ""}
                   onCommit={(nextValue) =>
@@ -11092,18 +11366,25 @@ const isTodayOrFuture = (iso) => {
               {/* Address Section */}
               <div className="col-12 col-md-6">
                 <label className="form-label">Pincode</label>
-                <BufferedInput
+                <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength={6}
                   className="form-control"
                   value={newTenant.pincode || ""}
-                  onCommit={(nextValue) =>
+                  onChange={(event) =>
                     setNewTenant((prev) => ({
                       ...prev,
-                      pincode: nextValue,
+                      pincode: event.target.value.replace(/\D/g, "").slice(0, 6),
+                      city: "",
+                      state: "",
+                      nearbyPlace: "",
                     }))
                   }
                   placeholder="6-digit pincode"
                 />
+                {newTenantPinStatus === "loading" && <small>Finding city and location...</small>}
+                {newTenantPinStatus === "error" && <small className="text-muted">PIN code not found. Enter city and nearby place manually.</small>}
               </div>
               <div className="col-12 col-md-6">
                 <label className="form-label">City</label>
@@ -11179,12 +11460,12 @@ const isTodayOrFuture = (iso) => {
 
     {/* Deposit + DOJ */}
               <div className="col-12 col-md-6">
-                <label className="form-label">
+                <label className="form-label mb-0">
                   Deposit Amount <span className="text-danger">*</span>
                 </label>
                 <BufferedInput
                   type="number"
-                  className="form-control"
+                  className="form-control my-0"
                   value={newTenant.depositAmount || ""}
                   onCommit={(nextValue) =>
                     setNewTenant((prev) => ({
@@ -11214,6 +11495,7 @@ const isTodayOrFuture = (iso) => {
                   </select>
                 </div>
               )}
+              {trackerType === "bed" && <CanteenTenantRates tenant={newTenant} setTenant={setNewTenant} settings={canteenSettings} />}
 
               {addTenantNeedsUnitSetup && (
                 <div className="col-12">
@@ -11484,6 +11766,7 @@ const isTodayOrFuture = (iso) => {
         );
         return !occupiedBeds.has(occKey(selectedRoom?.roomNo, bed.bedNo));
       })
+      .filter((bed, index, beds) => beds.findIndex((item) => String(item?.bedNo) === String(bed?.bedNo)) === index)
       .map((bed) => (
         <option
           key={`bed-${newTenant.roomId}-${bed.bedNo}`}
@@ -12173,94 +12456,26 @@ const isTodayOrFuture = (iso) => {
                 <div className="row g-3">
                   {/* Self Aadhaar */}
                   <div className="col-12 col-md-4">
-                    <div className="border rounded p-3 h-100">
-                      <label className="form-label fw-semibold small">
-                        Self Aadhaar Card
-                      </label>
-                      <input
-                        type="file"
-                        className="form-control form-control-sm"
-                        accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          handleStrictImageSelection(file, setSelfAadharFile, setDocMsg, "Self Aadhaar Card");
-                        }}
-                      />
-                      <small className="text-muted d-block mt-1">
-                        JPG, JPEG, or PNG only.
-                      </small>
-                      {selfAadharFile && (
-                        <small className="text-muted d-block mt-1">
-                          Selected: {selfAadharFile.name}
-                        </small>
-                      )}
-                    </div>
+                    {renderDocumentUploader({ id: "add-self-aadhaar", label: "Self Aadhaar Card", files: selfAadharFile, setFiles: setSelfAadharFile, messageSetter: setDocMsg })}
                   </div>
 
                   {trackerType !== "shop" && (
                     
                     
                     <div className="col-12 col-md-4">
-                      <div className="border rounded p-3 h-100">
-                        <label className="form-label fw-semibold small">
-                          {trackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card"}
-                        </label>
-                        <input
-                          type="file"
-                          className="form-control form-control-sm"
-                          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] || null;
-                            handleStrictImageSelection(
-                              file,
-                              setParentAadharFile,
-                              setDocMsg,
-                              trackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card"
-                            );
-                          }}
-                        />
-                        <small className="text-muted d-block mt-1">
-                          JPG, JPEG, or PNG only.
-                        </small>
-                        {parentAadharFile && (
-                          <small className="text-muted d-block mt-1">
-                            Selected: {parentAadharFile.name}
-                          </small>
-                        )}
-                      </div>
+                      {renderDocumentUploader({ id: "add-parent-aadhaar", label: trackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card", files: parentAadharFile, setFiles: setParentAadharFile, messageSetter: setDocMsg })}
                     </div>
                   )}
 
                   {/* Tenant Photo / Selfie */}
-                  <div className={`col-12 ${trackerType !== "shop" ? "col-md-4" : "col-md-6"}`}>
-                    <div className="border rounded p-3 h-100">
-                      <label className="form-label fw-semibold small">
-                        Tenant Photograph (Selfie)
-                      </label>
-                      <input
-                        type="file"
-                        className="form-control form-control-sm"
-                        accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                        capture="user" // 📷 On mobile this opens camera
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          handleStrictImageSelection(file, setPhotoFile, setDocMsg, "Tenant Photograph");
-                        }}
-                      />
-                      <small className="text-muted d-block mt-1">
-                        JPG, JPEG, or PNG only.
-                      </small>
-                      {photoFile && (
-                        <small className="text-muted d-block mt-1">
-                          Selected: {photoFile.name}
-                        </small>
-                      )}
-                      <small className="text-muted d-block mt-1">
-                        On mobile, this will open the camera to take a live
-                        selfie.
-                      </small>
-                    </div>
+                  <div className="col-12 col-md-4">
+                    {renderDocumentUploader({ id: "add-tenant-photo", label: "Tenant Photograph (Selfie)", files: photoFile, setFiles: setPhotoFile, messageSetter: setDocMsg, capture: true, hint: "JPG, JPEG, or PNG only. On mobile, this opens the camera." })}
                   </div>
+                  {trackerType === "shop" && (
+                    <div className="col-12 col-md-4">
+                      {renderDocumentUploader({ id: "add-pan-card", label: "PAN Card", files: panCardFile, setFiles: setPanCardFile, messageSetter: setDocMsg })}
+                    </div>
+                  )}
                 </div>
 
                 {docMsg && (
@@ -12391,6 +12606,8 @@ const isTodayOrFuture = (iso) => {
         dateOfJoiningCollege: newTenant.dateOfJoiningCollege || undefined,
         dob: newTenant.dob || undefined,
         canteen: trackerType === "bed" ? normalizeCanteenValue(newTenant.canteen) : undefined,
+        hasCanteen: trackerType === "bed" && normalizeCanteenValue(newTenant.canteen) === "yes",
+        ...tenantCanteenFields(newTenant, canteenSettings, trackerType),
         joiningDate: newTenant.joiningDate || undefined,
         rentAmount: toNum(
           newTenant.baseRent !== "" && newTenant.baseRent != null
@@ -12422,7 +12639,7 @@ const isTodayOrFuture = (iso) => {
         },
       });
 
-      const url = res.data?.url;
+      const url = getWebTenantInviteUrl(res.data, appBasePath);
       if (!url) {
         alert("Invite created but URL missing.");
         console.log("INVITE RESPONSE =>", res.data);
@@ -12565,6 +12782,8 @@ const isTodayOrFuture = (iso) => {
                       <label className="form-label">{label}</label>
                       <input
                         type={type}
+                        name={key === "phoneNo" ? "tenantPhoneNo" : undefined}
+                        autoComplete={key === "phoneNo" ? "tel" : undefined}
                         className="form-control"
                         value={newTenant[key] || ""}
                         readOnly={readOnly}
@@ -12805,6 +13024,7 @@ const isTodayOrFuture = (iso) => {
                         ?.beds.filter(
                           (bed) => !occupiedBeds.has(occKey(newTenant.roomNo, bed.bedNo))
                         ) // only unoccupied beds
+                        .filter((bed, index, beds) => beds.findIndex((item) => String(item?.bedNo) === String(bed?.bedNo)) === index)
                         .map((bed) => (
                           <option key={bed.bedNo} value={bed.bedNo}>
                             {bed.bedNo} - {bed.category || "—"} - ₹
@@ -13053,15 +13273,16 @@ const isTodayOrFuture = (iso) => {
                     {tenantUnitBuildingOptions.length > 0 && (
                       <select
                         className="form-select"
-                        value={getSetupDropdownValue(tenantUnitBuildingOptions, tenantUnitSetupForm.category)}
-                        onChange={(e) =>
+                        value={tenantUnitSetupCustom.category ? "__custom__" : getSetupDropdownValue(tenantUnitBuildingOptions, tenantUnitSetupForm.category)}
+                        onChange={(e) => {
+                          setTenantUnitSetupCustom((prev) => ({ ...prev, category: e.target.value === "__custom__", wingName: false, floorNo: false }));
                           setTenantUnitSetupForm((prev) => ({
                             ...prev,
                             category: e.target.value === "__custom__" ? "" : e.target.value,
                             wingName: "",
                             floorNo: "",
-                          }))
-                        }
+                          }));
+                        }}
                       >
                         <option value="">Select existing property</option>
                         {tenantUnitBuildingOptions.map((option) => (
@@ -13072,7 +13293,7 @@ const isTodayOrFuture = (iso) => {
                         <option value="__custom__">Add new property...</option>
                       </select>
                     )}
-                    {(tenantUnitBuildingOptions.length === 0 ||
+                    {(tenantUnitSetupCustom.category || tenantUnitBuildingOptions.length === 0 ||
                       getSetupDropdownValue(tenantUnitBuildingOptions, tenantUnitSetupForm.category) === "__custom__") && (
                       <input
                         className={`form-control ${tenantUnitBuildingOptions.length > 0 ? "mt-2" : ""}`}
@@ -13116,14 +13337,15 @@ const isTodayOrFuture = (iso) => {
                       {tenantUnitWingOptions.length > 0 && (
                         <select
                           className="form-select"
-                          value={getSetupDropdownValue(tenantUnitWingOptions, tenantUnitSetupForm.wingName)}
-                          onChange={(e) =>
+                          value={tenantUnitSetupCustom.wingName ? "__custom__" : getSetupDropdownValue(tenantUnitWingOptions, tenantUnitSetupForm.wingName)}
+                          onChange={(e) => {
+                            setTenantUnitSetupCustom((prev) => ({ ...prev, wingName: e.target.value === "__custom__", floorNo: false }));
                             setTenantUnitSetupForm((prev) => ({
                               ...prev,
                               wingName: e.target.value === "__custom__" ? "" : e.target.value,
                               floorNo: "",
-                            }))
-                          }
+                            }));
+                          }}
                         >
                           <option value="">Select existing wing</option>
                           {tenantUnitWingOptions.map((option) => (
@@ -13134,7 +13356,7 @@ const isTodayOrFuture = (iso) => {
                           <option value="__custom__">Add new wing...</option>
                         </select>
                       )}
-                      {(tenantUnitWingOptions.length === 0 ||
+                      {(tenantUnitSetupCustom.wingName || tenantUnitWingOptions.length === 0 ||
                         getSetupDropdownValue(tenantUnitWingOptions, tenantUnitSetupForm.wingName) === "__custom__") && (
                         <input
                           className={`form-control ${tenantUnitWingOptions.length > 0 ? "mt-2" : ""}`}
@@ -13158,13 +13380,14 @@ const isTodayOrFuture = (iso) => {
                     {tenantUnitFloorOptions.length > 0 && (
                       <select
                         className="form-select"
-                        value={getSetupDropdownValue(tenantUnitFloorOptions, tenantUnitSetupForm.floorNo)}
-                        onChange={(e) =>
+                        value={tenantUnitSetupCustom.floorNo ? "__custom__" : getSetupDropdownValue(tenantUnitFloorOptions, tenantUnitSetupForm.floorNo)}
+                        onChange={(e) => {
+                          setTenantUnitSetupCustom((prev) => ({ ...prev, floorNo: e.target.value === "__custom__" }));
                           setTenantUnitSetupForm((prev) => ({
                             ...prev,
                             floorNo: e.target.value === "__custom__" ? "" : e.target.value,
-                          }))
-                        }
+                          }));
+                        }}
                       >
                         <option value="">Select existing floor</option>
                         {tenantUnitFloorOptions.map((option) => (
@@ -13175,7 +13398,7 @@ const isTodayOrFuture = (iso) => {
                         <option value="__custom__">Add new floor...</option>
                       </select>
                     )}
-                    {(tenantUnitFloorOptions.length === 0 ||
+                    {(tenantUnitSetupCustom.floorNo || tenantUnitFloorOptions.length === 0 ||
                       getSetupDropdownValue(tenantUnitFloorOptions, tenantUnitSetupForm.floorNo) === "__custom__") && (
                       <input
                         className={`form-control ${tenantUnitFloorOptions.length > 0 ? "mt-2" : ""}`}
@@ -13199,13 +13422,14 @@ const isTodayOrFuture = (iso) => {
                       {tenantUnitFlatTypeOptions.length > 0 && (
                         <select
                           className="form-select"
-                          value={getSetupDropdownValue(tenantUnitFlatTypeOptions, tenantUnitSetupForm.flatType)}
-                          onChange={(e) =>
+                          value={tenantUnitSetupCustom.flatType ? "__custom__" : getSetupDropdownValue(tenantUnitFlatTypeOptions, tenantUnitSetupForm.flatType)}
+                          onChange={(e) => {
+                            setTenantUnitSetupCustom((prev) => ({ ...prev, flatType: e.target.value === "__custom__" }));
                             setTenantUnitSetupForm((prev) => ({
                               ...prev,
                               flatType: e.target.value === "__custom__" ? "" : e.target.value,
-                            }))
-                          }
+                            }));
+                          }}
                         >
                           <option value="">Select existing flat type</option>
                           {tenantUnitFlatTypeOptions.map((option) => (
@@ -13216,7 +13440,7 @@ const isTodayOrFuture = (iso) => {
                           <option value="__custom__">Add new flat type...</option>
                         </select>
                       )}
-                      {(tenantUnitFlatTypeOptions.length === 0 ||
+                      {(tenantUnitSetupCustom.flatType || tenantUnitFlatTypeOptions.length === 0 ||
                         getSetupDropdownValue(tenantUnitFlatTypeOptions, tenantUnitSetupForm.flatType) === "__custom__") && (
                         <input
                           className={`form-control ${tenantUnitFlatTypeOptions.length > 0 ? "mt-2" : ""}`}
@@ -13256,13 +13480,14 @@ const isTodayOrFuture = (iso) => {
                       {tenantUnitBedTypeOptions.length > 0 && (
                         <select
                           className="form-select"
-                          value={getSetupDropdownValue(tenantUnitBedTypeOptions, tenantUnitSetupForm.bedCategory)}
-                          onChange={(e) =>
+                          value={tenantUnitSetupCustom.bedCategory ? "__custom__" : getSetupDropdownValue(tenantUnitBedTypeOptions, tenantUnitSetupForm.bedCategory)}
+                          onChange={(e) => {
+                            setTenantUnitSetupCustom((prev) => ({ ...prev, bedCategory: e.target.value === "__custom__" }));
                             setTenantUnitSetupForm((prev) => ({
                               ...prev,
                               bedCategory: e.target.value === "__custom__" ? "" : e.target.value,
-                            }))
-                          }
+                            }));
+                          }}
                         >
                           <option value="">Select existing bed type</option>
                           {tenantUnitBedTypeOptions.map((option) => (
@@ -13273,7 +13498,7 @@ const isTodayOrFuture = (iso) => {
                           <option value="__custom__">Add new bed type...</option>
                         </select>
                       )}
-                      {(tenantUnitBedTypeOptions.length === 0 ||
+                      {(tenantUnitSetupCustom.bedCategory || tenantUnitBedTypeOptions.length === 0 ||
                         getSetupDropdownValue(tenantUnitBedTypeOptions, tenantUnitSetupForm.bedCategory) === "__custom__") && (
                         <input
                           className={`form-control ${tenantUnitBedTypeOptions.length > 0 ? "mt-2" : ""}`}
@@ -13303,7 +13528,7 @@ const isTodayOrFuture = (iso) => {
                         }))
                       }
                       min="0"
-                      placeholder="Optional"
+                      placeholder="Enter monthly rent"
                     />
                   </div>
 
@@ -13579,11 +13804,21 @@ const isTodayOrFuture = (iso) => {
                 <label className="form-label">Pincode</label>
                 <input
                   className="form-control"
+                  inputMode="numeric"
+                  maxLength={6}
                   value={editTenantData.pincode || ""}
                   onChange={(e) =>
-                    setEditTenantData({ ...editTenantData, pincode: e.target.value })
+                    setEditTenantData({
+                      ...editTenantData,
+                      pincode: e.target.value.replace(/\D/g, "").slice(0, 6),
+                      city: "",
+                      state: "",
+                      nearbyPlace: "",
+                    })
                   }
                 />
+                {editTenantPinStatus === "loading" && <small>Finding city and location...</small>}
+                {editTenantPinStatus === "error" && <small className="text-muted">PIN code not found. Enter city and nearby place manually.</small>}
               </div>
               <div className="col-12 col-md-6">
                 <label className="form-label">City</label>
@@ -13639,11 +13874,12 @@ const isTodayOrFuture = (iso) => {
               {/* COMPANY ADDRESS */}
               <div className="col-12 col-md-6">
                 <label className="form-label">
-                  {trackerType === "shop" ? "What are you selling/doing in shop" : "Company / College"}
+                  {trackerType === "shop" ? "What are you selling/doing in shop" : "Company Address / College"}
                 </label>
                 {trackerType === "shop" ? (
-                  <input
+                  <textarea
                     className="form-control"
+                    rows="3"
                     value={editTenantData.shopBusiness || ""}
                     onChange={(e) =>
                       setEditTenantData({ ...editTenantData, shopBusiness: e.target.value })
@@ -13771,7 +14007,7 @@ const isTodayOrFuture = (iso) => {
                 </div>
               )}
 
-              {trackerType !== "shop" && (
+              {trackerType === "bed" && (
                 <div className="col-12 col-md-6">
                   <label className="form-label">Date of Birth</label>
                   <input
@@ -13828,7 +14064,7 @@ const isTodayOrFuture = (iso) => {
                   {/* COLLEGE/COMPANY JOINING DATE */}
                   <div className="col-12 col-md-6">
                     <label className="form-label">
-                      Date of Joining (College/Company)
+                      Date of Joining College / Company
                     </label>
                     <input
                       type="date"
@@ -14070,7 +14306,7 @@ const isTodayOrFuture = (iso) => {
                   <option value="">Select Bed</option>
                   {roomsData
                     .find((r) => String(r.roomNo) === String(editTenantData.roomNo))
-                    ?.beds?.map((bed) => (
+                    ?.beds?.filter((bed, index, beds) => beds.findIndex((item) => String(item?.bedNo) === String(bed?.bedNo)) === index).map((bed) => (
                       <option key={bed.bedNo} value={bed.bedNo}>
                         {bed.bedNo} - {bed.category || "—"} - ₹{bed.price}
                       </option>
@@ -14253,18 +14489,19 @@ const isTodayOrFuture = (iso) => {
                 />
               </div>
 
-              {trackerType !== "shop" && (
+              {trackerType === "bed" && (
                 <>
                   {/* CANTEEN */}
                   <div className="col-12 col-md-6">
                     <label className="form-label">Canteen</label>
                     <select
                       className="form-select"
-                      value={editTenantData.canteen || "no"}
+                      value={normalizeCanteenValue(editTenantData.canteen || editTenantData.hasCanteen)}
                       onChange={(e) =>
                         setEditTenantData({
                           ...editTenantData,
                           canteen: normalizeCanteenValue(e.target.value),
+                          hasCanteen: normalizeCanteenValue(e.target.value) === "yes",
                         })
                       }
                     >
@@ -14272,6 +14509,7 @@ const isTodayOrFuture = (iso) => {
                       <option value="yes">Yes</option>
                     </select>
                   </div>
+                  {trackerType === "bed" && <CanteenTenantRates tenant={editTenantData} setTenant={setEditTenantData} settings={canteenSettings} />}
                   {trackerType === "bed" && (
                     <div className="col-12">
                       <div className="row g-3">
@@ -14382,94 +14620,45 @@ const isTodayOrFuture = (iso) => {
                   Upload Documents (Add More)
                 </label>
 
+                {Array.isArray(editTenantData.documents) && editTenantData.documents.length > 0 && (
+                  <div className="mb-3">
+                    <small className="text-muted d-block mb-2">Saved documents</small>
+                    <div className="d-flex flex-column gap-2">
+                      {editTenantData.documents.map((document, index) => {
+                        const documentUrl = docHrefSafe(document);
+                        return <div className="border rounded p-2 d-flex align-items-center justify-content-between gap-2" key={`${document.fileId || document.url || document.fileName || "document"}-${index}`}>
+                          <div className="small text-truncate"><strong>{document.relation || "Document"}</strong>{document.fileName ? ` - ${document.fileName}` : ""}</div>
+                          <div className="d-flex gap-2 flex-shrink-0">
+                            <button type="button" className="btn btn-outline-primary btn-sm" aria-label={`View ${document.fileName || document.relation || "tenant document"}`} title="View document" disabled={!documentUrl} onClick={() => documentUrl && setDocumentPreview({ src: documentUrl, title: document.fileName || document.relation || "Tenant document" })}><FaEye /></button>
+                            <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => deleteSavedTenantDocument(index)}>Delete</button>
+                          </div>
+                        </div>;
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="row g-3">
                   {/* Self Aadhaar */}
                   <div className="col-12 col-md-4">
-                    <div className="border rounded p-3 h-100">
-                      <label className="form-label fw-semibold small">
-                        Self Aadhaar Card
-                      </label>
-                      <input
-                        type="file"
-                        className="form-control form-control-sm"
-                        accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          handleStrictImageSelection(file, setEditSelfAadharFile, setEditDocMsg, "Self Aadhaar Card");
-                        }}
-                      />
-                      <small className="text-muted d-block mt-1">
-                        JPG, JPEG, or PNG only.
-                      </small>
-                      {editSelfAadharFile && (
-                        <small className="text-muted d-block mt-1">
-                          Selected: {editSelfAadharFile.name}
-                        </small>
-                      )}
-                    </div>
+                    {renderDocumentUploader({ id: "edit-self-aadhaar", label: "Self Aadhaar Card", files: editSelfAadharFile, setFiles: setEditSelfAadharFile, messageSetter: setEditDocMsg })}
                   </div>
 
                   {trackerType !== "shop" && (
                     <div className="col-12 col-md-4">
-                      <div className="border rounded p-3 h-100">
-                        <label className="form-label fw-semibold small">
-                          {trackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card"}
-                        </label>
-                        <input
-                          type="file"
-                          className="form-control form-control-sm"
-                          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] || null;
-                            handleStrictImageSelection(
-                              file,
-                              setEditParentAadharFile,
-                              setEditDocMsg,
-                              trackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card"
-                            );
-                          }}
-                        />
-                        <small className="text-muted d-block mt-1">
-                          JPG, JPEG, or PNG only.
-                        </small>
-                        {editParentAadharFile && (
-                          <small className="text-muted d-block mt-1">
-                            Selected: {editParentAadharFile.name}
-                          </small>
-                        )}
-                      </div>
+                      {renderDocumentUploader({ id: "edit-parent-aadhaar", label: trackerType === "room" ? "Partner Aadhaar Card" : "Parent Aadhaar Card", files: editParentAadharFile, setFiles: setEditParentAadharFile, messageSetter: setEditDocMsg })}
                     </div>
                   )}
 
                   {/* Tenant Photo */}
-                  <div className={`col-12 ${trackerType !== "shop" ? "col-md-4" : "col-md-6"}`}>
-                    <div className="border rounded p-3 h-100">
-                      <label className="form-label fw-semibold small">
-                        Tenant Photograph (Selfie)
-                      </label>
-                      <input
-                        type="file"
-                        className="form-control form-control-sm"
-                        accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                        capture="user"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          handleStrictImageSelection(file, setEditPhotoFile, setEditDocMsg, "Tenant Photograph");
-                        }}
-                      />
-                      <small className="text-muted d-block mt-1">
-                        JPG, JPEG, or PNG only.
-                      </small>
-                      {editPhotoFile && (
-                        <small className="text-muted d-block mt-1">
-                          Selected: {editPhotoFile.name}
-                        </small>
-                      )}
-                      <small className="text-muted d-block mt-1">
-                        On mobile, this will open the camera.
-                      </small>
-                    </div>
+                  <div className="col-12 col-md-4">
+                    {renderDocumentUploader({ id: "edit-tenant-photo", label: "Tenant Photograph (Selfie)", files: editPhotoFile, setFiles: setEditPhotoFile, messageSetter: setEditDocMsg, capture: true, hint: "JPG, JPEG, or PNG only. On mobile, this opens the camera." })}
                   </div>
+                  {trackerType === "shop" && (
+                    <div className="col-12 col-md-4">
+                      {renderDocumentUploader({ id: "edit-pan-card", label: "PAN Card", files: editPanCardFile, setFiles: setEditPanCardFile, messageSetter: setEditDocMsg })}
+                    </div>
+                  )}
                 </div>
 
                 {editDocMsg && (
@@ -14504,7 +14693,7 @@ const isTodayOrFuture = (iso) => {
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
-                  Shift Room - {shiftTenant.name}
+                  {trackerType === "shop" ? "Shift Shop" : trackerType === "room" ? "Shift Room" : "Shift Bed"} - {shiftTenant.name}
                 </h5>
                 <button
                   type="button"
@@ -14522,30 +14711,43 @@ const isTodayOrFuture = (iso) => {
 
               <div className="modal-body">
                 {(() => {
-                  const rentMonthCell = getMonthCell(editingTenant, editMonthYM.y, editMonthYM.m) || {};
-                  const splitItems = getMonthCellBreakdownItems(rentMonthCell, editingTenant, editMonthYM);
-                  const discountAmount = Number(rentMonthCell.discountAmount || 0);
-                  const payableRent = Number(getMonthCellRentAmount(rentMonthCell) || 0);
-                  const actualRent = payableRent + discountAmount;
-                  const splitTotal = getMonthCellTotalAmount(rentMonthCell);
+                  const shiftDate = shiftEffectiveDate ? new Date(`${shiftEffectiveDate}T00:00:00`) : new Date();
+                  const shiftMonth = { y: shiftDate.getFullYear(), m: shiftDate.getMonth() };
+                  const rentMonthCell = getMonthCell(shiftTenant, shiftMonth.y, shiftMonth.m) || {};
+                  const splitItems = getMonthCellBreakdownItems(rentMonthCell, shiftTenant, shiftMonth);
+                  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                  const dueMonths = [...rentSummaryByMonth.keys()]
+                    .map((monthKey) => {
+                      const [monthName, yearPart] = String(monthKey).split("-");
+                      const monthIndex = monthNames.indexOf(monthName);
+                      const year = 2000 + Number(yearPart);
+                      if (monthIndex < 0 || !Number.isFinite(year)) return null;
+                      return { y: year, m: monthIndex, cell: getMonthCell(shiftTenant, year, monthIndex) || {} };
+                    })
+                    .filter((entry) => entry && (entry.y < shiftMonth.y || (entry.y === shiftMonth.y && entry.m <= shiftMonth.m)) && Number(entry.cell.totalBalance || entry.cell.outstanding || 0) > 0);
+                  if (!dueMonths.some((entry) => entry.y === shiftMonth.y && entry.m === shiftMonth.m) && Number(rentMonthCell.totalBalance || rentMonthCell.outstanding || 0) > 0) {
+                    dueMonths.push({ y: shiftMonth.y, m: shiftMonth.m, cell: rentMonthCell });
+                  }
+                  dueMonths.sort((a, b) => a.y - b.y || a.m - b.m);
+                  const totalDue = dueMonths.reduce((sum, entry) => sum + Number(entry.cell.totalBalance || entry.cell.outstanding || 0), 0);
                   const isHostelTenant = trackerType === "bed";
                   return (
                     <>
                       <div className="web-rent-due-panel mb-3">
-                        <div><strong>{rentMonthCell.outstanding > 0 ? "Select a due month" : "Rent payment"}</strong><small>{rentMonthCell.outstanding > 0 ? "This payment will clear the selected month" : "Record the current or advance month"}</small></div>
-                        <strong>₹{Number(rentMonthCell.outstanding || rentMonthCell.expected || 0).toLocaleString("en-IN")}</strong>
+                        <div><strong>Outstanding balance</strong><small>All unpaid charges up to the shift effective date</small></div>
+                        <strong>₹{totalDue.toLocaleString("en-IN")}</strong>
                       </div>
                       <div className="web-rent-split-card mb-3">
-                        <h6>Payment split</h6>
-                        {splitItems.map((item) => (
-                          <div className="web-rent-split-row" key={item.key || item.label}>
-                            <span>{item.label}</span><strong>₹{Number(item.amount || 0).toLocaleString("en-IN")}</strong><small>{item.status}</small>
+                        <h6>Due by month</h6>
+                        {dueMonths.length ? dueMonths.map((entry) => (
+                          <div className="web-rent-split-row" key={`${entry.y}-${entry.m}`}>
+                            <span>{new Date(entry.y, entry.m, 1).toLocaleString("en-IN", { month: "short", year: "numeric" })}</span><strong>₹{Number(entry.cell.totalBalance || entry.cell.outstanding || 0).toLocaleString("en-IN")}</strong><small>{entry.cell.label || "Due"}</small>
                           </div>
-                        ))}
-                        <div className="web-rent-total-row"><span>Total payable</span><strong>₹{Number(splitTotal || 0).toLocaleString("en-IN")}</strong></div>
+                        )) : <div className="small text-muted">No unpaid charges before this shift date.</div>}
+                        <div className="web-rent-total-row"><span>Total due</span><strong>₹{totalDue.toLocaleString("en-IN")}</strong></div>
                         {isHostelTenant && !splitItems.some((item) => item.type === "canteen") && <div className="small text-muted mt-2">Canteen is available only for Hostel tenants.</div>}
                         {!splitItems.some((item) => item.type === "light-bill") && (
-                          <button type="button" className="btn btn-outline-primary btn-sm mt-3" onClick={() => setShowTenantLightBillModal({ unitId: editingTenant?.roomId?._id || editingTenant?.roomId || "", propertyType: normalizeRoomPropertyType(editingTenant), billingMonth: fmtMonthKey(editMonthYM.y, editMonthYM.m) })}>+ Add light bill for this tenant</button>
+                          <button type="button" className="btn btn-outline-primary btn-sm mt-3" onClick={() => setShowTenantLightBillModal({ unitId: shiftTenant?.roomId?._id || shiftTenant?.roomId || "", propertyType: normalizeRoomPropertyType(shiftTenant), billingMonth: fmtMonthKey(shiftMonth.y, shiftMonth.m) })}>+ Add light bill for this tenant</button>
                         )}
                       </div>
                     </>
@@ -14572,7 +14774,7 @@ const isTodayOrFuture = (iso) => {
                         : "-- Select vacant bed --"}
                     </option>
                     {allVacantSlots.map((slot) => {
-                      const key = `${slot.roomNo}-${slot.bedNo}`;
+                      const key = getShiftSlotKey(slot);
                       return (
                         <option key={key} value={key}>
                           {formatVacantBedOption(slot)}
@@ -14584,6 +14786,14 @@ const isTodayOrFuture = (iso) => {
                       );
                     })}
                   </select>
+                  {selectedShiftSlotNeedsDetails && (
+                    <div className="alert alert-warning py-2 mt-2 mb-0 d-flex align-items-center justify-content-between gap-2">
+                      <span>This vacant {trackerType === "shop" ? "shop" : trackerType === "room" ? "room" : "bed"} needs details before it can be used.</span>
+                      <button type="button" className="btn btn-sm btn-primary flex-shrink-0" onClick={() => openUnitSetupForSlot(selectedShiftSlot)}>
+                        Set unit details
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-3">
@@ -14615,7 +14825,7 @@ const isTodayOrFuture = (iso) => {
                 </button>
                 <button
                   className="btn btn-primary"
-                  disabled={!shiftTargetKey || !shiftEffectiveDate}
+                  disabled={!shiftTargetKey || !shiftEffectiveDate || selectedShiftSlotNeedsDetails}
                   onClick={handleShiftSave}
                 >
                   Shift
@@ -15686,6 +15896,7 @@ const isTodayOrFuture = (iso) => {
                   className="btn-close p-0"
                   onClick={() => {
                     setEditRentCanteen("no");
+                    setEditRentCanteenAmount("");
                     setEditRentDiscount("");
                     setEditingTenant(null);
                   }}
@@ -15698,29 +15909,143 @@ const isTodayOrFuture = (iso) => {
                   const discountAmount = Number(rentMonthCell.discountAmount || 0);
                   const payableRent = Number(getMonthCellRentAmount(rentMonthCell) || 0);
                   const actualRent = payableRent + discountAmount;
+                  const lightBillType = normalizeTenantPropertyType(editingTenant);
+                  const lightBillRule = rentLightBillSettings?.[lightBillType];
+                  const hasLightBillCharge = splitItems.some((item) => item.type === "light-bill");
+                  const rentSegments = Array.isArray(editRentQuote?.segments)
+                    ? editRentQuote.segments.filter((segment) => Number(segment?.days || 0) > 0)
+                    : [];
+                  const formatCycleDate = (value) => {
+                    const date = new Date(value);
+                    return Number.isNaN(date.getTime())
+                      ? "-"
+                      : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                  };
+                  const formatInclusiveCycleEnd = (value) => {
+                    const date = new Date(value);
+                    if (Number.isNaN(date.getTime())) return "-";
+                    date.setDate(date.getDate() - 1);
+                    return formatCycleDate(date);
+                  };
+                  const previousCycleDate = new Date(editMonthYM.y, editMonthYM.m - 1, 1);
+                  const previousCycle = getMonthCell(
+                    editingTenant,
+                    previousCycleDate.getFullYear(),
+                    previousCycleDate.getMonth()
+                  ) || {};
+                  const previousRentDue = Math.max(Number(previousCycle.rentOutstanding || 0), 0);
+                  const previousRentExpected = Number(getMonthCellRentAmount(previousCycle) || 0);
+                  const previousRentPaid = Number(previousCycle.amountPaid || 0);
+                  const latestShiftHistory = (Array.isArray(editingTenant?.rentHistory)
+                    ? editingTenant.rentHistory
+                    : [])
+                    .filter((entry) => String(entry?.source || "").trim() === "shift")
+                    .sort((a, b) => new Date(b?.effectiveFrom || 0) - new Date(a?.effectiveFrom || 0))[0];
+                  const previousUnitLabel = latestShiftHistory?.previousRoomNo
+                    ? formatTrackerUnit(latestShiftHistory.previousRoomNo, latestShiftHistory.previousBedNo)
+                    : "previous unit";
+                  const previousUnitRate = Number(
+                    latestShiftHistory?.previousBaseRent ?? latestShiftHistory?.previousRentAmount ?? 0
+                  );
+                  const paidForItem = (item) => Number(
+                    item.type === "rent" ? rentMonthCell.amountPaid
+                      : item.type === "canteen" ? rentMonthCell.canteenPaid
+                      : item.type === "light-bill" ? rentMonthCell.lightBillPaid
+                      : 0
+                  ) || 0;
                   return (
                     <div className="web-rent-split-card mb-3">
                       <h6>Payment split</h6>
+                      <div className="small text-muted mb-2">For {new Date(editMonthYM.y, editMonthYM.m, 1).toLocaleString("en-IN", { month: "long", year: "numeric" })}</div>
+                      {editRentQuoteLoading && <div className="small text-muted mb-2">Updating attendance and payment amounts…</div>}
+                      {editRentQuoteError && <div className="alert alert-warning py-2">{editRentQuoteError}</div>}
                       <div className="web-rent-discount-summary">
                         <span>Actual rent <strong>₹{actualRent.toLocaleString("en-IN")}</strong></span>
                         {discountAmount > 0 && <span>Monthly discount applied <strong>- ₹{discountAmount.toLocaleString("en-IN")}</strong></span>}
                         <span>Current rent payable <strong>₹{payableRent.toLocaleString("en-IN")}</strong></span>
                       </div>
-                      {splitItems.map((item) => <div className="web-rent-split-row" key={item.key || item.label}><span>{item.label}</span><strong>₹{Number(item.amount || 0).toLocaleString("en-IN")}</strong><small>{item.status}</small></div>)}
+                      {rentSegments.length > 1 && (
+                        <div className="web-rent-cycle-breakdown">
+                          <strong>How the rent changed after the shift</strong>
+                          <small>
+                            This cycle is {formatCycleDate(editRentQuote?.cycleStart)} to {formatInclusiveCycleEnd(editRentQuote?.cycleEnd)}.
+                          </small>
+                          {rentSegments.map((segment, index) => (
+                            <div className="web-rent-cycle-segment" key={`${segment.from || "segment"}-${index}`}>
+                              <span>{index === 0 ? "Previous unit rate" : index === rentSegments.length - 1 ? "New unit rate after shift" : "Rate change"}</span>
+                              <strong>₹{Math.round(Number(segment.amount || 0)).toLocaleString("en-IN")}</strong>
+                              <small>
+                                {formatCycleDate(segment.from)} to {formatInclusiveCycleEnd(segment.to)} • {Number(segment.days || 0)} day{Number(segment.days || 0) === 1 ? "" : "s"} at ₹{Number(segment.monthlyRate || 0).toLocaleString("en-IN")} per month
+                              </small>
+                            </div>
+                          ))}
+                          <small className="web-rent-cycle-note">The rates are prorated by the days in this billing cycle.</small>
+                        </div>
+                      )}
+                      {previousRentDue > 0 && (
+                        <div className="web-rent-previous-due">
+                          <span>Previous cycle still pending</span>
+                          <strong>₹{previousRentDue.toLocaleString("en-IN")}</strong>
+                          <small>
+                            {previousCycleDate.toLocaleString("en-IN", { month: "long", year: "numeric" })}: paid ₹{previousRentPaid.toLocaleString("en-IN")} of ₹{previousRentExpected.toLocaleString("en-IN")}.
+                          </small>
+                          <small>
+                            Previous unit: {previousUnitLabel}{previousUnitRate > 0 ? ` (₹${previousUnitRate.toLocaleString("en-IN")}/month)` : ""}. The ₹{previousRentPaid.toLocaleString("en-IN")} payment and ₹{previousRentDue.toLocaleString("en-IN")} pending balance remain linked to that earlier cycle; they are separate from this cycle's new-unit rent.
+                          </small>
+                        </div>
+                      )}
+                      {splitItems.map((item) => {
+                        const paid = paidForItem(item);
+                        const due = Math.max(Number(item.amount || 0) - paid, 0);
+                        return <div className="web-rent-split-row" key={item.key || item.label}>
+                          <span>{item.label}</span>
+                          <strong>₹{Number(item.amount || 0).toLocaleString("en-IN")}</strong>
+                          <small>Paid ₹{paid.toLocaleString("en-IN")} | Due ₹{due.toLocaleString("en-IN")}</small>
+                          {item.type === "canteen" && Array.isArray(editRentQuote?.canteen?.breakdown) && editRentQuote.canteen.breakdown.length > 0 && (
+                            <small>{editRentQuote.canteen.breakdown.map((part) => `${part.label || "Meals"}${part.count ? ` × ${part.count}` : part.presentDays ? ` · ${part.presentDays} day${part.presentDays === 1 ? "" : "s"}` : ""}: ₹${Number(part.amount || 0).toLocaleString("en-IN")}`).join(" · ")}</small>
+                          )}
+                        </div>;
+                      })}
                       <div className="web-rent-total-row"><span>Total payable</span><strong>₹{Number(getMonthCellTotalAmount(rentMonthCell) || 0).toLocaleString("en-IN")}</strong></div>
-                      {!splitItems.some((item) => item.type === "light-bill") && <button type="button" className="btn btn-outline-primary btn-sm mt-3" onClick={() => setShowTenantLightBillModal({ unitId: editingTenant?.roomId?._id || editingTenant?.roomId || "", propertyType: normalizeRoomPropertyType(editingTenant), billingMonth: fmtMonthKey(editMonthYM.y, editMonthYM.m) })}>+ Add light bill for this tenant</button>}
+                      <div className="web-rent-total-row"><span>Total paid</span><strong>₹{Number(rentMonthCell.totalPaid || 0).toLocaleString("en-IN")}</strong></div>
+                      <div className="web-rent-total-row"><span>Balance</span><strong>₹{Number(rentMonthCell.totalBalance || 0).toLocaleString("en-IN")}</strong></div>
+                      {rentLightBillSettingsError && <div className="alert alert-warning mt-3 mb-0">Unable to load light bill settings. Please try again before adding a bill.</div>}
+                      {!rentLightBillSettingsError && rentLightBillSettings && !lightBillRule?.enabled && (
+                        <div className="alert alert-warning mt-3 mb-0">Light bill is not configured for this property type. Set it up before adding a bill. <button type="button" className="btn btn-sm btn-outline-primary ms-2" onClick={() => setShowTenantLightBillModal({ unitId: editingTenant?.roomId?._id || editingTenant?.roomId || "", propertyType: lightBillType, billingMonth: fmtMonthKey(editMonthYM.y, editMonthYM.m) })}>Open light bill settings</button></div>
+                      )}
+                      {lightBillRule?.enabled && ["fixed_monthly", "fixed_per_tenant"].includes(lightBillRule.mode) && <div className="alert alert-info mt-3 mb-0">The fixed light bill amount is added to rent automatically. No separate bill entry is needed.</div>}
+                      {lightBillRule?.enabled && ["owner_only", "common_owner_bill", "common_hostel_bill"].includes(lightBillRule.mode) && <div className="alert alert-info mt-3 mb-0">The owner pays this light bill, so it is not added to tenant rent.</div>}
+                      {lightBillRule?.enabled && !["fixed_monthly", "fixed_per_tenant", "owner_only", "common_owner_bill", "common_hostel_bill"].includes(lightBillRule.mode) && !hasLightBillCharge && <button type="button" className="btn btn-outline-primary btn-sm mt-3" onClick={() => setShowTenantLightBillModal({ unitId: editingTenant?.roomId?._id || editingTenant?.roomId || "", propertyType: lightBillType, billingMonth: fmtMonthKey(editMonthYM.y, editMonthYM.m) })}>+ Add light bill for this tenant</button>}
                     </div>
                   );
                 })()}
                 <div className="mb-3">
-                  <label className="form-label">Rent Amount</label>
+                  <label className="form-label">Rent payment amount</label>
                   <input
                     type="number"
+                    min="0"
+                    step="0.01"
                     className="form-control"
                     value={editRentAmount}
                     onChange={(e) => setEditRentAmount(e.target.value)}
                   />
                 </div>
+                {trackerType === "bed" && (editingTenant.hasCanteen === true || normalizeCanteenValue(editingTenant.canteen) === "yes") && (
+                  <div className="mb-3">
+                    <label className="form-label">Canteen payment amount</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="form-control"
+                      value={editRentCanteenAmount}
+                      onChange={(e) => setEditRentCanteenAmount(e.target.value)}
+                      placeholder="0"
+                    />
+                    <small className="text-muted">Canteen due for {new Date(editMonthYM.y, editMonthYM.m, 1).toLocaleString("en-IN", { month: "long", year: "numeric" })}: ₹{Math.max(Number(editRentQuote?.canteen?.balance || 0), 0).toLocaleString("en-IN")}. Payments are applied to rent first.</small>
+                  </div>
+                )}
+                <div className="mb-3 fw-semibold">Total payment: ₹{(Number(editRentAmount || 0) + Number(editRentCanteenAmount || 0)).toLocaleString("en-IN")}</div>
                 <div className="mb-3">
                   <label className="form-label">Update Type</label>
                   <div className="d-flex gap-3 flex-wrap">
@@ -15752,31 +16077,8 @@ const isTodayOrFuture = (iso) => {
                   </small>
                 </div>
                 {trackerType === "bed" && (
-                  <div className="mb-3">
-                    <label className="form-label">Canteen</label>
-                    <select
-                      className="form-control"
-                      value={editRentCanteen}
-                      onChange={(e) => {
-                        const nextCanteen = normalizeCanteenValue(e.target.value);
-                        setEditRentCanteen(nextCanteen);
-                        setEditRentAmount(
-                          getSuggestedEditRentAmount(
-                            editingTenant,
-                            editMonthYM.y,
-                            editMonthYM.m,
-                            nextCanteen,
-                            editRentDiscount
-                          )
-                        );
-                      }}
-                    >
-                      <option value="no">No</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                    <small className="text-muted">
-                      If canteen is yes, bed rent is reduced by ₹{CANTEEN_RENT_DISCOUNT}.
-                    </small>
+                  <div className="mb-3 small text-muted">
+                    Canteen service: {editingTenant.hasCanteen === true ? "Yes" : "No"}. Change this in Edit Tenant; attendance charges appear above for the selected month.
                   </div>
                 )}
                 <div className="mb-3">
@@ -15911,6 +16213,7 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                   className="btn btn-secondary"
                   onClick={() => {
                     setEditRentCanteen("no");
+                    setEditRentCanteenAmount("");
                     setEditRentDiscount("");
                     setEditingTenant(null);
                   }}
@@ -15921,6 +16224,7 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                   type="button"
                   className="btn btn-primary"
                   onClick={handleSave}
+                  disabled={editRentQuoteLoading}
                 >
                   Save
                 </button>
@@ -16408,7 +16712,7 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Enter Password</h5>
+                <h5 className="modal-title">Enter security PIN</h5>
                 <button
                   className="btn-close p-0"
                   onClick={() => setShowPasswordPrompt(false)}
@@ -16418,9 +16722,11 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                 <input
                   type="password"
                   className="form-control"
-                  placeholder="Enter password"
+                  inputMode="numeric"
+                  maxLength="8"
+                  placeholder="Enter 4 to 8 digit security PIN"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value.replace(/\D/g, "").slice(0, 8))}
                 />
               </div>
               <div className="modal-footer">
@@ -16509,7 +16815,7 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                         {photoUrl ? (
                           <img
                             src={photoUrl}
-                            alt="photo"
+                            alt="Tenant"
                             crossOrigin="anonymous"
                             className="photo-edit-img"
                             style={{
@@ -16719,30 +17025,4 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
     </div>
   );
 }
-const style = {
-  primaryButton: {
-    backgroundColor: "#2563EB",
-    color: "#fff",
-    border: "1px solid #2563EB",
-  },
-
-  successButton: {
-    backgroundColor: "#5f7dfc",
-    color: "#fff",
-    border: "1px solid #5f7dfc",
-  },
-
-  warningButton: {
-    backgroundColor: "#D97706",
-    color: "#fff",
-    border: "1px solid #D97706",
-  },
-
-  dangerButton: {
-    backgroundColor: "#DC2626",
-    color: "#fff",
-    border: "1px solid #DC2626",
-  },
-};
-
 export default NewComponant;
