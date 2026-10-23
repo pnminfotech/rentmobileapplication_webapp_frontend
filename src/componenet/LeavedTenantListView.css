@@ -54,6 +54,31 @@
   gap: 10px;
 }
 
+.leaved-mobile-empty {
+  min-height: 150px;
+  padding: 24px;
+  border: 1px solid #dfe6f2;
+  border-radius: 18px;
+  background: #fff;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.leaved-mobile-empty svg {
+  color: #4169d8;
+  font-size: 24px;
+}
+
+.leaved-mobile-empty strong {
+  color: #1e293b;
+}
+
 .leaved-mobile-card {
   background: linear-gradient(180deg, #ffffff, #f8faff);
   border: 1px solid #dfe3fb;

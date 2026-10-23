@@ -67,7 +67,7 @@ export default function TenantDocs({ me, onChanged }) {
     if (/^https?:\/\//i.test(url)) return url;
 
     // relative backend link like "/uploads/docs/xxx.webp"
-    // API is usually like "   https://rentmobile-api.pnminfotech.com/api"
+    // API is usually like "   http://localhost:8000/api"
     const ORIGIN = String(API).replace(/\/api\/?$/i, "");
     const rel = url.startsWith("/") ? url : `/${url}`;
     return `${ORIGIN}${rel}`;

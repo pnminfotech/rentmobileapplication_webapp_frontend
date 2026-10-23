@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CreditCard, LogOut, RefreshCw, WalletCards } from "lucide-react";
+import { CreditCard, LogOut, Mail, MessageCircle, Phone, RefreshCw, WalletCards } from "lucide-react";
 
 import { clearAuthSession } from "../authStorage";
 import {
@@ -9,6 +9,7 @@ import {
   getAppBootstrap,
   getSaasPaymentStatus,
   getWalletSummary,
+  requestUnitReductionSupport,
   requestSubscriptionRenewal,
 } from "../saasApi";
 
@@ -28,6 +29,9 @@ function isPendingPaymentStatus(value) {
   return String(value || "").toLowerCase() === "pending_payment";
 }
 
+const SUPPORT_PHONE = String(process.env.REACT_APP_SUPPORT_PHONE || "").trim();
+const SUPPORT_EMAIL = String(process.env.REACT_APP_SUPPORT_EMAIL || "").trim();
+
 function isOpenPaymentStatus(value) {
   return ["created", "pending"].includes(String(value || "").toLowerCase());
 }
@@ -39,8 +43,8 @@ function planDurationLabel(months) {
   return `${totalMonths || 0} months`;
 }
 
-function calculatePlanAmount(plan, units = {}) {
-  if (!plan) return 0;
+function calculatePlanPricing(plan, units = {}) {
+  if (!plan) return { subtotal: 0, discountPercent: 0, discountAmount: 0, amount: 0 };
   const months = Number(plan.durationMonths || 0);
   const pricing = plan.unitPricing || {};
   const subtotal =
@@ -50,7 +54,12 @@ function calculatePlanAmount(plan, units = {}) {
         Number(units.rooms || 0) * Number(pricing.roomMonthly || 0) +
         Number(units.shops || 0) * Number(pricing.shopMonthly || 0));
   const discount = Math.min(100, Math.max(0, Number(plan.discountPercent || 0)));
-  return Math.max(0, Math.round(subtotal - (subtotal * discount) / 100));
+  const amount = Math.max(0, Math.round(subtotal - (subtotal * discount) / 100));
+  return { subtotal, discountPercent: discount, discountAmount: Math.max(0, subtotal - amount), amount };
+}
+
+function calculatePlanAmount(plan, units = {}) {
+  return calculatePlanPricing(plan, units).amount;
 }
 
 function isTrialSubscription(subscription = {}) {
@@ -77,6 +86,7 @@ export default function SubscriptionExpired() {
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [loading, setLoading] = useState(true);
   const [renewing, setRenewing] = useState(false);
+  const [requestingSupport, setRequestingSupport] = useState(false);
   const [error, setError] = useState("");
 
   async function load() {
@@ -208,6 +218,19 @@ export default function SubscriptionExpired() {
     }
   }
 
+  async function requestUnitHelp() {
+    try {
+      setRequestingSupport(true);
+      setError("");
+      const result = await requestUnitReductionSupport();
+      window.alert(result?.message || "Your request was sent. Our support team will contact you using the phone or email on your account.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to contact Superadmin right now.");
+    } finally {
+      setRequestingSupport(false);
+    }
+  }
+
   const organization = bootstrap?.organization || {};
   const subscription = bootstrap?.subscription || {};
   const units = subscription.units || organization.unitAllocation || {};
@@ -218,6 +241,7 @@ export default function SubscriptionExpired() {
     [bootstrap]
   );
   const selectedPlan = plans.find((plan) => String(plan._id) === String(selectedPlanId)) || plans[0] || null;
+  const selectedPlanPricing = calculatePlanPricing(selectedPlan, units);
   const renewalAmount = pendingPayment ? Number(subscription.amount || 0) : calculatePlanAmount(selectedPlan, units);
   const walletBalance = pendingPayment ? 0 : Number(wallet?.balance || 0);
   const walletCoinsUsed = useWallet ? Math.min(walletBalance, renewalAmount) : 0;
@@ -269,7 +293,7 @@ export default function SubscriptionExpired() {
           font-family: Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
         .subscription-shell {
-          width: min(1180px, 100%);
+          width: 100%;
           margin: 0 auto;
         }
         .subscription-header {
@@ -281,8 +305,8 @@ export default function SubscriptionExpired() {
           gap: 18px;
           margin-bottom: 18px;
           border-radius: 12px;
-          background: #fff;
-          box-shadow: 0 8px 24px rgba(30, 58, 138, 0.08);
+          background: #fff;3
+          box-shadow: 0 8px 24px rgba(30, 58, 18, 0.08);
         }
         .subscription-eyebrow {
           color: #b91c1c;
@@ -421,6 +445,11 @@ export default function SubscriptionExpired() {
           color: #08295f;
           font-weight: 900;
         }
+        .subscription-plan-price { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; }
+        .subscription-plan-old-price { color: #718096; font-size: 11px; font-weight: 700; text-decoration: line-through; }
+        .subscription-plan-discount { margin-top: 8px; color: #18734a; font-size: 11px; font-weight: 800; }
+        .subscription-summary-note { margin-top: 3px; color: #18734a; font-size: 11px; font-weight: 800; }
+        .subscription-payable-note { margin: 7px 2px 0; color: #18734a; font-size: 11px; font-weight: 800; text-align: right; }
         .subscription-plan-meta {
           margin-top: 7px;
           color: #607086;
@@ -573,7 +602,17 @@ export default function SubscriptionExpired() {
         .subscription-card-text, .subscription-subtitle, .subscription-plan-meta, .subscription-wallet-text, .subscription-summary-label, .subscription-unit-label, .subscription-payable-label { color: #62748e; }
         .subscription-summary-item, .subscription-unit-box { border-color: #d4e3ff; border-radius: 13px; background: #edf4ff; }
         .subscription-plan-card { border-color: #d7e3f4; border-radius: 13px; }
-        .subscription-plan-card:hover { border-color: #2761d4; box-shadow: 0 8px 18px rgba(39, 65, 113, .11); }
+        .subscription-plan-card:hover { border-color: #2761d4; background: #595be8; color: #ffffff; box-shadow: 0 8px 18px rgba(39, 65, 113, .11); }
+        .subscription-plan-card:hover .subscription-plan-head,
+        .subscription-plan-card:hover .subscription-plan-meta,
+        .subscription-plan-card:hover .subscription-plan-price { color: #ffffff; }
+        .subscription-plan-card:hover .subscription-plan-old-price { color: rgba(255, 255, 255, .78); }
+        .subscription-plan-card.is-active:hover { background: #e8f0ff; color: #0f172a; }
+        .subscription-plan-card.is-active:hover .subscription-plan-head,
+        .subscription-plan-card.is-active:hover .subscription-plan-meta,
+        .subscription-plan-card.is-active:hover .subscription-plan-price { color: #0d3e93; }
+        .subscription-plan-card.is-active:hover .subscription-plan-old-price { color: #718096; }
+        .subscription-plan-discount { color: #111111; font-weight: 900; }
         .subscription-plan-card.is-active { border-color: #2761d4; background: #edf4ff; box-shadow: inset 0 0 0 1px #2761d4; }
         .subscription-wallet { border-color: #d7e3f4; border-radius: 13px; background: #f9fbff; }
         .subscription-wallet-icon { background: #e7efff; color: #1550ce; }
@@ -589,7 +628,7 @@ export default function SubscriptionExpired() {
           font-family: Poppins, sans-serif !important;
         }
         .subscription-page { background: #f7f5ff; }
-        .subscription-shell { width: min(1280px, 100%); }
+        .subscription-shell { width: 100%; }
         .subscription-header { border-radius: 18px; background: #ffffff; }
         .subscription-layout { gap: 20px; grid-template-columns: minmax(0, 1fr) 350px; }
         .subscription-card { border-radius: 18px; }
@@ -612,6 +651,14 @@ export default function SubscriptionExpired() {
         .subscription-unit-value { color: #102c58; }
         .subscription-primary { min-height: 48px; background: #2d6eef; box-shadow: 0 8px 18px rgba(45, 110, 239, .26); }
         .subscription-primary:hover:not(:disabled) { background: #1d57cf; }
+        .subscription-support-card { margin-top: 14px; padding: 14px; border: 1px solid #c9daf7; border-radius: 10px; background: #f2f7ff; }
+        .subscription-support-title { margin: 0 0 5px; color: #12356b; font-size: 14px; font-weight: 800; }
+        .subscription-support-copy { margin: 0 0 11px; color: #536783; font-size: 12px; line-height: 1.5; }
+        .subscription-support-button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border: 1px solid #2d6eef; border-radius: 8px; background: #fff; color: #102244; font-size: 12px; font-weight: 800; cursor: pointer; }
+        .subscription-support-button:disabled { opacity: .65; cursor: wait; }
+        .subscription-support-contacts { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; }
+        .subscription-support-contact { display: inline-flex; align-items: center; gap: 6px; color: #1e54b7; font-size: 12px; font-weight: 800; text-decoration: none; }
+        .subscription-support-contact:hover { color: #12356b; text-decoration: underline; }
         .subscription-wallet:disabled {
           opacity: 1;
           cursor: not-allowed;
@@ -639,6 +686,15 @@ export default function SubscriptionExpired() {
           .subscription-layout {
             grid-template-columns: 1fr;
           }
+            .subscription-plan-head:hover{
+            color:white;}
+            .subscription-plan-discount:hover{
+            color: #030303;
+            font-weight: bold;
+            }
+            .subscription-support-button:hover{
+            color: #0d3e93;
+            }
         }
       `}</style>
       <div className="subscription-shell">
@@ -667,6 +723,9 @@ export default function SubscriptionExpired() {
             <div className="subscription-summary-item">
               <div className="subscription-summary-label">{pageCopy.amountLabel}</div>
               <div className="subscription-summary-value">{money(renewalAmount)}</div>
+              {!pendingPayment && selectedPlanPricing.discountPercent > 0 ? (
+                <div className="subscription-summary-note">{selectedPlanPricing.discountPercent}% off · saving {money(selectedPlanPricing.discountAmount)}</div>
+              ) : null}
             </div>
             <div className="subscription-summary-item">
               <div className="subscription-summary-label">Duration</div>
@@ -681,6 +740,7 @@ export default function SubscriptionExpired() {
               <div className="subscription-plan-list">
                 {plans.map((plan) => {
                   const active = String(selectedPlan?._id) === String(plan._id);
+                  const pricing = calculatePlanPricing(plan, units);
                   return (
                     <button
                       className={`subscription-plan-card ${active ? "is-active" : ""}`}
@@ -690,11 +750,17 @@ export default function SubscriptionExpired() {
                     >
                       <div className="subscription-plan-head">
                         <span>{plan.name || planDurationLabel(plan.durationMonths)}</span>
-                        <span>{money(calculatePlanAmount(plan, units))}</span>
+                        <span className="subscription-plan-price">
+                          {pricing.discountPercent > 0 ? <span className="subscription-plan-old-price">{money(pricing.subtotal)}</span> : null}
+                          <span>{money(pricing.amount)}</span>
+                        </span>
                       </div>
                       <div className="subscription-plan-meta">
                         {planDurationLabel(plan.durationMonths)} | Bed {money(plan.unitPricing?.bedMonthly)}/mo | Room {money(plan.unitPricing?.roomMonthly)}/mo | Shop {money(plan.unitPricing?.shopMonthly)}/mo
                       </div>
+                      {pricing.discountPercent > 0 ? (
+                        <div className="subscription-plan-discount">{pricing.discountPercent}% off · Save {money(pricing.discountAmount)}</div>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -729,12 +795,32 @@ export default function SubscriptionExpired() {
             <span className="subscription-payable-label">Payable now</span>
             <span className="subscription-payable-value">{money(payableAmount)}</span>
           </div>
+          {!pendingPayment && selectedPlanPricing.discountPercent > 0 ? (
+            <div className="subscription-payable-note">Plan discount: {selectedPlanPricing.discountPercent}% · saved {money(selectedPlanPricing.discountAmount)}</div>
+          ) : null}
 
           <div className="subscription-unit-grid">
             <UnitBox label="Beds" value={units.beds} />
             <UnitBox label="Rooms" value={units.rooms} />
             <UnitBox label="Shops" value={units.shops} />
           </div>
+
+          {!pendingPayment ? (
+            <div className="subscription-support-card">
+              <h2 className="subscription-support-title">Need fewer units?</h2>
+              <p className="subscription-support-copy">Ask Superadmin to review your occupied and vacant units before you renew. Our team will contact you using the phone or email on your account.</p>
+              <button className="subscription-support-button " type="button" onClick={requestUnitHelp} disabled={requestingSupport}>
+                <MessageCircle size={16} />
+                {requestingSupport ? "Sending request..." : "Contact Superadmin"}
+              </button>
+              {(SUPPORT_PHONE || SUPPORT_EMAIL) ? (
+                <div className="subscription-support-contacts">
+                  {SUPPORT_PHONE ? <a className="subscription-support-contact" href={`tel:${SUPPORT_PHONE.replace(/[^+\d]/g, "")}`}><Phone size={14} />Call {SUPPORT_PHONE}</a> : null}
+                  {SUPPORT_EMAIL ? <a className="subscription-support-contact" href={`mailto:${SUPPORT_EMAIL}`}><Mail size={14} />Email {SUPPORT_EMAIL}</a> : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {error ? <div className="subscription-error">{error}</div> : null}
 

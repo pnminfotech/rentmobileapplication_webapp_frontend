@@ -23,9 +23,10 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { clearAuthSession } from "../authStorage";
-import { getSystemDashboard } from "../saasApi";
+import { getAppBootstrap, getSystemDashboard } from "../saasApi";
 import { api } from "../api";
 import { useDashboardMenuItems } from "./dashboardMenuItems";
+import { allowedUnitTypes } from "../utils/subscriptionAccess";
 const COLORS = [
   "#1e3a8a",
   "#FBBF24",
@@ -38,6 +39,7 @@ const COLORS = [
 const MainDashboard = () => {
   const navigate = useNavigate();
   const [openSubmenu, setOpenSubmenu] = useState(null);
+  const [enabledUnitTypes, setEnabledUnitTypes] = useState(null);
 
 
 
@@ -51,6 +53,20 @@ const MainDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const menuItems = useDashboardMenuItems();
+
+  useEffect(() => {
+    let active = true;
+    getAppBootstrap()
+      .then((bootstrap) => {
+        if (active) setEnabledUnitTypes(new Set(allowedUnitTypes(bootstrap).map((item) => item.value)));
+      })
+      .catch(() => {
+        if (active) setEnabledUnitTypes(new Set());
+      });
+    return () => { active = false; };
+  }, []);
+
+  const hasUnitType = (type) => Boolean(enabledUnitTypes?.has(type));
 
   const handleNavigation = (path, state) => navigate(path, state ? { state } : undefined);
   const toggleSubmenu = (label) => {
@@ -1048,13 +1064,17 @@ useEffect(() => {
   );
 
   const renderVacantModalBody = () => {
-    if (vacantSummary.total === 0) {
+    const visibleVacantTotal =
+      (hasUnitType("bed") ? vacantSummary.hostel.length : 0) +
+      (hasUnitType("room") ? vacantSummary.residential.length : 0) +
+      (hasUnitType("shop") ? vacantSummary.shops.length : 0);
+    if (visibleVacantTotal === 0) {
       return <p>No vacant units found.</p>;
     }
 
     return (
       <>
-        <div className="mb-4">
+        {hasUnitType("bed") ? <div className="mb-4">
           <h6 className="fw-bold text-primary">
             Hostel Vacant ({vacantSummary.hostel.length})
           </h6>
@@ -1086,9 +1106,9 @@ useEffect(() => {
               </tbody>
             </table>
           )}
-        </div>
+        </div> : null}
 
-        <div className="mb-4">
+        {hasUnitType("room") ? <div className="mb-4">
           <h6 className="fw-bold text-primary">
             Residential Room Vacant ({vacantSummary.residential.length})
           </h6>
@@ -1118,9 +1138,9 @@ useEffect(() => {
               </tbody>
             </table>
           )}
-        </div>
+        </div> : null}
 
-        <div>
+        {hasUnitType("shop") ? <div>
           <h6 className="fw-bold text-primary">
             Shop Vacant ({vacantSummary.shops.length})
           </h6>
@@ -1152,7 +1172,7 @@ useEffect(() => {
               </tbody>
             </table>
           )}
-        </div>
+        </div> : null}
       </>
     );
   };
@@ -1166,21 +1186,25 @@ useEffect(() => {
         </tr>
       </thead>
       <tbody>
-        <tr>
+        {hasUnitType("bed") ? <tr>
           <td>Hostel</td>
           <td>{summary.beds.hostelTotal || 0}</td>
-        </tr>
-        <tr>
+        </tr> : null}
+        {hasUnitType("room") ? <tr>
           <td>Residential</td>
           <td>{summary.beds.residentialTotal || 0}</td>
-        </tr>
-        <tr>
+        </tr> : null}
+        {hasUnitType("shop") ? <tr>
           <td>Shops</td>
           <td>{summary.beds.shopTotal || 0}</td>
-        </tr>
+        </tr> : null}
         <tr className="fw-bold">
           <td>Total</td>
-          <td>{summary.beds.totalUnits || 0}</td>
+          <td>
+            {(hasUnitType("bed") ? summary.beds.hostelTotal || 0 : 0) +
+              (hasUnitType("room") ? summary.beds.residentialTotal || 0 : 0) +
+              (hasUnitType("shop") ? summary.beds.shopTotal || 0 : 0)}
+          </td>
         </tr>
       </tbody>
     </table>
@@ -1235,15 +1259,19 @@ useEffect(() => {
     const residential = pendingRentList.filter((tenant) => tenant._unitType === "room");
     const commercial = pendingRentList.filter((tenant) => tenant._unitType === "shop");
 
-    if (pendingRentList.length === 0) {
+    const visiblePendingCount =
+      (hasUnitType("bed") ? hostel.length : 0) +
+      (hasUnitType("room") ? residential.length : 0) +
+      (hasUnitType("shop") ? commercial.length : 0);
+    if (visiblePendingCount === 0) {
       return <p>No past-due pending rents.</p>;
     }
 
     return (
       <>
-        {renderPendingRentSection("Hostel Pending Rents", hostel, "Room / Bed")}
-        {renderPendingRentSection("Residential Pending Rents", residential, "Room")}
-        {renderPendingRentSection("Commercial Pending Rents", commercial, "Shop")}
+        {hasUnitType("bed") ? renderPendingRentSection("Hostel Pending Rents", hostel, "Room / Bed") : null}
+        {hasUnitType("room") ? renderPendingRentSection("Residential Pending Rents", residential, "Room") : null}
+        {hasUnitType("shop") ? renderPendingRentSection("Commercial Pending Rents", commercial, "Shop") : null}
       </>
     );
   };

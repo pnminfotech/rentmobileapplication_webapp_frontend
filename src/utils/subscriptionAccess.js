@@ -5,13 +5,17 @@ export const UNIT_TYPES = [
 ];
 
 export function getUnitLimits(source = {}) {
-  const limits =
-    source?.limits ||
-    source?.subscription?.units ||
-    source?.units ||
-    source?.unitAllocation ||
-    source ||
-    {};
+  const candidates = [
+    source?.limits,
+    source?.subscription?.units,
+    source?.units,
+    source?.unitAllocation,
+    source?.organization?.unitAllocation,
+    source,
+  ].filter((value) => value && typeof value === "object");
+  const limits = candidates.find((value) =>
+    ["beds", "rooms", "shops"].some((key) => Number(value[key] || 0) > 0)
+  ) || candidates[0] || {};
 
   return {
     beds: Number(limits.beds || 0),
@@ -23,10 +27,18 @@ export function getUnitLimits(source = {}) {
 export function allowedUnitTypes(source = {}) {
   const limits = getUnitLimits(source);
   const selected = UNIT_TYPES.filter((type) => limits[type.quotaKey] > 0);
+  if (selected.length) return selected;
 
-  // Same fallback as mobile: if access metadata is unavailable, keep the UI
-  // usable and let backend authorization remain the final authority.
-  return selected.length ? selected : UNIT_TYPES;
+  const businessType = String(
+    source?.organization?.businessType || source?.businessType || ""
+  ).toLowerCase();
+  if (businessType === "hostel") return UNIT_TYPES.filter((type) => type.value === "bed");
+  if (businessType === "rooms") return UNIT_TYPES.filter((type) => type.value === "room");
+  if (businessType === "shops") return UNIT_TYPES.filter((type) => type.value === "shop");
+
+  // Unit allocation is the permission source. Do not expose property screens
+  // when it is missing or cannot be loaded.
+  return [];
 }
 
 export function firstAllowedType(source = {}) {

@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { API_BASE, api } from "../api";
 import { getAppBootstrap } from "../saasApi";
-import { getUnitLimits } from "../utils/subscriptionAccess";
+import { allowedUnitTypes, getUnitLimits } from "../utils/subscriptionAccess";
 import {
   FaArrowLeft,
   FaBed,
@@ -268,7 +268,17 @@ export default function RoomManager() {
   const [rooms, setRooms] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [unitLimits, setUnitLimits] = useState({ beds: 0, rooms: 0, shops: 0 });
+  const [allowedTypes, setAllowedTypes] = useState([]);
+  const propertyTypeOptions = useMemo(
+    () => PROPERTY_TYPE_OPTIONS.filter((option) => allowedTypes.some((type) => type.value === option.value)),
+    [allowedTypes]
+  );
   const [categories, setCategories] = useState([]);
+  const [propertyLocations, setPropertyLocations] = useState([]);
+  const [showPropertySetup, setShowPropertySetup] = useState(false);
+  const [propertySaving, setPropertySaving] = useState(false);
+  const [editingPropertyKey, setEditingPropertyKey] = useState("");
+  const [propertyDraft, setPropertyDraft] = useState({ propertyType: "bed", name: "", wingNames: "", floorNames: "" });
 
   // ✅ all typeable, including bedCategory
   const [roomForm, setRoomForm] = useState({
@@ -389,9 +399,22 @@ const [editTarget, setEditTarget] = useState({
     }
     fetchRooms();
     getAppBootstrap()
-      .then((bootstrap) => setUnitLimits(getUnitLimits(bootstrap)))
-      .catch(() => setUnitLimits({ beds: 0, rooms: 0, shops: 0 }));
+      .then((bootstrap) => {
+        setUnitLimits(getUnitLimits(bootstrap));
+        setAllowedTypes(allowedUnitTypes(bootstrap));
+      })
+      .catch(() => {
+        setUnitLimits({ beds: 0, rooms: 0, shops: 0 });
+        setAllowedTypes([]);
+      });
   }, []);
+
+  useEffect(() => {
+    const fallbackType = propertyTypeOptions[0]?.value || "bed";
+    if (!propertyTypeOptions.some((option) => option.value === propertyFilter)) {
+      setPropertyFilter(fallbackType);
+    }
+  }, [propertyFilter, propertyTypeOptions]);
 
   useEffect(() => {
     if (search || catFilter || wingFilter || floorFilter) {
@@ -417,9 +440,10 @@ const [editTarget, setEditTarget] = useState({
 
   const fetchRooms = async () => {
     try {
-      const [res, tenantsResponse] = await Promise.all([
+      const [res, tenantsResponse, propertyLocationsResponse] = await Promise.all([
         axios.get(apiUrl),
         axios.get(`${API_BASE}/forms`).catch(() => null),
+        axios.get(`${apiUrl}/property-locations`).catch(() => null),
       ]);
       const nextRooms = (Array.isArray(res.data) ? res.data : []).map((room) => ({
         ...room,
@@ -427,6 +451,7 @@ const [editTarget, setEditTarget] = useState({
       }));
       setRooms(nextRooms);
       setTenants(Array.isArray(tenantsResponse?.data) ? tenantsResponse.data : []);
+      setPropertyLocations(Array.isArray(propertyLocationsResponse?.data) ? propertyLocationsResponse.data : []);
       const mergedCategories = mergeCategoryNames(
         categories,
         nextRooms.map((room) => room?.category)
@@ -477,36 +502,54 @@ const [editTarget, setEditTarget] = useState({
 
   // Same saved-location suggestions used by the mobile Units screen.
   const setupPropertyOptions = useMemo(
-    () => mergeCategoryNames(readyRooms.map((room) => room?.category)),
-    [readyRooms]
+    () => mergeCategoryNames(
+      readyRooms.filter((room) => normalizePropertyType(room?.propertyType) === normalizePropertyType(setupTarget?.propertyType)).map((room) => room?.category),
+      propertyLocations.filter((item) => normalizePropertyType(item?.propertyType) === normalizePropertyType(setupTarget?.propertyType)).map((item) => item?.name)
+    ),
+    [readyRooms, propertyLocations, setupTarget?.propertyType]
   );
 
   const setupFloorOptions = useMemo(() => {
     const categoryKey = normalizeCategoryName(setupForm.category).toLowerCase();
+    const savedLocation = propertyLocations.find((item) =>
+      normalizePropertyType(item?.propertyType) === normalizePropertyType(setupTarget?.propertyType) &&
+      normalizeCategoryName(item?.name).toLowerCase() === categoryKey
+    );
+    const savedFloors = [
+      ...(savedLocation?.floors || []),
+      ...(savedLocation?.wings || []).flatMap((wing) => wing.floors || []),
+    ];
     return mergeCategoryNames(
       readyRooms
         .filter(
           (room) =>
-            !categoryKey ||
-            normalizeCategoryName(room?.category).toLowerCase() === categoryKey
+            normalizePropertyType(room?.propertyType) === normalizePropertyType(setupTarget?.propertyType) &&
+            (!categoryKey || normalizeCategoryName(room?.category).toLowerCase() === categoryKey)
         )
-        .map((room) => room?.floorNo)
+        .map((room) => room?.floorNo),
+      savedFloors
     );
-  }, [readyRooms, setupForm.category]);
+  }, [readyRooms, propertyLocations, setupForm.category, setupTarget?.propertyType]);
 
   const setupWingOptions = useMemo(() => {
     const categoryKey = normalizeCategoryName(setupForm.category).toLowerCase();
     const floorKey = normalizeCategoryName(setupForm.floorNo).toLowerCase();
+    const savedLocation = propertyLocations.find((item) =>
+      normalizePropertyType(item?.propertyType) === normalizePropertyType(setupTarget?.propertyType) &&
+      normalizeCategoryName(item?.name).toLowerCase() === categoryKey
+    );
     return mergeCategoryNames(
       readyRooms
         .filter((room) => {
+          if (normalizePropertyType(room?.propertyType) !== normalizePropertyType(setupTarget?.propertyType)) return false;
           if (categoryKey && normalizeCategoryName(room?.category).toLowerCase() !== categoryKey) return false;
           if (floorKey && normalizeCategoryName(room?.floorNo).toLowerCase() !== floorKey) return false;
           return Boolean(normalizeCategoryName(room?.wingName));
         })
-        .map((room) => room?.wingName)
+        .map((room) => room?.wingName),
+      (savedLocation?.wings || []).map((wing) => wing?.name)
     );
-  }, [readyRooms, setupForm.category, setupForm.floorNo]);
+  }, [readyRooms, propertyLocations, setupForm.category, setupForm.floorNo, setupTarget?.propertyType]);
 
   const setupFlatTypeOptions = useMemo(() => {
     const categoryKey = normalizeCategoryName(setupForm.category).toLowerCase();
@@ -515,13 +558,14 @@ const [editTarget, setEditTarget] = useState({
       FLAT_TYPE_OPTIONS,
       readyRooms
         .filter((room) => {
+          if (normalizePropertyType(room?.propertyType) !== normalizePropertyType(setupTarget?.propertyType)) return false;
           if (categoryKey && normalizeCategoryName(room?.category).toLowerCase() !== categoryKey) return false;
           if (floorKey && normalizeCategoryName(room?.floorNo).toLowerCase() !== floorKey) return false;
           return Boolean(normalizeCategoryName(room?.flatType));
         })
         .map((room) => room?.flatType)
     );
-  }, [readyRooms, setupForm.category, setupForm.floorNo]);
+  }, [readyRooms, setupForm.category, setupForm.floorNo, setupTarget?.propertyType]);
 
   const buildingOptions = useMemo(() => {
     const selectedType = normalizePropertyType(roomForm.propertyType);
@@ -538,8 +582,12 @@ const [editTarget, setEditTarget] = useState({
       )
     );
 
-    return mergeCategoryNames(savedCategoriesForType, roomCategoriesForType);
-  }, [categories, readyRooms, roomForm.propertyType]);
+    return mergeCategoryNames(
+      savedCategoriesForType,
+      roomCategoriesForType,
+      propertyLocations.filter((item) => normalizePropertyType(item?.propertyType) === selectedType).map((item) => item?.name)
+    );
+  }, [categories, readyRooms, roomForm.propertyType, propertyLocations]);
 
   const selectedBuildingOption = useMemo(() => {
     const current = normalizeCategoryName(roomForm.category);
@@ -618,27 +666,33 @@ const [editTarget, setEditTarget] = useState({
     return mergeCategoryNames(
       readyRooms
         .filter((room) => normalizePropertyType(room?.propertyType) === selectedType)
-        .map((room) => room?.category)
+        .map((room) => room?.category),
+      propertyLocations.filter((location) => normalizePropertyType(location?.propertyType) === selectedType).map((location) => location?.name)
     );
-  }, [readyRooms, propertyFilter]);
+  }, [readyRooms, propertyFilter, propertyLocations]);
   const filterWingOptions = useMemo(() => {
     const selectedType = normalizePropertyType(propertyFilter);
     return mergeCategoryNames(
       readyRooms
         .filter((room) => normalizePropertyType(room?.propertyType) === selectedType)
         .map((room) => String(room?.wingName || "").trim())
-        .filter(Boolean)
+        .filter(Boolean),
+      propertyLocations.filter((location) => normalizePropertyType(location?.propertyType) === selectedType).flatMap((location) => (location.wings || []).map((wing) => wing.name))
     );
-  }, [readyRooms, propertyFilter]);
+  }, [readyRooms, propertyFilter, propertyLocations]);
   const filterFloorOptions = useMemo(() => {
     const selectedType = normalizePropertyType(propertyFilter);
     return mergeCategoryNames(
       readyRooms
         .filter((room) => normalizePropertyType(room?.propertyType) === selectedType)
         .map((room) => String(room?.floorNo || "").trim())
-        .filter(Boolean)
+        .filter(Boolean),
+      propertyLocations.filter((location) => normalizePropertyType(location?.propertyType) === selectedType).flatMap((location) => [
+        ...(location.floors || []),
+        ...(location.wings || []).flatMap((wing) => wing.floors || []),
+      ])
     );
-  }, [readyRooms, propertyFilter]);
+  }, [readyRooms, propertyFilter, propertyLocations]);
 
   const totalHostelBeds = useMemo(() => {
     return rooms.reduce((sum, room) => {
@@ -660,14 +714,132 @@ const [editTarget, setEditTarget] = useState({
   };
   const hasReachedHostelBedLimit = !hasQuotaForType("bed") || totalHostelBeds >= MAX_HOSTEL_BEDS;
   const canAddHostelBed = !hasReachedHostelBedLimit || reusableHostelBedSlots.length > 0;
-  const openQuickAdd = () => {
-    const type = normalizePropertyType(propertyFilter);
+  const openQuickAdd = (requestedType = propertyFilter, preset = null) => {
+    const type = normalizePropertyType(requestedType);
     if (!hasQuotaForType(type)) {
       const key = quotaKeyForType(type);
       alert(`${getPropertyTypeLabel(type)} limit reached (${unitUsage[key]} / ${unitLimits[key]}). Add more units to your subscription to continue.`);
       return;
     }
+    setPropertyFilter(type);
+    setRoomForm((prev) => ({
+      ...prev,
+      propertyType: type,
+      category: preset?.name || prev.category,
+      hasWing: type !== "bed" && Boolean(preset?.wingName),
+      wingName: type !== "bed" ? (preset?.wingName || "") : "",
+      floorNo: preset?.floorNo || "",
+      flatType: type === "room" ? prev.flatType : "",
+      roomNo: "",
+      bedNo: "",
+      bedCategory: "",
+      bedPrice: "",
+    }));
     setShowQuickAddForm(true);
+  };
+
+  const savePropertyLocation = async () => {
+    const propertyType = normalizePropertyType(propertyDraft.propertyType);
+    const name = normalizeCategoryName(propertyDraft.name);
+    const floorNames = mergeCategoryNames(String(propertyDraft.floorNames || "").split(","));
+    const wingNames = propertyType === "bed" ? [] : mergeCategoryNames(String(propertyDraft.wingNames || "").split(","));
+    if (!name) {
+      alert("Enter a property or building name.");
+      return;
+    }
+    if (!floorNames.length) {
+      alert("Enter at least one floor, separated by commas.");
+      return;
+    }
+    const alreadyExists = propertyLocations.some((item) =>
+      normalizePropertyType(item.propertyType) === propertyType &&
+      normalizeCategoryName(item.name).toLowerCase() === name.toLowerCase() &&
+      `${normalizePropertyType(item.propertyType)}::${normalizeCategoryName(item.name).toLowerCase()}` !== editingPropertyKey
+    );
+    if (alreadyExists) {
+      alert("A property with this name already exists for this property type.");
+      return;
+    }
+    const newLocation = {
+      propertyType,
+      name,
+      wings: wingNames.map((wingName) => ({ name: wingName, floors: floorNames })),
+      floors: wingNames.length ? [] : floorNames,
+    };
+    try {
+      setPropertySaving(true);
+      const oldLocation = propertyLocations.find((item) =>
+        `${normalizePropertyType(item.propertyType)}::${normalizeCategoryName(item.name).toLowerCase()}` === editingPropertyKey
+      );
+      const oldName = normalizeCategoryName(oldLocation?.name);
+      if (oldLocation && oldName.toLowerCase() !== name.toLowerCase()) {
+        await axios.put(`${apiUrl}/properties/rename`, { propertyType, oldName, newName: name });
+      }
+      const nextLocations = oldLocation
+        ? propertyLocations.map((item) => `${normalizePropertyType(item.propertyType)}::${normalizeCategoryName(item.name).toLowerCase()}` === editingPropertyKey ? newLocation : item)
+        : [...propertyLocations, newLocation];
+      const response = await axios.put(`${apiUrl}/property-locations`, { propertyLocations: nextLocations });
+      const savedLocations = Array.isArray(response.data?.propertyLocations) ? response.data.propertyLocations : nextLocations;
+      await fetchRooms();
+      setPropertyLocations(savedLocations);
+      persistCategories([...categories, name]);
+      if (propertyType !== "bed") {
+        const structureKey = `${propertyType}::${name.toLowerCase()}`;
+        persistStructureDrafts((previous) => {
+          const current = previous[structureKey] || { wings: [], floorsNoWing: [], floorsByWing: {} };
+          if (!wingNames.length) {
+            return { ...previous, [structureKey]: { ...current, floorsNoWing: mergeCategoryNames(current.floorsNoWing || [], floorNames) } };
+          }
+          return {
+            ...previous,
+            [structureKey]: {
+              ...current,
+              wings: mergeCategoryNames(current.wings || [], wingNames),
+              floorsByWing: Object.fromEntries(wingNames.map((wing) => [wing, mergeCategoryNames(current.floorsByWing?.[wing] || [], floorNames)]).concat(Object.entries(current.floorsByWing || {}).filter(([wing]) => !wingNames.some((name) => name.toLowerCase() === wing.toLowerCase())))),
+            },
+          };
+        });
+      }
+      setShowPropertySetup(false);
+      setEditingPropertyKey("");
+      setPropertyDraft({ propertyType, name: "", wingNames: "", floorNames: "" });
+    } catch (error) {
+      alert(error.response?.data?.message || "Unable to save this property.");
+    } finally {
+      setPropertySaving(false);
+    }
+  };
+
+  const addUnitToProperty = (location) => {
+    const firstWing = location.wings?.[0];
+    const firstFloor = firstWing?.floors?.[0] || location.floors?.[0] || "";
+    openQuickAdd(location.propertyType, {
+      name: location.name,
+      wingName: firstWing?.name || "",
+      floorNo: firstFloor,
+    });
+  };
+
+  const editPropertyLocation = (location) => {
+    const wings = location.wings || [];
+    const allFloors = mergeCategoryNames(
+      location.floors || [],
+      wings.flatMap((wing) => wing.floors || [])
+    );
+    setEditingPropertyKey(`${normalizePropertyType(location.propertyType)}::${normalizeCategoryName(location.name).toLowerCase()}`);
+    setPropertyDraft({
+      propertyType: normalizePropertyType(location.propertyType),
+      name: location.name || "",
+      wingNames: wings.map((wing) => wing.name).join(", "),
+      floorNames: allFloors.join(", "),
+    });
+    setShowPropertySetup(true);
+  };
+
+  const openPropertyCreate = () => {
+    setEditingPropertyKey("");
+    setPropertyDraft({ propertyType: propertyFilter, name: "", wingNames: "", floorNames: "" });
+    setShowPropertySetup(true);
   };
 
   /* -------- Add Room (with optional first bed) -------- */
@@ -1779,7 +1951,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
             }}
           >
             <div className="modal-header bg-white sticky-top py-2 px-3 room-manager-quickadd-header" style={{ zIndex: 1 }}>
-              <h5 className="modal-title mb-0">Add Property</h5>
+              <h5 className="modal-title mb-0">Add Unit</h5>
               <button
                 type="button"
                 className="btn btn-sm text-white room-manager-quickadd-close"
@@ -1797,7 +1969,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
                   value={roomForm.propertyType}
                   onChange={(e) => setPropertyFilter(e.target.value)}
                 >
-                  {PROPERTY_TYPE_OPTIONS.map((option) => (
+                  {propertyTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -2058,6 +2230,89 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
       </div>
     );
   };
+
+  const renderPropertyLocations = ({ mobile = false } = {}) => {
+    const visibleLocations = propertyLocations.filter(
+      (location) => normalizePropertyType(location.propertyType) === normalizePropertyType(propertyFilter)
+    );
+    if (!visibleLocations.length) return null;
+    const openPropertyForm = () => {
+      openPropertyCreate();
+    };
+
+    if (mobile) {
+      return (
+        <section className="room-manager-mobile-section">
+          <div className="room-manager-mobile-section-title">
+            <div><h5>Properties / Buildings</h5><span>{visibleLocations.length} saved locations</span></div>
+            <button type="button" className="btn btn-sm btn-outline-primary" onClick={openPropertyForm}><FaPlus className="me-1" />Add</button>
+          </div>
+          <div className="room-manager-mobile-room-list">
+            {visibleLocations.map((location) => {
+              const locationRooms = readyRooms.filter((room) => normalizePropertyType(room.propertyType) === normalizePropertyType(location.propertyType) && normalizeCategoryName(room.category).toLowerCase() === normalizeCategoryName(location.name).toLowerCase());
+              const unitCount = normalizePropertyType(location.propertyType) === "bed" ? locationRooms.reduce((sum, room) => sum + (room.beds?.length || 0), 0) : locationRooms.length;
+              const wingDetails = (location.wings || []).map((wing) => ({ ...wing, floors: wing.floors || [] }));
+              return (
+                <article key={location._id || `${location.propertyType}:${location.name}`} className="room-manager-mobile-room-card">
+                  <div className="room-manager-mobile-room-head"><div style={{ flex: 1, minWidth: 0 }}><strong>{location.name}</strong><div className="room-manager-property-structure">
+                    {wingDetails.length ? wingDetails.map((wing) => <div className="room-manager-property-wing" key={wing.name}><span className="room-manager-property-wing-name">Wing {wing.name}</span><div className="room-manager-property-floors">{wing.floors.length ? wing.floors.map((floor) => <span className="room-manager-property-floor" key={floor}>Floor {floor}</span>) : <span className="text-muted small">No floors added</span>}</div></div>) : <div className="room-manager-property-wing"><span className="room-manager-property-wing-name">No wing</span><div className="room-manager-property-floors">{(location.floors || []).length ? location.floors.map((floor) => <span className="room-manager-property-floor" key={floor}>Floor {floor}</span>) : <span className="text-muted small">No floors added</span>}</div></div>}
+                  </div><small className="text-muted">{unitCount} {getUnitLabel(location.propertyType)}{unitCount === 1 ? "" : "s"}</small></div></div>
+                  <div className="room-manager-property-actions"><button type="button" className="room-manager-mobile-room-action room-manager-mobile-room-action--primary" onClick={() => addUnitToProperty(location)}><FaPlus /><span>Add {getUnitLabel(location.propertyType)}</span></button><button type="button" className="btn btn-sm btn-outline-primary" onClick={() => editPropertyLocation(location)}><FaEdit className="me-1" />Edit</button></div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      );
+    }
+
+    return (
+      <div className="card border-0 shadow-sm mb-3">
+        <div className="card-body">
+          <div className="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
+            <div><h5 className="fw-bold mb-1">Properties / Buildings</h5><div className="text-muted small">Add locations first, then create units within each one.</div></div>
+            <button type="button" className="btn btn-sm btn-outline-primary" onClick={openPropertyForm}><FaPlus className="me-1" />Add property</button>
+          </div>
+          <div className="table-responsive">
+            <table className="table align-middle mb-0">
+              <thead><tr><th>Property / Building</th><th>Wing / Floors</th><th>Units added</th><th className="text-end">Action</th></tr></thead>
+              <tbody>
+                {visibleLocations.map((location) => {
+                  const locationRooms = readyRooms.filter((room) => normalizePropertyType(room.propertyType) === normalizePropertyType(location.propertyType) && normalizeCategoryName(room.category).toLowerCase() === normalizeCategoryName(location.name).toLowerCase());
+                  const unitCount = normalizePropertyType(location.propertyType) === "bed" ? locationRooms.reduce((sum, room) => sum + (room.beds?.length || 0), 0) : locationRooms.length;
+                  const wings = location.wings || [];
+                  return <tr key={location._id || `${location.propertyType}:${location.name}`}><td><strong>{location.name}</strong></td><td><div className="room-manager-property-structure">
+                    {wings.length ? wings.map((wing) => <div className="room-manager-property-wing" key={wing.name}><span className="room-manager-property-wing-name">Wing {wing.name}</span><div className="room-manager-property-floors">{(wing.floors || []).length ? wing.floors.map((floor) => <span className="room-manager-property-floor" key={floor}>Floor {floor}</span>) : <span className="text-muted small">No floors added</span>}</div></div>) : <div className="room-manager-property-wing"><span className="room-manager-property-wing-name">No wing</span><div className="room-manager-property-floors">{(location.floors || []).length ? location.floors.map((floor) => <span className="room-manager-property-floor" key={floor}>Floor {floor}</span>) : <span className="text-muted small">No floors added</span>}</div></div>}
+                  </div></td><td>{unitCount}</td><td className="text-end"><div className="room-manager-property-actions room-manager-property-actions--desktop"><button type="button" className="btn btn-sm btn-outline-primary" onClick={() => editPropertyLocation(location)}><FaEdit className="me-1" />Edit</button><button type="button" className="btn btn-sm btn-primary" onClick={() => addUnitToProperty(location)}><FaPlus className="me-1" />Add {getUnitLabel(location.propertyType)}</button></div></td></tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPropertySetupModal = () => (
+    <div style={modalBackdropStyle} onClick={() => setShowPropertySetup(false)}>
+      <div className="modal-dialog modal-dialog-centered modal-fullscreen-sm-down" style={{ maxWidth: 620, width: "100%", margin: "1rem" }} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="modal-content">
+          <div className="modal-header"><div><h5 className="modal-title mb-1">{editingPropertyKey ? "Edit property" : "Quick add property"}</h5><div className="small text-muted">Save a building and its floors before adding rooms or shops.</div></div><button type="button" className="btn-close" onClick={() => { setShowPropertySetup(false); setEditingPropertyKey(""); }} aria-label="Close" /></div>
+          <div className="modal-body">
+            <label className="form-label">Property type</label>
+            <select className="form-select mb-3" value={propertyDraft.propertyType} disabled={Boolean(editingPropertyKey)} onChange={(event) => setPropertyDraft((prev) => ({ ...prev, propertyType: event.target.value }))}>{propertyTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+            <label className="form-label">Building / property name</label>
+            <input className="form-control mb-3" value={propertyDraft.name} onChange={(event) => setPropertyDraft((prev) => ({ ...prev, name: event.target.value }))} placeholder="e.g. Sai Residency" maxLength={100} />
+            {propertyDraft.propertyType !== "bed" ? <><label className="form-label">Wing names <span className="text-muted">(optional, comma separated)</span></label><input className="form-control mb-3" value={propertyDraft.wingNames} onChange={(event) => setPropertyDraft((prev) => ({ ...prev, wingNames: event.target.value }))} placeholder="e.g. A, B" /></> : null}
+            <label className="form-label">Floor names <span className="text-muted">(comma separated)</span></label>
+            <input className="form-control" value={propertyDraft.floorNames} onChange={(event) => setPropertyDraft((prev) => ({ ...prev, floorNames: event.target.value }))} placeholder="e.g. Ground, 1, 2" />
+            {propertyDraft.wingNames.trim() ? <div className="form-text">The entered floors will be available in each listed wing.</div> : null}
+          </div>
+          <div className="modal-footer"><button type="button" className="btn btn-outline-secondary" onClick={() => { setShowPropertySetup(false); setEditingPropertyKey(""); }}>Cancel</button><button type="button" className="btn btn-primary" onClick={savePropertyLocation} disabled={propertySaving}>{propertySaving ? "Saving..." : editingPropertyKey ? "Save changes" : "Save property"}</button></div>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderGroupedUnitsDesktop = () => {
     if (!groupedDisplayedRooms.length) {
@@ -2475,7 +2730,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
                   value={propertyFilter}
                   onChange={(e) => setPropertyFilter(e.target.value)}
                 >
-                  {PROPERTY_TYPE_OPTIONS.map((option) => (
+                  {propertyTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -2577,7 +2832,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
               value={roomForm.propertyType}
               onChange={(e) => setPropertyFilter(e.target.value)}
             >
-              {PROPERTY_TYPE_OPTIONS.map((option) => (
+              {propertyTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -2741,6 +2996,8 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
           </div>
           </section>
         ) : null}
+
+        {renderPropertyLocations({ mobile: true })}
 
         <section className="room-manager-mobile-section">
           <div className="room-manager-mobile-section-title">
@@ -2979,7 +3236,10 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
                 className="btn text-white room-manager-top-card-btn"
                 onClick={openQuickAdd}
               >
-                <FaPlus className="me-1" /> Add Property
+                <FaPlus className="me-1" /> Add Unit
+              </button>
+              <button type="button" className="btn btn-outline-primary ms-2" onClick={openPropertyCreate}>
+                <FaBuilding className="me-1" /> Quick add property
               </button>
               <div className="room-manager-header-search">
                 <span className="room-manager-header-search-icon">
@@ -2999,7 +3259,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
                 />
               </div>
 
-              <button
+              {/* <button
                 type="button"
                 className="btn btn-outline-secondary room-manager-outline-btn"
                 onClick={openCategoryEditor}
@@ -3007,7 +3267,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
               >
                 <FaEdit className="room-manager-outline-btn-icon" />
                 ✏️ Edit Categories
-              </button>
+              </button> */}
             </div>
         </div>
  <div className="col-12 col-lg room-manager-top-strip-title">
@@ -3025,7 +3285,10 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
         className="btn text-white room-manager-top-card-btn"
         onClick={openQuickAdd}
       >
-        <FaPlus className="me-1" /> Add Property
+        <FaPlus className="me-1" /> Add Unit
+      </button>
+      <button type="button" className="btn btn-outline-primary room-manager-top-card-btn ms-2" onClick={openPropertyCreate}>
+        <FaBuilding className="me-1" /> Quick add property
       </button>
     </div>
 
@@ -3036,7 +3299,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
         value={roomForm.propertyType}
         onChange={(e) => setPropertyFilter(e.target.value)}
       >
-        {PROPERTY_TYPE_OPTIONS.map((option) => (
+        {propertyTypeOptions.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
@@ -3204,9 +3467,15 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
         <div className="col-12 col-md-4 col-lg-4  room-manager-quota-col">
           <div className="room-manager-quota-summary">
             <strong>Registered unit capacity</strong>
-            <span>Beds: {unitUsage.beds} / {unitLimits.beds || "—"}</span>
-            <span>Rooms: {unitUsage.rooms} / {unitLimits.rooms || "—"}</span>
-            <span>Shops: {unitUsage.shops} / {unitLimits.shops || "—"}</span>
+            {allowedTypes.some((type) => type.value === "bed") ? (
+              <span>Beds: {unitUsage.beds} / {unitLimits.beds || "—"}</span>
+            ) : null}
+            {allowedTypes.some((type) => type.value === "room") ? (
+              <span>Rooms: {unitUsage.rooms} / {unitLimits.rooms || "—"}</span>
+            ) : null}
+            {allowedTypes.some((type) => type.value === "shop") ? (
+              <span>Shops: {unitUsage.shops} / {unitLimits.shops || "—"}</span>
+            ) : null}
           </div>
         </div>
 
@@ -3278,7 +3547,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
                   value={propertyFilter}
                   onChange={(e) => setPropertyFilter(e.target.value)}
                 >
-                  {PROPERTY_TYPE_OPTIONS.map((option) => (
+                  {propertyTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -3348,6 +3617,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
             </div>
           </div>
 
+          {renderPropertyLocations()}
           {propertyFilter !== "bed" ? renderGroupedUnitsDesktop() : renderBedRoomsDesktop()}
 
           {renderSetupUnits()}
@@ -3539,6 +3809,7 @@ console.log("Payload =>", { price: priceToSend, bedCategory, propertyFilter });
       </div>
 
       {showQuickAddForm && renderDesktopQuickAddModal()}
+      {showPropertySetup && renderModal(renderPropertySetupModal())}
 
       {/* Add Bed Modal */}
       {showAddBedModal && selectedRoom && renderModal(

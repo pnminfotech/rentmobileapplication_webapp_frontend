@@ -23,6 +23,7 @@ import {
   getAppBootstrap,
   getBillingTransactions,
   getOrganizations,
+  getOrganizationSupportUnits,
   getReferralCodes,
   getSecurityPinStatus,
   getSuperAdminDashboard,
@@ -31,11 +32,12 @@ import {
   resendSuperadminEmailChangeCode,
   resetSecurityPin,
   saveSecurityPin,
+  retireOrganizationUnit,
   updateOrganizationStatus,
   updateSubscriptionPlan,
   verifySuperadminEmailChange,
 } from "../saasApi";
-import { getNotifications, markAllNotificationsRead, markNotificationRead } from "../notificationApi";
+import { getNotifications, resolveAllNotifications, resolveNotification } from "../notificationApi";
 
 const BRAND = "#1e3a8a";
 const CARD_COLORS = ["#76b1d9", "#efe89e", "#ffe0e0", "#7897af", "#f5d4a0", "#cebaed"];
@@ -92,7 +94,8 @@ function SummaryCard({ label, value, icon, color, onClick }) {
   );
 }
 
-function OrganizationTable({ title, organizations, emptyText, onChangeStatus }) {
+function OrganizationTable({ title, organizations, emptyText, onChangeStatus, onManageUnits }) {
+  const showActions = Boolean(onChangeStatus || onManageUnits);
   return (
     <div className="card border-0 shadow-sm mt-3">
       <div className="card-body">
@@ -110,7 +113,7 @@ function OrganizationTable({ title, organizations, emptyText, onChangeStatus }) 
                 <th>Subscription</th>
                 <th>Ends</th>
                 <th>Status</th>
-                {onChangeStatus && <th>Actions</th>}
+                {showActions && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -137,13 +140,13 @@ function OrganizationTable({ title, organizations, emptyText, onChangeStatus }) 
                         {statusText(org.status)}
                       </span>
                     </td>
-                    {onChangeStatus && <td><button className={`btn btn-sm ${org.status === "suspended" ? "btn-outline-success" : "btn-outline-danger"}`} onClick={() => onChangeStatus(org)}>{org.status === "suspended" ? "Reactivate" : "Suspend"}</button></td>}
+                    {showActions && <td className="text-nowrap">{onManageUnits && <button className="btn btn-sm btn-outline-primary me-1" onClick={() => onManageUnits(org)}>Manage units</button>}{onChangeStatus && <button className={`btn btn-sm ${org.status === "suspended" ? "btn-outline-success" : "btn-outline-danger"}`} onClick={() => onChangeStatus(org)}>{org.status === "suspended" ? "Reactivate" : "Suspend"}</button>}</td>}
                   </tr>
                 );
               })}
               {!organizations.length ? (
                 <tr>
-                  <td colSpan={onChangeStatus ? "7" : "6"} className="text-muted text-center py-4">{emptyText}</td>
+                  <td colSpan={showActions ? "7" : "6"} className="text-muted text-center py-4">{emptyText}</td>
                 </tr>
               ) : null}
             </tbody>
@@ -178,6 +181,10 @@ export default function SuperAdminHome() {
   const [planForm, setPlanForm] = useState(null);
   const [pinForm, setPinForm] = useState({ pin: "", confirm: "", currentPin: "", password: "", reset: false });
   const [emailForm, setEmailForm] = useState({ newEmail: "", password: "", challengeId: "", code: "", maskedEmail: "" });
+  const [supportOrganization, setSupportOrganization] = useState(null);
+  const [supportUnits, setSupportUnits] = useState([]);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportAction, setSupportAction] = useState("");
 
   const trialOrganizations = useMemo(
     () => organizations.filter((org) => isTrialOrganization(org)),
@@ -263,6 +270,53 @@ export default function SuperAdminHome() {
     if (!securityPin) return;
     try { await updateOrganizationStatus(org._id, org.status === "suspended" ? "active" : "suspended", securityPin); await load({ silent: true }); }
     catch (err) { setError(err.response?.data?.message || "Unable to update account status."); }
+  }
+
+  async function openSupportUnits(org) {
+    try {
+      setError("");
+      setSupportOrganization(org);
+      setSupportUnits([]);
+      setSupportLoading(true);
+      const units = await getOrganizationSupportUnits(org._id);
+      setSupportUnits(Array.isArray(units) ? units : []);
+    } catch (err) {
+      setSupportOrganization(null);
+      setError(err.response?.data?.message || "Unable to load organization units.");
+    } finally {
+      setSupportLoading(false);
+    }
+  }
+
+  async function retireSupportUnit(unit) {
+    if (!supportOrganization) return;
+    const occupied = unit.occupancy === "occupied";
+    const tenantNames = (unit.occupants || []).map((tenant) => tenant.name).filter(Boolean).join(", ");
+    const confirmed = window.confirm(
+      occupied
+        ? `Retire ${unit.label} today? ${tenantNames || "The tenant"} will move to former records. Rent, payments and documents will remain saved.`
+        : `Remove vacant ${unit.label}?`
+    );
+    if (!confirmed) return;
+    const securityPin = window.prompt("Enter your security PIN to confirm this unit reduction.");
+    if (!securityPin) return;
+    try {
+      setError("");
+      setSupportAction(unit.id);
+      const result = await retireOrganizationUnit(supportOrganization._id, unit.unitId, {
+        kind: unit.kind,
+        bedNo: unit.bedNo || "",
+        reason: "Customer requested a unit reduction through support",
+        securityPin,
+      });
+      setActionMessage(result?.message || "Unit count updated.");
+      await openSupportUnits(supportOrganization);
+      await load({ silent: true });
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update unit.");
+    } finally {
+      setSupportAction("");
+    }
   }
 
   async function savePlan(event) {
@@ -382,6 +436,7 @@ export default function SuperAdminHome() {
         organizations={(dashboard?.latestOrganizations || []).map((org) => organizations.find((item) => String(item._id) === String(org._id)) || org)}
         emptyText="No accounts yet."
         onChangeStatus={changeOrganizationStatus}
+        onManageUnits={openSupportUnits}
       />
     </>
   );
@@ -408,6 +463,7 @@ export default function SuperAdminHome() {
           organizations={trialOrganizations}
           emptyText="No trial accounts found."
           onChangeStatus={changeOrganizationStatus}
+          onManageUnits={openSupportUnits}
         />
       );
     }
@@ -419,6 +475,7 @@ export default function SuperAdminHome() {
           organizations={renewedOrganizations}
           emptyText="No renewed accounts found."
           onChangeStatus={changeOrganizationStatus}
+          onManageUnits={openSupportUnits}
         />
       );
     }
@@ -428,7 +485,7 @@ export default function SuperAdminHome() {
       <div className="table-responsive"><table className="table align-middle"><thead><tr><th>Plan</th><th>Duration</th><th>Unit pricing</th><th>Discount</th><th>Status</th><th /></tr></thead><tbody>{plans.map((plan) => <tr key={plan._id}><td><strong>{plan.name}</strong><div className="small text-muted">Base: {money(plan.baseAmount)}</div></td><td>{plan.durationMonths} months</td><td>Beds {money(plan.unitPricing?.bedMonthly)} · Rooms {money(plan.unitPricing?.roomMonthly)} · Shops {money(plan.unitPricing?.shopMonthly)}</td><td>{plan.discountPercent || 0}%</td><td>{plan.isActive ? "Active" : "Inactive"}</td><td className="text-nowrap"><button className="btn btn-sm btn-outline-primary me-1" onClick={() => setPlanForm({ ...plan, bedMonthly: plan.unitPricing?.bedMonthly || 0, roomMonthly: plan.unitPricing?.roomMonthly || 0, shopMonthly: plan.unitPricing?.shopMonthly || 0 })}>Edit</button><button className="btn btn-sm btn-outline-danger" onClick={() => removePlan(plan)}>Delete</button></td></tr>)}{!plans.length && <tr><td colSpan="6" className="text-center text-muted">No plans found.</td></tr>}</tbody></table></div></Panel>;
     if (activeSection === "referrals") return <Panel title="Referral codes"><div className="table-responsive"><table className="table align-middle"><thead><tr><th>Code</th><th>Owner</th><th>Discount</th><th>Reward</th><th>Used</th><th>Status</th></tr></thead><tbody>{referrals.map((item) => <tr key={item._id}><td><strong>{item.code}</strong></td><td>{item.ownerOrganizationId?.name || item.ownerOrganizationId?.ownerName || "Not assigned"}</td><td>{item.discountPercent || 0}%</td><td>{item.rewardCoins || 0} coins</td><td>{item.usedCount || 0}</td><td>{item.isActive ? "Active" : "Inactive"}</td></tr>)}{!referrals.length && <tr><td colSpan="6" className="text-center text-muted">No referral codes found.</td></tr>}</tbody></table></div></Panel>;
     if (activeSection === "transactions") return <Panel title="Billing transactions"><div className="table-responsive"><table className="table align-middle"><thead><tr><th>Date</th><th>Business</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead><tbody>{transactions.map((item) => <tr key={item._id}><td>{formatDate(item.createdAt)}</td><td>{item.organizationId?.name || item.organizationName || "-"}</td><td>{money(item.amount)}</td><td>{item.provider || item.paymentMethod || "-"}</td><td className="text-capitalize">{statusText(item.status)}</td></tr>)}{!transactions.length && <tr><td colSpan="5" className="text-center text-muted">No transactions found.</td></tr>}</tbody></table></div></Panel>;
-    if (activeSection === "notifications") return <Panel title="Notifications" action={<button className="btn btn-outline-primary btn-sm" onClick={async () => { await markAllNotificationsRead(); await loadSection("notifications"); }}>Mark all read</button>}>{notifications.map((item) => <button key={item._id} className="w-100 text-start border rounded bg-white p-3 mb-2" onClick={async () => { if (!item.read) { await markNotificationRead(item._id); await loadSection("notifications"); } }}><strong>{item.title || "Notification"}</strong><div className="small text-muted">{item.message || ""}</div></button>)}{!notifications.length && <div className="text-muted text-center py-4">No notifications.</div>}</Panel>;
+    if (activeSection === "notifications") return <Panel title="Notifications" action={<button className="btn btn-outline-primary btn-sm" onClick={async () => { await resolveAllNotifications(); await loadSection("notifications"); }}>Mark all read and remove</button>}>{notifications.map((item) => <div key={item._id} className={`w-100 text-start border rounded p-3 mb-2 ${item.read ? "bg-light" : "bg-white"}`}><div className="d-flex align-items-start justify-content-between gap-3"><div><strong>{item.title || "Notification"}</strong><div className="small text-muted">{item.message || ""}</div><div className="small text-secondary mt-1">{formatDate(item.createdAt)}{item.read ? " · Read" : " · New"}</div></div><button className="btn btn-sm btn-outline-secondary flex-shrink-0" onClick={async () => { await resolveNotification(item._id); await loadSection("notifications"); }}>{item.read ? "Remove" : "Mark read & remove"}</button></div></div>)}{!notifications.length && <div className="text-muted text-center py-4">No notifications.</div>}</Panel>;
     if (activeSection === "profile") return <><Panel title="Superadmin profile"><div className="row g-3"><div className="col-md-6"><strong>{bootstrap?.user?.name || "Superadmin"}</strong><div>{bootstrap?.user?.email || "-"}</div><div className="text-muted text-capitalize">{bootstrap?.user?.role || "superadmin"}</div></div><div className="col-md-6"><button className="btn btn-outline-primary me-2" onClick={async () => { await requestPasswordReset(bootstrap?.user?.email); setActionMessage("Password reset link sent to your email."); }}>Send password reset</button><button className="btn btn-primary" onClick={() => setActiveSection("email")}>Change sign-in email</button></div></div></Panel>{activeSection === "email"}</>;
     if (activeSection === "security") return <Panel title="Security PIN"><p className="text-muted">{securityConfigured ? "Your PIN protects sensitive account actions and superadmin login." : "Set a PIN to protect sensitive actions and superadmin login."}</p><form onSubmit={savePin} className="row g-2"><div className="col-md-4"><input type="password" inputMode="numeric" className="form-control" placeholder="New 4–8 digit PIN" value={pinForm.pin} onChange={(e) => setPinForm({ ...pinForm, pin: e.target.value.replace(/\D/g, "").slice(0, 8) })} /></div><div className="col-md-4"><input type="password" inputMode="numeric" className="form-control" placeholder="Confirm PIN" value={pinForm.confirm} onChange={(e) => setPinForm({ ...pinForm, confirm: e.target.value.replace(/\D/g, "").slice(0, 8) })} /></div>{securityConfigured && <div className="col-md-4"><input type="password" className="form-control" placeholder={pinForm.reset ? "Account password" : "Current PIN"} value={pinForm.reset ? pinForm.password : pinForm.currentPin} onChange={(e) => setPinForm(pinForm.reset ? { ...pinForm, password: e.target.value } : { ...pinForm, currentPin: e.target.value.replace(/\D/g, "").slice(0, 8) })} /></div>}<div className="col-12"><button className="btn btn-primary me-2">Save PIN</button>{securityConfigured && <button type="button" className="btn btn-link" onClick={() => setPinForm({ ...pinForm, reset: !pinForm.reset })}>{pinForm.reset ? "Use current PIN" : "Forgot PIN? Use password"}</button>}</div></form></Panel>;
     if (activeSection === "email") return <Panel title="Change sign-in email"><form onSubmit={emailForm.challengeId ? confirmEmailChange : startEmailChange} className="row g-2">{!emailForm.challengeId ? <><div className="col-md-6"><input className="form-control" type="email" required placeholder="New email address" value={emailForm.newEmail} onChange={(e) => setEmailForm({ ...emailForm, newEmail: e.target.value })} /></div><div className="col-md-6"><input className="form-control" required type="password" placeholder="Current password" value={emailForm.password} onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })} /></div></> : <div className="col-md-6"><p className="small text-muted">Enter the code sent to {emailForm.maskedEmail}.</p><input className="form-control" required maxLength="6" placeholder="6-digit code" value={emailForm.code} onChange={(e) => setEmailForm({ ...emailForm, code: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></div>}<div className="col-12"><button className="btn btn-primary">{emailForm.challengeId ? "Verify and update email" : "Send verification code"}</button>{emailForm.challengeId && <button type="button" className="btn btn-link" onClick={async () => { await resendSuperadminEmailChangeCode(emailForm.challengeId); setActionMessage("New code sent."); }}>Resend code</button>}</div></form></Panel>;
@@ -564,6 +621,59 @@ export default function SuperAdminHome() {
         </div>
 
         {renderSection()}
+        {supportOrganization ? (
+          <div className="modal d-block" role="dialog" aria-modal="true" style={{ backgroundColor: "rgba(15, 23, 42, 0.48)" }}>
+            <div className="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <div>
+                    <h5 className="modal-title mb-1">Support: reduce units</h5>
+                    <div className="small text-muted">{supportOrganization.name}</div>
+                  </div>
+                  <button type="button" className="btn-close" onClick={() => setSupportOrganization(null)} aria-label="Close" />
+                </div>
+                <div className="modal-body">
+                  <p className="small text-muted mb-3">
+                    Occupied units can be retired from today. Tenant documents, rent, payment history and earlier records remain stored.
+                  </p>
+                  {supportLoading ? (
+                    <div className="text-center py-4"><div className="spinner-border text-primary" role="status" /></div>
+                  ) : !supportUnits.length ? (
+                    <div className="alert alert-light border mb-0">No configured units are available for this account.</div>
+                  ) : (
+                    <div className="list-group">
+                      {supportUnits.map((unit) => {
+                        const occupied = unit.occupancy === "occupied";
+                        const tenantNames = (unit.occupants || []).map((tenant) => tenant.name).filter(Boolean).join(", ");
+                        const unitType = unit.propertyType === "bed" ? "bed" : unit.propertyType === "shop" ? "shop" : "room";
+                        return (
+                          <div key={unit.id} className="list-group-item d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+                            <div>
+                              <div className="fw-semibold">{unit.label}</div>
+                              <div className={`small ${occupied ? "text-danger" : "text-success"}`}>
+                                {occupied ? `Occupied${tenantNames ? ` · ${tenantNames}` : ""}` : `Vacant ${unitType}`}
+                              </div>
+                            </div>
+                            <button
+                              className={`btn btn-sm ${occupied ? "btn-outline-danger" : "btn-outline-secondary"}`}
+                              onClick={() => retireSupportUnit(unit)}
+                              disabled={Boolean(supportAction)}
+                            >
+                              {supportAction === unit.id ? "Updating..." : occupied ? "Retire" : "Remove"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => setSupportOrganization(null)}>Close</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {actionMessage && <div className="alert alert-success mt-3">{actionMessage}</div>}
       </main>
     </div>

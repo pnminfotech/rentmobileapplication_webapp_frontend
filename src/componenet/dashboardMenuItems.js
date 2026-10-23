@@ -2,6 +2,9 @@ import React from "react";
 import { FiBarChart2, FiUser } from "react-icons/fi";
 import { MdLightbulbOutline, MdOutlineBedroomParent, MdOutlineReceiptLong } from "react-icons/md";
 import { FaUtensils } from "react-icons/fa";
+import { useEffect, useMemo, useState } from "react";
+import { getAppBootstrap } from "../saasApi";
+import { allowedUnitTypes } from "../utils/subscriptionAccess";
 
 export const dashboardMenuItems = [
   { label: "Dashboard", icon: <FiBarChart2 />, path: "/admin" },
@@ -43,5 +46,38 @@ export const dashboardMenuItems = [
 ];
 
 export function useDashboardMenuItems() {
-  return dashboardMenuItems;
+  const [unitAccess, setUnitAccess] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    getAppBootstrap()
+      .then((bootstrap) => {
+        if (active) setUnitAccess(bootstrap);
+      })
+      .catch(() => {
+        if (active) setUnitAccess({});
+      });
+    return () => { active = false; };
+  }, []);
+
+  return useMemo(() => {
+    const enabledTypes = new Set(allowedUnitTypes(unitAccess || {}).map((item) => item.value));
+    const typeForChild = (child) => child?.state?.trackerType;
+
+    return dashboardMenuItems
+      .map((item) => {
+        if (!Array.isArray(item.children)) return item;
+        const children = item.children.filter((child) => {
+          const type = typeForChild(child);
+          return !type || enabledTypes.has(type);
+        });
+        return { ...item, children };
+      })
+      .filter((item) => !Array.isArray(item.children) || item.children.length > 0)
+      .filter((item) => {
+        if (item.label === "Canteen" || item.label === "Hostel rules") return enabledTypes.has("bed");
+        if (item.label === "Staff") return enabledTypes.size > 0;
+        return true;
+      });
+  }, [unitAccess]);
 }

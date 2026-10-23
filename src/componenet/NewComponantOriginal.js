@@ -61,7 +61,7 @@ const openAddModal = () => {
   setShowAddModal(true);
 };
 
-  const apiUrl = '    https://rentmobile-api.pnminfotech.com/api/';
+  const apiUrl = '    http://localhost:8000/api/';
 
   useEffect(() => {
     axios

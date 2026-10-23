@@ -7,7 +7,7 @@ import { FaSearch, FaMoneyBillWave } from "react-icons/fa";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-const API_BASE_URL = "    https://rentmobile-api.pnminfotech.com/api/maintenance"; // Update this if backend is deployed
+const API_BASE_URL = "    http://localhost:8000/api/maintenance"; // Update this if backend is deployed
 
 const Kahata = () => {
     const [schemas, setSchemas] = useState([]);
@@ -43,7 +43,7 @@ const Kahata = () => {
                 const token = localStorage.getItem("authToken");
                 if (!token) return;
 
-                const response = await axios.get("    https://rentmobile-api.pnminfotech.com/api/user", {
+                const response = await axios.get("    http://localhost:8000/api/user", {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 
@@ -106,7 +106,7 @@ const Kahata = () => {
 const handleSubmit = async () => {
     console.log("Sending data:", editData);
     try {
-        const response =  await axios.put(`    https://rentmobile-api.pnminfotech.com/api/maintenance/transactions/update/${editData._id}`, editData);
+        const response =  await axios.put(`    http://localhost:8000/api/maintenance/transactions/update/${editData._id}`, editData);
 
         console.log("Response:", response.data);
         alert("Transaction Updated Successfully");

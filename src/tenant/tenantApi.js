@@ -18,7 +18,7 @@
 // export const TOKEN_KEY = "tenantToken";
 
 // // ✅ always HTTPS
-// const ORIGIN = "    https://rentmobile-api.pnminfotech.com/";
+// const ORIGIN = "    http://localhost:8000/";
 // export const API = `${ORIGIN}/api`;
 
 // export function setToken(t){ localStorage.setItem(TOKEN_KEY, t); }

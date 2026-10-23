@@ -5,7 +5,8 @@ import "../Pages/NewComponent.css";
 
 import { API_BASE, api } from "../api";
 import { getRentSummary, importTenantsFromSheet } from "../api/tenantApi";
-import { UNIT_TYPES } from "../utils/subscriptionAccess";
+import { allowedUnitTypes } from "../utils/subscriptionAccess";
+import { getAppBootstrap } from "../saasApi";
 import { lookupIndianPincode } from "../utils/pincodeLookup";
 // import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaEdit, FaBars } from "react-icons/fa";
@@ -176,8 +177,8 @@ function buildApiUrl(base) {
 
   const fallbackOrigin =
     typeof window !== "undefined" && LOCAL_HOSTS.has(window.location.hostname)
-      ? "   https://rentmobile-api.pnminfotech.com/"
-      : " https://rentmobile-api.pnminfotech.com/";
+      ? "   http://localhost:8000/"
+      : " http://localhost:8000/";
 
   return new URL("/api/", fallbackOrigin).toString();
 }
@@ -552,14 +553,43 @@ function NewComponant() {
   const navigate = useNavigate();
   const trackerTypeFromLocation = useMemo(() => getTrackerTypeFromLocation(location), [location]);
   const [trackerType, setTrackerType] = useState(trackerTypeFromLocation);
+  const [unitAccess, setUnitAccess] = useState(null);
   const [canteenSettings, setCanteenSettings] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    getAppBootstrap()
+      .then((bootstrap) => {
+        if (active) setUnitAccess(bootstrap);
+      })
+      .catch(() => {
+        // Keep the existing navigation available if access information cannot load.
+        if (active) setUnitAccess({});
+      });
+    return () => { active = false; };
+  }, []);
+
+  const trackerNavigationTypes = useMemo(
+    () => (unitAccess ? allowedUnitTypes(unitAccess) : []),
+    [unitAccess]
+  );
+
+  useEffect(() => {
+    if (!unitAccess || trackerNavigationTypes.some((item) => item.value === trackerType)) return;
+    const fallbackType = trackerNavigationTypes[0]?.value || "bed";
+    setTrackerType(fallbackType);
+    navigate(`/tracker/${fallbackType}`, {
+      replace: true,
+      state: { tab: "rent", trackerType: fallbackType },
+    });
+  }, [navigate, trackerNavigationTypes, trackerType, unitAccess]);
+
   useEffect(() => {
     if (trackerType !== "bed") return;
     let active = true;
     canteenApi.settings().then((data) => { if (active) setCanteenSettings(data); }).catch(() => { if (active) setCanteenSettings(null); });
     return () => { active = false; };
   }, [trackerType]);
-  const trackerNavigationTypes = UNIT_TYPES;
   const trackerGroupLabel = trackerType === "bed" ? "Hostel" : "Property";
   const trackerLabel = trackerType === "shop"
     ? "Commercial Shop"
@@ -2077,10 +2107,18 @@ const ROOMS_API = `${apiUrl}rooms`;
 
   const refreshTenants = React.useCallback(async () => {
     try {
-      const { data } = await api.get("/forms");
-      setAllTenantsData(Array.isArray(data) ? data : []);
+      const [activeResponse, archivedResponse] = await Promise.all([
+        api.get("/forms"),
+        api.get("/forms/archived").catch((error) => {
+          console.error("Failed to refresh archived tenants:", error);
+          return { data: [] };
+        }),
+      ]);
+      const activeTenants = Array.isArray(activeResponse.data) ? activeResponse.data : [];
+      setAllTenantsData(activeTenants);
+      setDeletedData(Array.isArray(archivedResponse?.data) ? archivedResponse.data : []);
       setFormData(
-        filterTenantsForTracker(data, Array.isArray(allRoomsData) ? allRoomsData : [])
+        filterTenantsForTracker(activeTenants, Array.isArray(allRoomsData) ? allRoomsData : [])
       );
     } catch (e) {
       console.error("Failed to refresh tenants:", e);
@@ -2140,8 +2178,15 @@ const refreshAllData = useCallback(async () => {
       setAllRoomsData(units);
       return units;
     });
-    const tenantsRequest = api.get("/forms").then(({ data }) => {
-      setAllTenantsData(Array.isArray(data) ? data : []);
+    const tenantsRequest = Promise.all([
+      api.get("/forms"),
+      api.get("/forms/archived").catch((error) => {
+        console.error("Failed to refresh archived tenants:", error);
+        return { data: [] };
+      }),
+    ]).then(([activeResponse, archivedResponse]) => {
+      setAllTenantsData(Array.isArray(activeResponse.data) ? activeResponse.data : []);
+      setDeletedData(Array.isArray(archivedResponse?.data) ? archivedResponse.data : []);
     });
     const billsRequest = api.get("/light-bill/all").then(({ data }) => data).catch((error) => {
       console.error("Failed to refresh light bills:", error);
@@ -5707,7 +5752,7 @@ const updateBreakdownItemStatus = async (item, nextStatus) => {
   // }, []);
   // useEffect(() => {
   //   axios
-  //     .get("    https://rentmobile-api.pnminfotech.com/api/rooms")
+  //     .get("    http://localhost:8000/api/rooms")
   //     .then((response) => setRoomsData(response.data))
   //     .catch((err) => console.error("Failed to fetch rooms:", err));
   // }, []);
@@ -5978,19 +6023,38 @@ const filteredDeletedData = useMemo(() => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  return (formData || []).filter((t) => {
-    if (!t.leaveDate) return false;
+  const activeTenants = (allTenantsData || []).map((tenant) => ({
+    ...tenant,
+    leaveDate: tenant.leaveDate || leaveDates[tenant._id] || "",
+  }));
+  const archivedTenantKeys = new Set(
+    (deletedData || []).map((tenant) => String(tenant.originalFormId || tenant._id))
+  );
+  const tenantSource = [
+    ...activeTenants.filter((tenant) => !archivedTenantKeys.has(String(tenant.originalFormId || tenant._id))),
+    ...(deletedData || []),
+  ];
 
-    const d = new Date(t.leaveDate);
+  return tenantSource
+    .filter((tenant) => normalizeTenantPropertyType(tenant) === trackerType)
+    .map((tenant) => ({
+      ...tenant,
+      leaveDate: tenant.leaveDate || leaveDates[tenant._id] || "",
+    }))
+    .filter((tenant) => {
+    if (!tenant.leaveDate) return false;
+
+    const d = parseOccupancyDate(tenant.leaveDate);
+    if (!d || Number.isNaN(d.getTime())) return false;
     d.setHours(0, 0, 0, 0);
 
     return (
       d <= today &&
-      tenantMatchesSearchText(t) &&
-      tenantMatchesSelectedYear(t)
+      tenantMatchesSearchText(tenant) &&
+      tenantMatchesSelectedYear(tenant)
     ); // already left
   });
-}, [formData, searchText, selectedYear]);
+}, [allTenantsData, leaveDates, trackerType, searchText, selectedYear]);
 
 const totalLeavedRows = filteredDeletedData.length;
 const totalLeavedPages = Math.max(1, Math.ceil(totalLeavedRows / leavedRowsPerPage));
@@ -7452,6 +7516,7 @@ const openNewComponantSection = (tab) => {
 
 const openTrackerView = (nextTrackerType, tab = activeTab) => {
   const normalizedType = normalizeTrackerType(nextTrackerType);
+  if (!trackerNavigationTypes.some((item) => item.value === normalizedType)) return;
   const targetPath = `/tracker/${normalizedType}`;
   const isSamePath = location.pathname === targetPath;
   const isSameTab = (location.state?.tab || "rent") === tab;
@@ -10799,7 +10864,7 @@ const isTodayOrFuture = (iso) => {
 </div>
   )}
 
-  {!showLeavedHistoryView && filteredDeletedData.length > 0 && (
+  {!showLeavedHistoryView && (
     <div className="mt-5 leaved-tenants-section">
       <h5 style={{ fontWeight: "bold" }} className="leavedtenant">
         Leaved Tenants
@@ -10862,9 +10927,11 @@ const isTodayOrFuture = (iso) => {
         </thead>
 
         <tbody>
-          {paginatedLeavedRows.map((tenant, index) => {
-            const leaveDate = new Date(tenant.leaveDate);
-            leaveDate.setHours(0, 0, 0, 0);
+          {paginatedLeavedRows.length === 0 ? (
+            <tr><td colSpan={5} className="text-center text-muted py-4">No former tenants match the current property type, year, or search filters.</td></tr>
+          ) : paginatedLeavedRows.map((tenant, index) => {
+            const leaveDate = parseOccupancyDate(tenant.leaveDate) || new Date(NaN);
+            if (!Number.isNaN(leaveDate.getTime())) leaveDate.setHours(0, 0, 0, 0);
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -11000,8 +11067,8 @@ const isTodayOrFuture = (iso) => {
                       (sum, rent) => sum + (Number(rent?.rentAmount) || 0),
                       0
                     );
-                    const leaveDate = tenant.leaveDate ? new Date(tenant.leaveDate) : null;
-                    const joiningDate = tenant.joiningDate ? new Date(tenant.joiningDate) : null;
+                    const leaveDate = tenant.leaveDate ? parseOccupancyDate(tenant.leaveDate) : null;
+                    const joiningDate = tenant.joiningDate ? parseOccupancyDate(tenant.joiningDate) : null;
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
                     if (leaveDate && !isNaN(leaveDate)) leaveDate.setHours(0, 0, 0, 0);

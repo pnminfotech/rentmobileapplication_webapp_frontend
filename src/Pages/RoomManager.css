@@ -1,6 +1,58 @@
 /* ===============================
    GENERAL LAYOUT
 ================================ */
+.room-manager-property-structure {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.room-manager-property-wing {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 1px solid #dce5f2;
+  border-radius: 8px;
+  background: #f8faff;
+}
+
+.room-manager-property-wing-name {
+  flex: 0 0 auto;
+  min-width: 64px;
+  color: #244b83;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.room-manager-property-floors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.room-manager-property-floor {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e7eefb;
+  color: #334e74;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.room-manager-property-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-manager-property-actions--desktop {
+  justify-content: flex-end;
+}
+
 .room-manager {
   background: #f5f7fb;
   min-height: 100vh;
@@ -149,10 +201,10 @@
   min-height: 72px;
 }
 
-@media (min-width: 992px) {
+@media screen and  (min-width: 992px) and (max-width: 1455px) {
   .room-manager-top-strip .room-manager-stat-col {
     flex: 0 0 340px;
-    max-width: 340px;
+    max-width: 236px;
   }
 }
 
@@ -2880,6 +2932,24 @@
 }
 
 @media (max-width: 768px) {
+  .room-manager-property-structure {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .room-manager-property-wing {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .room-manager-property-actions {
+    width: 100%;
+  }
+
+  .room-manager-property-actions > button {
+    flex: 1;
+  }
+
   .room-desktop-view {
     display: none;
   }

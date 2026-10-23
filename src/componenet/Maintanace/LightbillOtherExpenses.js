@@ -108,7 +108,7 @@ const months = [
 useEffect(() => {
   const fetchTenants = async () => {
     try {
-      const res = await fetch('    https://rentmobile-api.pnminfotech.com/api/');
+      const res = await fetch('    http://localhost:8000/api/');
       const data = await res.json();
       setTenants(data);
     } catch (err) {
@@ -126,8 +126,8 @@ useEffect(() => {
   const fetchData = async () => {
     const url =
       activeTab === 'light'
-        ? '    https://rentmobile-api.pnminfotech.com/api/light-bill/all'
-        : '    https://rentmobile-api.pnminfotech.com/api/other-expense/all';
+        ? '    http://localhost:8000/api/light-bill/all'
+        : '    http://localhost:8000/api/other-expense/all';
     try {
       const res = await fetch(url);
       const data = await res.json();
@@ -142,8 +142,8 @@ useEffect(() => {
   const handleAddEntry = async () => {
   try {
     const url = activeTab === 'light'
-      ? '    https://rentmobile-api.pnminfotech.com/api/light-bill'
-      : '    https://rentmobile-api.pnminfotech.com/api/other-expense';
+      ? '    http://localhost:8000/api/light-bill'
+      : '    http://localhost:8000/api/other-expense';
 
     const bodyData = activeTab === 'light'
       ? (() => {
@@ -273,7 +273,7 @@ if (!monthNumber) {
       let bodyData;
       let url;
       if (activeTab === 'light') {
-        url = `    https://rentmobile-api.pnminfotech.com/api/light-bill/${selectedBill._id}`;
+        url = `    http://localhost:8000/api/light-bill/${selectedBill._id}`;
         bodyData = {
           ...selectedBill,
           status: updatedStatus,
@@ -282,7 +282,7 @@ if (!monthNumber) {
           date: updatedDate,
         };
       } else {
-        url = `    https://rentmobile-api.pnminfotech.com/api/other-expense/${selectedBill._id}`;
+        url = `    http://localhost:8000/api/other-expense/${selectedBill._id}`;
         bodyData = {
           ...selectedBill,
            status: updatedStatus,
@@ -314,8 +314,8 @@ if (!monthNumber) {
     if (window.confirm(`Are you sure you want to delete this ${activeTab === 'light' ? 'light bill' : 'other expense'}?`)) {
       try {
         const url = activeTab === 'light'
-          ? `    https://rentmobile-api.pnminfotech.com/api/light-bill/${bill._id}`
-          : `    https://rentmobile-api.pnminfotech.com/api/other-expense/${bill._id}`;
+          ? `    http://localhost:8000/api/light-bill/${bill._id}`
+          : `    http://localhost:8000/api/other-expense/${bill._id}`;
 
         const response = await fetch(url, {
           method: 'DELETE',

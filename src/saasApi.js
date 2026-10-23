@@ -71,6 +71,11 @@ export async function requestSubscriptionRenewal(payload = {}) {
   return data;
 }
 
+export async function requestUnitReductionSupport() {
+  const { data } = await api.post("/saas/subscription/unit-reduction-request");
+  return data;
+}
+
 export async function requestSubscriptionUpgrade(payload = {}) {
   const { data } = await api.post("/saas/subscription/upgrade-request", payload);
   return data;
@@ -113,6 +118,16 @@ export async function getOrganizations() {
 
 export async function updateOrganizationStatus(organizationId, status, securityPin) {
   const { data } = await api.patch(`/saas/admin/organizations/${organizationId}/status`, { status, securityPin });
+  return data;
+}
+
+export async function getOrganizationSupportUnits(organizationId) {
+  const { data } = await api.get(`/saas/admin/organizations/${organizationId}/vacant-units`);
+  return data;
+}
+
+export async function retireOrganizationUnit(organizationId, unitId, payload = {}) {
+  const { data } = await api.delete(`/saas/admin/organizations/${organizationId}/vacant-units/${unitId}`, { data: payload });
   return data;
 }
 

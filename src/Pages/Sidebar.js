@@ -9,9 +9,26 @@ import {
 } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 import "../Pages/khata.css";
+import { getAppBootstrap } from "../saasApi";
+import { allowedUnitTypes } from "../utils/subscriptionAccess";
 
 const Sidebar = () => {
   const [userName, setUserName] = useState("");
+  const [enabledUnitTypes, setEnabledUnitTypes] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    getAppBootstrap()
+      .then((bootstrap) => {
+        if (active) setEnabledUnitTypes(new Set(allowedUnitTypes(bootstrap).map((item) => item.value)));
+      })
+      .catch(() => {
+        if (active) setEnabledUnitTypes(new Set());
+      });
+    return () => { active = false; };
+  }, []);
+
+  const hasUnitType = (type) => Boolean(enabledUnitTypes?.has(type));
 
   useEffect(() => {
     const fetchUserName = async () => {
@@ -19,7 +36,7 @@ const Sidebar = () => {
         const token = localStorage.getItem("authToken");
         if (!token) return;
 
-        const response = await axios.get("    https://rentmobile-api.pnminfotech.com/api/user", {
+        const response = await axios.get("    http://localhost:8000/api/user", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -55,30 +72,36 @@ const Sidebar = () => {
         <div className="sidebar-item" onClick={() => handleNavigation("/dashboard")}>
           <FaTachometerAlt className="icon" /> Dashboard
         </div>
-        <div className="sidebar-item" onClick={() => handleNavigation("/tracker/bed", { tab: "rent", trackerType: "bed" })}>
+        {hasUnitType("bed") ? <div className="sidebar-item" onClick={() => handleNavigation("/tracker/bed", { tab: "rent", trackerType: "bed" })}>
           <MdOutlineBedroomParent className="icon" /> Hostel
-        </div>
-        <div className="sidebar-item" onClick={() => handleNavigation("/tracker/room", { tab: "rent", trackerType: "room" })}>
+        </div> : null}
+        {hasUnitType("room") ? <div className="sidebar-item" onClick={() => handleNavigation("/tracker/room", { tab: "rent", trackerType: "room" })}>
           <MdOutlineBedroomParent className="icon" /> Residential Rooms
-        </div>
-        <div className="sidebar-item" onClick={() => handleNavigation("/tracker/shop", { tab: "rent", trackerType: "shop" })}>
+        </div> : null}
+        {hasUnitType("shop") ? <div className="sidebar-item" onClick={() => handleNavigation("/tracker/shop", { tab: "rent", trackerType: "shop" })}>
           <MdOutlineBedroomParent className="icon" /> Commercial Shop
-        </div>
-        <div className="sidebar-item" onClick={() => handleNavigation("/tracker/bed", { tab: "light-hostel", trackerType: "bed" })}>
+        </div> : null}
+        {hasUnitType("bed") ? <div className="sidebar-item" onClick={() => handleNavigation("/tracker/bed", { tab: "light-hostel", trackerType: "bed" })}>
           <MdLightbulbOutline className="icon" /> Light Bill Hostel
-        </div>
-        <div className="sidebar-item" onClick={() => handleNavigation("/tracker/room", { tab: "light-room-shop", trackerType: "room" })}>
-          <MdLightbulbOutline className="icon" /> Light Bill Room + Shop
-        </div>
-        <div className="sidebar-item" onClick={() => handleNavigation("/tracker/bed", { tab: "expenses-hostel", trackerType: "bed" })}>
+        </div> : null}
+        {hasUnitType("room") || hasUnitType("shop") ? <div className="sidebar-item" onClick={() => {
+          const type = hasUnitType("room") ? "room" : "shop";
+          handleNavigation(`/tracker/${type}`, { tab: type === "room" ? "light-room" : "light-shop", trackerType: type });
+        }}>
+          <MdLightbulbOutline className="icon" /> Light Bill {hasUnitType("room") && hasUnitType("shop") ? "Room + Shop" : hasUnitType("room") ? "Room" : "Shop"}
+        </div> : null}
+        {hasUnitType("bed") ? <div className="sidebar-item" onClick={() => handleNavigation("/tracker/bed", { tab: "expenses-hostel", trackerType: "bed" })}>
           <MdOutlineReceiptLong className="icon" /> Expenses Hostel
-        </div>
-        <div className="sidebar-item" onClick={() => handleNavigation("/tracker/room", { tab: "expenses-room-shop", trackerType: "room" })}>
-          <MdOutlineReceiptLong className="icon" /> Expenses Room + Shop
-        </div>
-        <div className="sidebar-item" onClick={() => handleNavigation("/tracker/bed", { tab: "staff", trackerType: "bed" })}>
+        </div> : null}
+        {hasUnitType("room") || hasUnitType("shop") ? <div className="sidebar-item" onClick={() => {
+          const type = hasUnitType("room") ? "room" : "shop";
+          handleNavigation(`/tracker/${type}`, { tab: type === "room" ? "expenses-room" : "expenses-shop", trackerType: type });
+        }}>
+          <MdOutlineReceiptLong className="icon" /> Expenses {hasUnitType("room") && hasUnitType("shop") ? "Room + Shop" : hasUnitType("room") ? "Room" : "Shop"}
+        </div> : null}
+        {(hasUnitType("bed") || hasUnitType("room") || hasUnitType("shop")) ? <div className="sidebar-item" onClick={() => handleNavigation(`/tracker/${hasUnitType("bed") ? "bed" : hasUnitType("room") ? "room" : "shop"}`, { tab: "staff", trackerType: hasUnitType("bed") ? "bed" : hasUnitType("room") ? "room" : "shop" })}>
           <MdOutlineReceiptLong className="icon" /> Staff
-        </div>
+        </div> : null}
         <div className="sidebar-item" onClick={() => handleNavigation("/suppliers")}>
           <FaWarehouse className="icon" /> Suppliers
         </div>

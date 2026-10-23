@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { api } from "../api";
 import "../Pages/lightbill.css";
 import "../componenet/RentTracker.css";
 import { FaArrowLeft, FaEdit, FaPlus, FaRedoAlt } from "react-icons/fa";
@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 export default function StaffExpenses({ embedded = false, openAddModal = false, onModalOpened }) {
   const navigate = useNavigate();
 
-const apiUrl = (process.env.REACT_APP_API_URL || "   https://rentmobile-api.pnminfotech.com/api/")
+const apiUrl = (process.env.REACT_APP_API_URL || "   http://localhost:8000/api/")
   .replace(/\/?$/, "/"); // ✅ always ends with /
 
 
@@ -42,7 +42,7 @@ const fetchExpenses = async () => {
     setLoading(true);
 
     // ✅ your backend GET is /all
-    const res = await axios.get(`${apiUrl}staff-expenses/all`);
+    const res = await api.get("/staff-expenses/all");
 
     const list = (res.data || []).map((x) => ({
       ...x,
@@ -138,13 +138,10 @@ const saveExpense = async () => {
 
     if (isEditMode) {
       // ✅ EDIT (same as Expenses)
-      await axios.put(
-        `${apiUrl}staff-expenses/${editId}`,
-        payload
-      );
+      await api.put(`/staff-expenses/${editId}`, payload);
     } else {
       // ✅ ADD
-      await axios.post(`${apiUrl}staff-expenses`, payload);
+      await api.post("/staff-expenses", payload);
     }
 
     setShowExpensesModal(false);
@@ -170,7 +167,7 @@ const saveExpense = async () => {
   const deleteExpense = async (id) => {
     if (!window.confirm("Delete this expense?")) return;
     try {
-      await axios.delete(`${apiUrl}staff-expenses/${id}`);
+      await api.delete(`/staff-expenses/${id}`);
       fetchExpenses();
     } catch (err) {
       console.error("Delete staff expense error:", err);

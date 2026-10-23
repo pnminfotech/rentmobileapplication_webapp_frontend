@@ -116,7 +116,7 @@ const years = useMemo(() => {
 }, [formData]);
 
 
-  const apiUrl = "    https://rentmobile-api.pnminfotech.com/api/";
+  const apiUrl = "    http://localhost:8000/api/";
 
 
 
@@ -307,7 +307,7 @@ const handleApprovedFromBell = React.useCallback((payload) => {
   // existing line in your file
 
   // // ✅ add these right below apiUrl
-  // const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || "    https://rentmobile-api.pnminfotech.com/";
+  // const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || "    http://localhost:8000/";
 
   // const getDocHref = (doc) => {
   //   // absolute URL already? use it
@@ -565,7 +565,7 @@ async function handleAddTenantWithDocs() {
   //         fd.append("documents", doc.file); // only raw files go to upload API
   //       });
 
-  //       const up = await axios.post("    https://rentmobile-api.pnminfotech.com/api/uploads/docs", fd, {
+  //       const up = await axios.post("    http://localhost:8000/api/uploads/docs", fd, {
   //         headers: { "Content-Type": "multipart/form-data" },
   //       });
 
@@ -586,13 +586,13 @@ async function handleAddTenantWithDocs() {
 
   //     console.log("🚀 Payload sending:", JSON.stringify(payload, null, 2));
 
-  //     const res = await axios.post("    https://rentmobile-api.pnminfotech.com/api/forms", payload);
+  //     const res = await axios.post("    http://localhost:8000/api/forms", payload);
   //     console.log("Saved:", res.data);
 
   //     setShowAddModal(false);
 
   //     // refresh list
-  //     const tenantsRes = await axios.get("    https://rentmobile-api.pnminfotech.com/api/forms");
+  //     const tenantsRes = await axios.get("    http://localhost:8000/api/forms");
   //     setTenants(tenantsRes.data);
   //   } catch (err) {
   //     console.error(err);
@@ -847,7 +847,7 @@ async function handleAddTenantWithDocs() {
   }, []);
   // useEffect(() => {
   //   axios
-  //     .get("    https://rentmobile-api.pnminfotech.com/api/rooms")
+  //     .get("    http://localhost:8000/api/rooms")
   //     .then((response) => setRoomsData(response.data))
   //     .catch((err) => console.error("Failed to fetch rooms:", err));
   // }, []);
@@ -1657,7 +1657,7 @@ const isTodayOrFuture = (iso) => {
   }}
 />
 
-<LeaveNotificationBell apiUrl="    https://rentmobile-api.pnminfotech.com/api/" /> */}
+<LeaveNotificationBell apiUrl="    http://localhost:8000/api/" /> */}
 <NotificationBell
   apiUrl={apiUrl}
   onApproved={handleApprovedFromBell}
@@ -4515,7 +4515,7 @@ const years = useMemo(() => {
 }, [formData]);
 
 
-  const apiUrl = "    https://rentmobile-api.pnminfotech.com/api/";
+  const apiUrl = "    http://localhost:8000/api/";
 
 
 
@@ -4706,7 +4706,7 @@ const handleApprovedFromBell = React.useCallback((payload) => {
   // existing line in your file
 
   // // ✅ add these right below apiUrl
-  // const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || "    https://rentmobile-api.pnminfotech.com/";
+  // const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || "    http://localhost:8000/";
 
   // const getDocHref = (doc) => {
   //   // absolute URL already? use it
@@ -4964,7 +4964,7 @@ async function handleAddTenantWithDocs() {
   //         fd.append("documents", doc.file); // only raw files go to upload API
   //       });
 
-  //       const up = await axios.post("    https://rentmobile-api.pnminfotech.com/api/uploads/docs", fd, {
+  //       const up = await axios.post("    http://localhost:8000/api/uploads/docs", fd, {
   //         headers: { "Content-Type": "multipart/form-data" },
   //       });
 
@@ -4985,13 +4985,13 @@ async function handleAddTenantWithDocs() {
 
   //     console.log("🚀 Payload sending:", JSON.stringify(payload, null, 2));
 
-  //     const res = await axios.post("    https://rentmobile-api.pnminfotech.com/api/forms", payload);
+  //     const res = await axios.post("    http://localhost:8000/api/forms", payload);
   //     console.log("Saved:", res.data);
 
   //     setShowAddModal(false);
 
   //     // refresh list
-  //     const tenantsRes = await axios.get("    https://rentmobile-api.pnminfotech.com/api/forms");
+  //     const tenantsRes = await axios.get("    http://localhost:8000/api/forms");
   //     setTenants(tenantsRes.data);
   //   } catch (err) {
   //     console.error(err);
@@ -5246,7 +5246,7 @@ async function handleAddTenantWithDocs() {
   }, []);
   // useEffect(() => {
   //   axios
-  //     .get("    https://rentmobile-api.pnminfotech.com/api/rooms")
+  //     .get("    http://localhost:8000/api/rooms")
   //     .then((response) => setRoomsData(response.data))
   //     .catch((err) => console.error("Failed to fetch rooms:", err));
   // }, []);
@@ -6056,7 +6056,7 @@ const isTodayOrFuture = (iso) => {
   }}
 />
 
-<LeaveNotificationBell apiUrl="    https://rentmobile-api.pnminfotech.com/api/" /> */}
+<LeaveNotificationBell apiUrl="    http://localhost:8000/api/" /> */}
 <NotificationBell
   apiUrl={apiUrl}
   onApproved={handleApprovedFromBell}

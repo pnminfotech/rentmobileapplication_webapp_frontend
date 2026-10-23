@@ -58,7 +58,7 @@ function Add_Data_Demo() {
     companyAddress: '',
   });
 
-  const apiUrl = '    https://rentmobile-api.pnminfotech.com/api/'; // Replace with your actual API endpoint
+  const apiUrl = '    http://localhost:8000/api/'; // Replace with your actual API endpoint
   const correctPassword = "987654";
  
   
@@ -92,7 +92,7 @@ function Add_Data_Demo() {
   
       const fetchData = async () => {
         try {
-          const response = await fetch(`    https://rentmobile-api.pnminfotech.com/api/form/${id}`);
+          const response = await fetch(`    http://localhost:8000/api/form/${id}`);
           if (!response.ok) throw new Error("Failed to fetch data");
   
           const data = await response.json();
@@ -133,7 +133,7 @@ function Add_Data_Demo() {
 
     const handleDownloadForm = async (data) => {
       try {
-        const response = await axios.get(`    https://rentmobile-api.pnminfotech.com/api/form/${data._id}`);
+        const response = await axios.get(`    http://localhost:8000/api/form/${data._id}`);
         if (response.status !== 200) throw new Error("Failed to fetch data");
   
         const singleForm = response.data;
@@ -204,7 +204,7 @@ function Add_Data_Demo() {
     const currentYear = currentDate.getFullYear();
 
     const response = await fetch(
-      `    https://rentmobile-api.pnminfotech.com/api/light-bill/all-bills?month=${currentMonth}&year=${currentYear}`
+      `    http://localhost:8000/api/light-bill/all-bills?month=${currentMonth}&year=${currentYear}`
     );
     const data = await response.json();
     setLightBillEntrys(data);
@@ -223,7 +223,7 @@ function Add_Data_Demo() {
       if (recordToArchive) {
         // Archive the record
         axios
-          .post(`    https://rentmobile-api.pnminfotech.com/api/forms/archive`, { id })
+          .post(`    http://localhost:8000/api/forms/archive`, { id })
           .then((response) => {
             console.log('Data archived:', response.data);
             // Remove from formData
@@ -254,7 +254,7 @@ function Add_Data_Demo() {
 
   useEffect(() => {
     axios
-      .get('    https://rentmobile-api.pnminfotech.com/api/forms/archived')
+      .get('    http://localhost:8000/api/forms/archived')
       .then((response) => {
         console.log('Archived data fetched:', response.data);
         setDeletedData(response.data); // Populate the archived data state
@@ -267,7 +267,7 @@ function Add_Data_Demo() {
   
   useEffect(() => {
     axios
-      .get("    https://rentmobile-api.pnminfotech.com/api/forms")
+      .get("    http://localhost:8000/api/forms")
       .then((response) => {
         const leaveData = {};
         response.data.forEach((item) => {
@@ -284,8 +284,8 @@ function Add_Data_Demo() {
   //download sheet for light bill
 //   const downloadLightBillEntryExcel = async () => {
 //     const apiUrl = isLightBillEntry
-//       ? "    https://rentmobile-api.pnminfotech.com/api/light-bill/all"
-//       : "    https://rentmobile-api.pnminfotech.com/api/other-expense/all";
+//       ? "    http://localhost:8000/api/light-bill/all"
+//       : "    http://localhost:8000/api/other-expense/all";
   
 //     try {
 //       // Fetch data from the backend
@@ -331,8 +331,8 @@ function Add_Data_Demo() {
   const currentYear = now.getFullYear();
 
   const apiUrl = isLightBillEntry
-    ? `    https://rentmobile-api.pnminfotech.com/api/light-bill/all-bills?month=${currentMonth}&year=${currentYear}`
-    : `    https://rentmobile-api.pnminfotech.com/api/other-expense/all`;
+    ? `    http://localhost:8000/api/light-bill/all-bills?month=${currentMonth}&year=${currentYear}`
+    : `    http://localhost:8000/api/other-expense/all`;
 
   try {
     const response = await fetch(apiUrl);
@@ -439,7 +439,7 @@ function Add_Data_Demo() {
     const currentDate = new Date().toISOString().split("T")[0];
   
     try {
-      const response = await fetch("    https://rentmobile-api.pnminfotech.com/api/leave", {
+      const response = await fetch("    http://localhost:8000/api/leave", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -472,9 +472,9 @@ function Add_Data_Demo() {
     const monthYear = newRent.month;
   
     if (newRentAmount === 0) {
-      // 📌 If Rent Amount is 0, Call DELETE API     https://rentmobile-api.pnminfotech.com/
+      // 📌 If Rent Amount is 0, Call DELETE API     http://localhost:8000/
       axios
-        .delete(`    https://rentmobile-api.pnminfotech.com/api//api/form/${currentFormId}/rent/${monthYear}`)
+        .delete(`    http://localhost:8000/api//api/form/${currentFormId}/rent/${monthYear}`)
         .then(() => {
           alert("Rent removed successfully!"); 
   
@@ -506,7 +506,7 @@ function Add_Data_Demo() {
   
     // 📌 Send PUT request to update rent
   axios
-  .put(`    https://rentmobile-api.pnminfotech.com/api/form/${currentFormId}`, updatedRent)
+  .put(`    http://localhost:8000/api/form/${currentFormId}`, updatedRent)
   .then((response) => {
     const patched = {
       ...response.data,
@@ -555,7 +555,7 @@ function Add_Data_Demo() {
 
   const handleDeleteConfirm = async () => {
     try {
-      await axios.delete(`    https://rentmobile-api.pnminfotech.com/api/form/${currentDeleteId}`);
+      await axios.delete(`    http://localhost:8000/api/form/${currentDeleteId}`);
       setFormData((prevFormData) => prevFormData.filter((data) => data._id !== currentDeleteId));
       alert('Form deleted successfully');
       setShowDeleteConfirmation(false);  // Close confirmation modal
@@ -573,7 +573,7 @@ function Add_Data_Demo() {
   };
 const undoArchive = (data) => {
   axios
-    .post(`    https://rentmobile-api.pnminfotech.com/api/forms/restore`, { id: data._id })
+    .post(`    http://localhost:8000/api/forms/restore`, { id: data._id })
     .then(() => {
       // Re-fetch entire updated tenant list after restore
       axios.get(apiUrl).then((response) => {
@@ -602,7 +602,7 @@ const undoArchive = (data) => {
 
   // const undoArchive = (data) => {
   //   axios
-  //     .post(`    https://rentmobile-api.pnminfotech.com/api/forms/restore`, { id: data._id })
+  //     .post(`    http://localhost:8000/api/forms/restore`, { id: data._id })
   //     .then((response) => {
   //       console.log('Data restored:', response.data);
   
@@ -624,7 +624,7 @@ const undoArchive = (data) => {
     // }
 
     axios
-      .put(`    https://rentmobile-api.pnminfotech.com/api/update/${currentFormId}`, updatedFormData)
+      .put(`    http://localhost:8000/api/update/${currentFormId}`, updatedFormData)
       .then((response) => {
         const updatedData = formData.map((data) =>
           data._id === response.data._id ? response.data : data

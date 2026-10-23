@@ -2,10 +2,21 @@ import React from "react";
 import { FaBed, FaDownload, FaHistory, FaUndo } from "react-icons/fa";
 import "./LeavedTenantListView.css";
 
+function parseDate(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const ymd = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (ymd) return new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+  const dmy = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmy) return new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function formatDate(value) {
   if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
+  const date = parseDate(value);
+  if (!date) return "-";
   return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -15,8 +26,8 @@ function formatDate(value) {
 
 function getUndoAllowed(leaveDate) {
   if (!leaveDate) return false;
-  const date = new Date(leaveDate);
-  if (Number.isNaN(date.getTime())) return false;
+  const date = parseDate(leaveDate);
+  if (!date) return false;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -33,8 +44,6 @@ function LeavedTenantListView({
   onDownload,
   onBack,
 }) {
-  if (!Array.isArray(tenants) || tenants.length === 0) return null;
-
   return (
     <section className="leaved-mobile-section">
       <div className="leaved-mobile-header">
@@ -53,9 +62,15 @@ function LeavedTenantListView({
         <div className="leaved-mobile-count">{tenants.length} tenants</div>
       </div>
 
-      <div className="leaved-mobile-list">
+      {tenants.length === 0 ? (
+        <div className="leaved-mobile-empty">
+          <FaHistory />
+          <strong>No former tenants found</strong>
+          <span>Try clearing the search or selecting “All Records” to view older move-outs.</span>
+        </div>
+      ) : <div className="leaved-mobile-list">
         {tenants.map((tenant) => {
-          const leaveDate = tenant?.leaveDate ? new Date(tenant.leaveDate) : null;
+          const leaveDate = tenant?.leaveDate ? parseDate(tenant.leaveDate) : null;
           const undoAllowed = getUndoAllowed(tenant?.leaveDate);
 
           return (
@@ -139,7 +154,7 @@ function LeavedTenantListView({
             </article>
           );
         })}
-      </div>
+      </div>}
     </section>
   );
 }
