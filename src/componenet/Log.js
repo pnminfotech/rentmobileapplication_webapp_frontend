@@ -261,6 +261,7 @@ const Log = () => {
   const [loginCode, setLoginCode] = useState("");
   const [loginMaskedEmail, setLoginMaskedEmail] = useState("");
   const [loginNotice, setLoginNotice] = useState("");
+  const [loginCodeSending, setLoginCodeSending] = useState(false);
   const [loginPinStage, setLoginPinStage] = useState("");
   const [loginSecurityPin, setLoginSecurityPin] = useState("");
   const [loginSecurityPinConfirm, setLoginSecurityPinConfirm] = useState("");
@@ -370,6 +371,8 @@ async function handleVerifyLoginSecurityPin(e) {
 }
 
 async function handleResendLoginCode() {
+  if (loginCodeSending) return;
+  setLoginCodeSending(true);
   try {
     setLoginMessage("");
     setLoginNotice("");
@@ -378,7 +381,26 @@ async function handleResendLoginCode() {
     setLoginCode("");
     setLoginNotice("A new sign-in code has been sent.");
   } catch (error) {
-    setLoginMessage(error.response?.data?.message || "Unable to resend the code. Please try again.");
+    const serverMessage = error.response?.data?.message || "Unable to resend the code. Please try again.";
+    if (error.response?.status === 400 && /invalid|expired/i.test(serverMessage) && loginEmail.trim()) {
+      try {
+        const freshChallenge = await requestSaasLoginEmailCode(loginEmail.trim());
+        setLoginChallengeId(freshChallenge.challengeId);
+        setLoginMaskedEmail(freshChallenge.email || loginMaskedEmail);
+        setLoginCode("");
+        setLoginPinStage("");
+        setLoginSecurityPin("");
+        setLoginSecurityPinConfirm("");
+        setLoginNotice("Your previous sign-in expired. A fresh code has been sent.");
+        return;
+      } catch (restartError) {
+        setLoginMessage(restartError.response?.data?.message || serverMessage);
+        return;
+      }
+    }
+    setLoginMessage(serverMessage);
+  } finally {
+    setLoginCodeSending(false);
   }
 }
   async function handleRegister(e) {
@@ -502,10 +524,11 @@ async function handleResendLoginCode() {
                       {loginMessage && <p className="text-danger mt-2">{loginMessage}</p>}
                       {loginNotice && <p className="text-success mt-2">{loginNotice}</p>}
                       {loginChallengeId && !loginPinStage && <div className="d-flex gap-2 mt-3">
-                        <button type="button" className="btn btn-link p-0" onClick={handleResendLoginCode}>Send a new code</button>
+                        <button type="button" className="btn btn-link p-0" onClick={handleResendLoginCode} disabled={loginCodeSending}>{loginCodeSending ? "Sending..." : "Send a new code"}</button>
                         <button type="button" className="btn btn-link p-0" onClick={() => { setLoginChallengeId(""); setLoginCode(""); setLoginMessage(""); setLoginNotice(""); }}>Back to sign in</button>
                       </div>}
                       {loginPinStage === "verify" && <button type="button" className="btn btn-link p-0 mt-3" onClick={handleForgotLoginSecurityPin}>Forgot security PIN? Send a new OTP</button>}
+                      {loginPinStage && <button type="button" className="btn btn-link p-0 mt-3" onClick={() => { setLoginChallengeId(""); setLoginCode(""); setLoginPinStage(""); setLoginSecurityPin(""); setLoginSecurityPinConfirm(""); setLoginMessage(""); setLoginNotice(""); }}>Back to sign in</button>}
                     </form>
                   ) : (
                     <form onSubmit={handleRegister} className="" style={box1}>

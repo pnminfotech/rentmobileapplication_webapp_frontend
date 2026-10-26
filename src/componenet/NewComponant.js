@@ -742,6 +742,7 @@ const [editReceiptUrl, setEditReceiptUrl] = useState("");
 
   
   const [activeTab, setActiveTab] = useState("rent");
+  const [showUnassignedTenantsView, setShowUnassignedTenantsView] = useState(false);
   const [showCanteenModal, setShowCanteenModal] = useState(false);
   const [canteenTenant, setCanteenTenant] = useState(null);
   const [savingCanteen, setSavingCanteen] = useState(false);
@@ -796,6 +797,29 @@ const [editReceiptUrl, setEditReceiptUrl] = useState("");
   const [selectedRowData, setSelectedRowData] = useState(null);
   // const [lang, setLang] = useState("en");
  const [showAddModal, setShowAddModal] = useState(false);
+ const [showQuickTenantModal, setShowQuickTenantModal] = useState(false);
+ const [quickTenantSaving, setQuickTenantSaving] = useState(false);
+ const [quickTenantError, setQuickTenantError] = useState("");
+ const [quickTenantEditing, setQuickTenantEditing] = useState(null);
+ const [quickTenantForm, setQuickTenantForm] = useState({
+   name: "",
+   phoneNo: "",
+   joiningDate: new Date().toISOString().slice(0, 10),
+   depositAmount: "",
+   rentAmount: "",
+   pincode: "",
+   city: "",
+   state: "",
+   address: "",
+   houseNo: "",
+   nearbyPlace: "",
+   firstRentStatus: "",
+ });
+ const [quickTenantPinStatus, setQuickTenantPinStatus] = useState("idle");
+ const [quickTenantSection, setQuickTenantSection] = useState("");
+ const [assigningQuickTenant, setAssigningQuickTenant] = useState(null);
+ const [quickTenantSlotKey, setQuickTenantSlotKey] = useState("");
+ const [quickTenantAssigning, setQuickTenantAssigning] = useState(false);
  const [newTenant, setNewTenant] = useState({
     srNo: "",
     name: "",
@@ -894,6 +918,37 @@ const [editReceiptUrl, setEditReceiptUrl] = useState("");
       window.clearTimeout(timer);
     };
   }, [newTenant?.pincode, showAddModal]);
+
+  useEffect(() => {
+    const pin = String(quickTenantForm?.pincode || "").trim();
+    if (!showQuickTenantModal || !/^\d{6}$/.test(pin)) {
+      setQuickTenantPinStatus("idle");
+      return;
+    }
+
+    const controller = new AbortController();
+    setQuickTenantPinStatus("loading");
+    const timer = window.setTimeout(async () => {
+      try {
+        const details = await lookupIndianPincode(pin, controller.signal);
+        if (controller.signal.aborted) return;
+        setQuickTenantForm((prev) => String(prev?.pincode || "").trim() === pin ? ({
+          ...prev,
+          city: prev.city || details.city,
+          state: prev.state || details.state,
+          nearbyPlace: prev.nearbyPlace || details.nearbyPlace,
+        }) : prev);
+        setQuickTenantPinStatus("success");
+      } catch {
+        if (!controller.signal.aborted) setQuickTenantPinStatus("error");
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [quickTenantForm?.pincode, showQuickTenantModal]);
 
   const [firstRentStatusSelection, setFirstRentStatusSelection] = useState("ADVANCE_PAID");
   const [sortConfig, setSortConfig] = useState({
@@ -2091,7 +2146,7 @@ const ROOMS_API = `${apiUrl}rooms`;
 
   const filterTenantsForTracker = useCallback(
     (tenants = []) => (Array.isArray(tenants) ? tenants : []).filter(
-      (tenant) => normalizeTenantPropertyType(tenant) === trackerType
+      (tenant) => tenant?.intakeStatus !== "pending_tenant" && normalizeTenantPropertyType(tenant) === trackerType
     ),
     [trackerType]
   );
@@ -3101,10 +3156,13 @@ const vacantBedsList = useMemo(() => {
       // ✅ vacant only if not in occupiedSet
       if (!occupiedBedSet.has(key)) {
         list.push({
+          roomId: String(room._id || room.id || ""),
           roomNo,
           bedNo,
           floorNo,
           category,
+          wingName: room.wingName || "",
+          propertyType: room.propertyType || trackerType,
           propertyLabel,
           price: bed.price ?? bed.bedRent ?? room.bedRent ?? room.price ?? 0,
         });
@@ -3119,9 +3177,77 @@ const vacantBedsList = useMemo(() => {
   });
 
   return list;
-}, [roomsData, occupiedBedSet]);
+}, [roomsData, occupiedBedSet, trackerType]);
 
 const vacantCount = vacantBedsList.length;
+
+const pendingQuickTenants = useMemo(
+  () => (Array.isArray(allTenantsData) ? allTenantsData : [])
+    .filter((tenant) => tenant?.intakeStatus === "pending_tenant")
+    .sort((a, b) => Number(a.srNo || 0) - Number(b.srNo || 0)),
+  [allTenantsData]
+);
+const assigningQuickTenantType = assigningQuickTenant
+  ? normalizeTenantPropertyType(assigningQuickTenant)
+  : trackerType;
+
+const quickAssignVacantSlots = useMemo(() => {
+  const occupiedRoomBeds = new Set();
+  const occupiedPhysicalBeds = new Set();
+  (Array.isArray(allTenantsData) ? allTenantsData : []).forEach((tenant) => {
+    if (tenant?.intakeStatus === "pending_tenant" || hasLeaveDatePassed(tenant?.leaveDate)) return;
+    const propertyType = normalizeTenantPropertyType(tenant);
+    const matchedRoom = findTrackerRoomForTenant(tenant);
+    const roomId = String(tenant?.roomId?._id || tenant?.roomId || matchedRoom?._id || "");
+    const roomNo = tenant?.roomNo || matchedRoom?.roomNo;
+    const bedNo = propertyType === "room" ? "ROOM-1" : propertyType === "shop" ? "SHOP-1" : tenant?.bedNo;
+    const propertyLabel = getTrackerPropertyLabel(matchedRoom) || getTrackerPropertyLabel(tenant);
+    if (roomId && bedNo) occupiedRoomBeds.add(`${roomId}::${String(bedNo).trim().toLowerCase()}`);
+    if (roomNo && bedNo) {
+      occupiedPhysicalBeds.add(physicalBedKey({
+        propertyLabel,
+        category: tenant?.category || matchedRoom?.category,
+        wingName: tenant?.wingName || matchedRoom?.wingName,
+        floorNo: tenant?.floorNo || matchedRoom?.floorNo,
+        roomNo,
+        bedNo,
+      }));
+    }
+  });
+
+  const seen = new Set();
+  return (Array.isArray(allRoomsData) ? allRoomsData : []).flatMap((room) => {
+    if (hasPendingUnitDetails(room)) return [];
+    const propertyType = normalizeRoomPropertyType(room);
+    const propertyLabel = getTrackerPropertyLabel(room);
+    const roomNo = room?.roomNo ?? room?.room ?? room?.number ?? "";
+    const floorNo = room?.floorNo ?? room?.floor ?? "";
+    return (Array.isArray(room?.beds) ? room.beds : []).flatMap((bed) => {
+      const bedNo = propertyType === "room" ? "ROOM-1" : propertyType === "shop" ? "SHOP-1" : bed?.bedNo ?? bed?.no ?? bed?.number ?? bed;
+      if (!bedNo) return [];
+      const key = physicalBedKey({ propertyLabel, wingName: room?.wingName, floorNo, roomNo, bedNo });
+      if (seen.has(key)) return [];
+      seen.add(key);
+      const roomBedKey = `${String(room?._id || room?.id || "")}::${String(bedNo).trim().toLowerCase()}`;
+      if (occupiedRoomBeds.has(roomBedKey) || occupiedPhysicalBeds.has(key)) return [];
+      return [{
+        roomId: String(room?._id || room?.id || ""),
+        propertyType,
+        roomNo,
+        bedNo,
+        floorNo,
+        category: room?.category || "",
+        wingName: room?.wingName || "",
+        propertyLabel,
+        price: bed?.price ?? bed?.bedRent ?? room?.bedRent ?? room?.price ?? 0,
+      }];
+    });
+  }).sort((a, b) =>
+    String(a.propertyLabel).localeCompare(String(b.propertyLabel), undefined, { numeric: true }) ||
+    String(a.roomNo).localeCompare(String(b.roomNo), undefined, { numeric: true }) ||
+    String(a.bedNo).localeCompare(String(b.bedNo), undefined, { numeric: true })
+  );
+}, [allRoomsData, allTenantsData]);
 
 
 
@@ -3411,6 +3537,160 @@ function getCycleRangeStr(tenant, cycleIndex) {
     fetchSrNo();
     syncFirstRentStatusForAdd("ADVANCE_PAID");
     setShowAddModal(true);
+  };
+
+  const openQuickTenantModal = () => {
+    setQuickTenantError("");
+    setQuickTenantEditing(null);
+    setQuickTenantSection("");
+    setQuickTenantForm({
+      name: "",
+      phoneNo: "",
+      joiningDate: getTodayISODate(),
+      depositAmount: "",
+      rentAmount: "",
+      pincode: "",
+      city: "",
+      state: "",
+      address: "",
+      houseNo: "",
+      nearbyPlace: "",
+      firstRentStatus: "",
+    });
+    setShowQuickTenantModal(true);
+  };
+
+  const editQuickTenant = (tenant) => {
+    setQuickTenantError("");
+    setQuickTenantEditing(tenant);
+    setQuickTenantSection(normalizeTenantPropertyType(tenant));
+    setQuickTenantForm({
+      name: tenant?.name || "",
+      phoneNo: String(tenant?.phoneNo || "").replace(/\D/g, "").slice(0, 10),
+      joiningDate: tenant?.joiningDate ? new Date(tenant.joiningDate).toISOString().slice(0, 10) : "",
+      depositAmount: String(tenant?.depositAmount ?? ""),
+      rentAmount: String(tenant?.baseRent ?? tenant?.rentAmount ?? ""),
+      pincode: tenant?.pincode || "",
+      city: tenant?.city || "",
+      state: tenant?.state || "",
+      address: tenant?.address || "",
+      houseNo: tenant?.houseNo || "",
+      nearbyPlace: tenant?.nearbyPlace || "",
+      firstRentStatus: ["ADVANCE_PAID", "NOT_PAID"].includes(tenant?.firstRentStatus) ? tenant.firstRentStatus : "",
+    });
+    setShowQuickTenantModal(true);
+  };
+
+  const saveQuickTenant = async (event) => {
+    event?.preventDefault?.();
+    if (quickTenantSaving) return;
+    const phoneNo = String(quickTenantForm.phoneNo || "").replace(/\D/g, "");
+    if (!String(quickTenantForm.name || "").trim()) {
+      setQuickTenantError("Enter the tenant name.");
+      return;
+    }
+    if (!quickTenantSection || !trackerNavigationTypes.some((item) => item.value === quickTenantSection)) {
+      setQuickTenantError("Select the tenant section.");
+      return;
+    }
+    if (!/^\d{10}$/.test(phoneNo)) {
+      setQuickTenantError("Enter a valid 10-digit phone number.");
+      return;
+    }
+    const depositAmount = Number(quickTenantForm.depositAmount);
+    if (quickTenantForm.depositAmount === "" || !Number.isFinite(depositAmount) || depositAmount < 0) {
+      setQuickTenantError("Enter a valid deposit amount (0 or more).");
+      return;
+    }
+    const rentAmount = Number(quickTenantForm.rentAmount);
+    if (!Number.isFinite(rentAmount) || rentAmount <= 0 || quickTenantForm.rentAmount === "") {
+      setQuickTenantError("Enter a valid monthly rent greater than 0.");
+      return;
+    }
+    if (!quickTenantForm.joiningDate) {
+      setQuickTenantError("Select a joining date.");
+      return;
+    }
+    if (!["ADVANCE_PAID", "NOT_PAID"].includes(quickTenantForm.firstRentStatus)) {
+      setQuickTenantError("Select a rent cycle.");
+      return;
+    }
+    const pincode = String(quickTenantForm.pincode || "").trim();
+    if (pincode && !/^\d{6}$/.test(pincode)) {
+      setQuickTenantError("Enter a valid 6-digit pincode.");
+      return;
+    }
+
+    setQuickTenantSaving(true);
+    setQuickTenantError("");
+    try {
+      const payload = {
+        ...quickTenantForm,
+        name: String(quickTenantForm.name).trim(),
+        phoneNo,
+        depositAmount,
+        baseRent: rentAmount,
+        rentAmount,
+        pincode,
+        firstRentStatus: quickTenantForm.firstRentStatus,
+        propertyType: quickTenantSection,
+        intakeStatus: "pending_tenant",
+      };
+      if (quickTenantEditing?._id) {
+        await api.put(`/forms/${quickTenantEditing._id}`, payload);
+      } else {
+        await api.post("/forms/quick-add", payload);
+      }
+      await refreshTenants();
+      setShowQuickTenantModal(false);
+      setQuickTenantEditing(null);
+    } catch (error) {
+      setQuickTenantError(
+        error?.response?.data?.message || "Could not save tenant details. Please try again."
+      );
+    } finally {
+      setQuickTenantSaving(false);
+    }
+  };
+
+  const assignQuickTenantToSlot = async () => {
+    if (!assigningQuickTenant || !quickTenantSlotKey || quickTenantAssigning) return;
+    const tenantType = normalizeTenantPropertyType(assigningQuickTenant);
+    const slot = quickAssignVacantSlots.find((item) =>
+      item.propertyType === tenantType && `${item.roomId}::${item.bedNo}` === quickTenantSlotKey
+    );
+    if (!slot) {
+      setQuickTenantError("That unit is no longer vacant. Refresh and select another unit.");
+      return;
+    }
+    const savedRent = Number(assigningQuickTenant.baseRent ?? assigningQuickTenant.rentAmount ?? 0);
+    const assignedRent = Number.isFinite(savedRent) && savedRent > 0 ? savedRent : Number(slot.price || 0);
+    setQuickTenantAssigning(true);
+    setQuickTenantError("");
+    try {
+      await api.put(`/forms/${assigningQuickTenant._id}`, {
+        propertyType: tenantType,
+        roomId: slot.roomId,
+        category: slot.category,
+        wingName: slot.wingName || "",
+        floorNo: slot.floorNo,
+        roomNo: slot.roomNo,
+        bedNo: tenantType === "bed" ? slot.bedNo : tenantType === "shop" ? "SHOP-1" : "ROOM-1",
+        baseRent: assignedRent,
+        rentAmount: assignedRent,
+        tenantRentOverride: true,
+        intakeStatus: "submitted",
+      });
+      await refreshTenants();
+      setAssigningQuickTenant(null);
+      setQuickTenantSlotKey("");
+    } catch (error) {
+      setQuickTenantError(
+        error?.response?.data?.message || "Could not assign this unit. Please try another vacant unit."
+      );
+    } finally {
+      setQuickTenantAssigning(false);
+    }
   };
 
 
@@ -4608,6 +4888,10 @@ const closeAddTenantModal = () => {
  };
 
  const expectFromTenant = (tenant, roomsData) => {
+  const tenantRent = explicitRentFromTenant(tenant);
+  // Quick-add rent belongs to the tenant, even when the assigned unit has a default price.
+  if (tenant?.tenantRentOverride && tenantRent > 0) return tenantRent;
+
   // 1️⃣ Always prefer NEW updated bed/room price from roomsData
   if (roomsData && tenant?.roomNo && tenant?.bedNo) {
     const room = roomsData.find(
@@ -7505,6 +7789,10 @@ useEffect(() => {
 }, [trackerTypeFromLocation]);
 
 useEffect(() => {
+  if (activeTab !== "rent") setShowUnassignedTenantsView(false);
+}, [activeTab]);
+
+useEffect(() => {
   if (location.state?.tab) {
     setActiveTab(location.state.tab);
   }
@@ -7517,6 +7805,7 @@ const openNewComponantSection = (tab) => {
 const openTrackerView = (nextTrackerType, tab = activeTab) => {
   const normalizedType = normalizeTrackerType(nextTrackerType);
   if (!trackerNavigationTypes.some((item) => item.value === normalizedType)) return;
+  setShowUnassignedTenantsView(false);
   const targetPath = `/tracker/${normalizedType}`;
   const isSamePath = location.pathname === targetPath;
   const isSameTab = (location.state?.tab || "rent") === tab;
@@ -9968,7 +10257,7 @@ const isTodayOrFuture = (iso) => {
 
 
    {activeTab === "rent" && (
-  <div className="table-responsive rent-table-wrapper">
+  <div className={`table-responsive rent-table-wrapper${showUnassignedTenantsView ? " unassigned-tenants-mode" : ""}`}>
 
 <div className="position-relative d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
   <button
@@ -10045,12 +10334,83 @@ const isTodayOrFuture = (iso) => {
       key={type}
       type="button"
       className={`rent-tracker-tab ${trackerType === type ? "is-active" : ""}`}
-      onClick={() => openTrackerView(type)}
+      onClick={() => {
+        setShowUnassignedTenantsView(false);
+        openTrackerView(type, "rent");
+      }}
     >
       {type === "shop" ? "Commercial Shop" : type === "room" ? "Residential Rooms" : "Hostel"}
     </button>
   ))}
+  <button
+    type="button"
+    className={`rent-tracker-tab ${showUnassignedTenantsView ? "is-active" : ""}`}
+    onClick={() => setShowUnassignedTenantsView(true)}
+  >
+    Quick tenant add
+    {pendingQuickTenants.length > 0 && <span className="ms-2 badge text-bg-secondary">{pendingQuickTenants.length}</span>}
+  </button>
 </div>
+
+{showUnassignedTenantsView && (
+  <section className="card border-0 shadow-sm my-3 unassigned-tenants-panel" aria-labelledby="unassigned-tenants-title">
+    <div className="card-body">
+      <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
+        <div>
+          <h5 id="unassigned-tenants-title" className="mb-1">Unassigned tenants</h5>
+          <div className="text-muted small">Saved tenant details waiting for a room, bed, or shop assignment.</div>
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <span className="badge text-bg-secondary">{pendingQuickTenants.length} pending</span>
+          <button type="button" className="btn btn-sm btn-outline-primary" onClick={openQuickTenantModal}>
+            <FaPlus className="me-1" /> Quick add tenant
+          </button>
+        </div>
+      </div>
+      <div className="table-responsive">
+        <table className="table table-sm table-hover align-middle mb-0">
+          <thead>
+            <tr><th>Sr No</th><th>Tenant</th><th>Phone</th><th>Section</th><th>Monthly rent</th><th>Deposit</th><th>Joining date</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {pendingQuickTenants.length ? pendingQuickTenants.map((tenant) => (
+              <tr key={tenant._id}>
+                <td>{tenant.srNo ?? "—"}</td>
+                <td className="fw-semibold">{tenant.name || "—"}</td>
+                <td>{tenant.phoneNo || "—"}</td>
+                <td>{normalizeTenantPropertyType(tenant) === "bed" ? "Hostel" : normalizeTenantPropertyType(tenant) === "room" ? "Residential Room" : "Commercial Shop"}</td>
+                <td>Rs. {Number(tenant.baseRent ?? tenant.rentAmount ?? 0).toLocaleString("en-IN")}</td>
+                <td>Rs. {Number(tenant.depositAmount || 0).toLocaleString("en-IN")}</td>
+                <td>{tenant.joiningDate ? new Date(tenant.joiningDate).toLocaleDateString() : "—"}</td>
+                <td>
+                  <div className="d-flex gap-2 flex-wrap">
+                    <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => editQuickTenant(tenant)}>
+                      <FaEdit className="me-1" /> Edit
+                    </button>
+                    <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    disabled={!quickAssignVacantSlots.some((slot) => slot.propertyType === normalizeTenantPropertyType(tenant))}
+                    onClick={() => {
+                      setQuickTenantError("");
+                      setQuickTenantSlotKey("");
+                      setAssigningQuickTenant(tenant);
+                    }}
+                  >
+                    Assign unit
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )) : (
+              <tr><td colSpan="8" className="text-center text-muted py-3">No unassigned tenants waiting for a unit.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+)}
 
 {/* Rent-only summary cards */}
 <RentSummaryCards
@@ -11322,6 +11682,137 @@ const isTodayOrFuture = (iso) => {
     </div>
   </div>
 )}
+ {showQuickTenantModal && (
+  <div className="modal d-block" tabIndex="-1" role="dialog" aria-modal="true" style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1060 }}>
+    <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <form className="modal-content" onSubmit={saveQuickTenant}>
+        <div className="modal-header">
+          <div>
+            <h5 className="modal-title">{quickTenantEditing ? "Edit unassigned tenant" : "Quick add tenant"}</h5>
+            <div className="small text-muted">{quickTenantEditing ? "Update the saved tenant details before assigning a unit." : "Save tenant details now and assign a unit later."}</div>
+          </div>
+          <button type="button" className="btn-close" aria-label="Close" onClick={() => setShowQuickTenantModal(false)} />
+        </div>
+        <div className="modal-body">
+          <div className="mb-3">
+            <label className="form-label">Section <span className="text-danger">*</span></label>
+            <select className="form-select" value={quickTenantSection} onChange={(event) => setQuickTenantSection(event.target.value)} required>
+              <option value="">Select section</option>
+              {trackerNavigationTypes.map(({ value }) => (
+                <option key={value} value={value}>
+                  {value === "bed" ? "Hostel" : value === "room" ? "Residential Room" : "Commercial Shop"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Tenant name <span className="text-danger">*</span></label>
+            <input className="form-control" autoFocus value={quickTenantForm.name} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, name: event.target.value }))} required />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Phone number <span className="text-danger">*</span></label>
+            <input className="form-control" type="tel" inputMode="numeric" maxLength="10" value={quickTenantForm.phoneNo} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, phoneNo: event.target.value.replace(/\D/g, "").slice(0, 10) }))} required />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Joining date <span className="text-danger">*</span></label>
+            <input className="form-control" type="date" value={quickTenantForm.joiningDate} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, joiningDate: event.target.value }))} required />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Pincode</label>
+            <input className="form-control" type="text" inputMode="numeric" maxLength={6} value={quickTenantForm.pincode} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, pincode: event.target.value.replace(/\D/g, "").slice(0, 6), city: "", state: "", nearbyPlace: "" }))} placeholder="6-digit pincode" />
+            {quickTenantPinStatus === "loading" && <small>Finding city and location...</small>}
+            {quickTenantPinStatus === "error" && <small className="text-muted">PIN code not found. Enter city and nearby place manually.</small>}
+          </div>
+          <div className="row g-3 mb-3">
+            <div className="col-12 col-md-6">
+              <label className="form-label">City</label>
+              <input className="form-control" value={quickTenantForm.city} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, city: event.target.value }))} />
+            </div>
+            <div className="col-12 col-md-6">
+              <label className="form-label">State</label>
+              <input className="form-control" value={quickTenantForm.state} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, state: event.target.value }))} />
+            </div>
+            <div className="col-12">
+              <label className="form-label">Local Address</label>
+              <input className="form-control" value={quickTenantForm.address} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, address: event.target.value }))} placeholder="House, Street, Area" />
+            </div>
+            <div className="col-12 col-md-6">
+              <label className="form-label">House No</label>
+              <input className="form-control" value={quickTenantForm.houseNo} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, houseNo: event.target.value }))} />
+            </div>
+            <div className="col-12 col-md-6">
+              <label className="form-label">Nearby Place</label>
+              <input className="form-control" value={quickTenantForm.nearbyPlace} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, nearbyPlace: event.target.value }))} />
+            </div>
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Deposit amount (Rs.) <span className="text-danger">*</span></label>
+            <input className="form-control" type="text" inputMode="numeric" value={quickTenantForm.depositAmount} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, depositAmount: event.target.value.replace(/\D/g, "") }))} required />
+          </div>
+          <div className="mb-2">
+            <label className="form-label">Monthly rent (Rs.) <span className="text-danger">*</span></label>
+            <input className="form-control" type="text" inputMode="numeric" value={quickTenantForm.rentAmount} onChange={(event) => setQuickTenantForm((prev) => ({ ...prev, rentAmount: event.target.value.replace(/\D/g, "") }))} required />
+            <div className="form-text">You can assign the property, floor, room, or bed later.</div>
+          </div>
+          <div className="mb-2">
+            <label className="form-label fw-semibold">Rent Cycle</label>
+            <div className="d-flex flex-column gap-2" role="radiogroup" aria-label="Rent cycle at joining">
+              <label className="form-check mb-0">
+                <input className="form-check-input" type="radio" name="quickFirstRentStatus" required checked={quickTenantForm.firstRentStatus === "ADVANCE_PAID"} onChange={() => setQuickTenantForm((prev) => ({ ...prev, firstRentStatus: "ADVANCE_PAID" }))} />
+                <span className="form-check-label">Pay at Joining (Advance)</span>
+              </label>
+              <label className="form-check mb-0">
+                <input className="form-check-input" type="radio" name="quickFirstRentStatus" required checked={quickTenantForm.firstRentStatus === "NOT_PAID"} onChange={() => setQuickTenantForm((prev) => ({ ...prev, firstRentStatus: "NOT_PAID" }))} />
+                <span className="form-check-label">Pay at Month End (Normal cycle)</span>
+              </label>
+            </div>
+            <small className="text-muted mt-1 d-block">Advance rent is recorded in the joining month; normal cycle rent starts at month end.</small>
+          </div>
+          {quickTenantError && <div className="alert alert-danger py-2 mt-3 mb-0">{quickTenantError}</div>}
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-outline-secondary" onClick={() => setShowQuickTenantModal(false)} disabled={quickTenantSaving}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={quickTenantSaving}>{quickTenantSaving ? "Saving…" : quickTenantEditing ? "Save changes" : "Save unassigned tenant"}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
+{assigningQuickTenant && (
+  <div className="modal d-block" tabIndex="-1" role="dialog" aria-modal="true" style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1060 }}>
+    <div className="modal-dialog modal-dialog-centered">
+      <div className="modal-content">
+        <div className="modal-header">
+          <div>
+            <h5 className="modal-title">Assign a unit</h5>
+            <div className="small text-muted">{assigningQuickTenant.name} · {assigningQuickTenant.phoneNo}</div>
+          </div>
+          <button type="button" className="btn-close" aria-label="Close" onClick={() => { setAssigningQuickTenant(null); setQuickTenantError(""); }} />
+        </div>
+        <div className="modal-body">
+          <label className="form-label">Available {assigningQuickTenantType === "bed" ? "bed" : assigningQuickTenantType === "shop" ? "shop" : "room"}</label>
+          <select className="form-select" value={quickTenantSlotKey} onChange={(event) => { setQuickTenantSlotKey(event.target.value); setQuickTenantError(""); }}>
+            <option value="">Select an available unit</option>
+            {quickAssignVacantSlots.filter((slot) => slot.propertyType === assigningQuickTenantType).map((slot) => {
+              const key = `${slot.roomId}::${slot.bedNo}`;
+              const location = [slot.propertyLabel, slot.wingName && `Wing ${slot.wingName}`, slot.floorNo && `Floor ${slot.floorNo}`].filter(Boolean).join(" · ");
+              const unit = assigningQuickTenantType === "bed" ? `Room ${slot.roomNo} · Bed ${slot.bedNo}` : `${assigningQuickTenantType === "shop" ? "Shop" : "Room"} ${slot.roomNo}`;
+              return <option key={key} value={key}>{[location, unit, `Rs. ${Number(slot.price || 0).toLocaleString("en-IN")}`].filter(Boolean).join(" — ")}</option>;
+            })}
+          </select>
+          {!quickAssignVacantSlots.some((slot) => slot.propertyType === assigningQuickTenantType) && <div className="form-text text-danger">There are no vacant units in this section yet.</div>}
+          {quickTenantError && <div className="alert alert-danger py-2 mt-3 mb-0">{quickTenantError}</div>}
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-outline-secondary" onClick={() => { setAssigningQuickTenant(null); setQuickTenantError(""); }} disabled={quickTenantAssigning}>Cancel</button>
+          <button type="button" className="btn btn-primary" onClick={assignQuickTenantToSlot} disabled={!quickTenantSlotKey || quickTenantAssigning}>{quickTenantAssigning ? "Assigning…" : "Assign unit"}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
  {/* add tenant modal */}
      {showAddModal && (
   <div

@@ -69,6 +69,7 @@ function RentHeaderBar({
               >
                 <FaPlus className="me-1" /> {addTenantLabel}
               </button>
+
             </div>
 
             <div className="rent-toolbar-actions-secondary">

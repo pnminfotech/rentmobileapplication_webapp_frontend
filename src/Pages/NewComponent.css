@@ -2813,7 +2813,36 @@
   }
 }
 
-@media (min-width: 679px) and (max-width: 768px) {
-  .desktop-rent-tables-group .rent-table-desktop { display: flex !important; }
-  .rent-mobile-view { display: none !important; }
+/* Reuse the touch friendly tenant cards on tablets instead of compressing the rent grid. */
+@media (min-width: 679px) and (max-width: 1024px) {
+  .rent-mobile-view {
+    display: block !important;
+    padding-bottom: 24px;
+  }
+
+  .desktop-rent-tables-group > .desktop-rent-table-group:not(.leaved-tenants-section) {
+    display: none !important;
+  }
+
+  .rent-mobile-shell {
+    max-width: 900px;
+    margin: 0 auto;
+    gap: 12px;
+  }
+
+  .rent-mobile-tenant-list {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 14px;
+  }
+
+  .rent-mobile-tenant-card {
+    min-width: 0;
+    height: 100%;
+  }
+
+  .rent-mobile-bottom-bar {
+    display: none !important;
+  }
 }

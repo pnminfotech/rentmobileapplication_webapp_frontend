@@ -126,6 +126,17 @@
   filter: saturate(1.03);
 }
 
+/* The unassigned-tenant tab keeps the property-type tabs visible and shows
+   only its own table view. */
+.rent-table-wrapper.unassigned-tenants-mode > :not(.rent-tracker-tabs):not(.unassigned-tenants-panel) {
+  display: none !important;
+}
+
+.unassigned-tenants-panel {
+  width: 100%;
+  min-width: 0;
+}
+
 .rent-tracker-tabs {
   display: flex;
   flex-wrap: wrap;
