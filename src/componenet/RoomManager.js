@@ -14,6 +14,7 @@ import {
   FaCube,
   FaEdit,
   FaFilter,
+  FaHistory,
   FaLayerGroup,
   FaMapMarkerAlt,
   FaPlus,
@@ -25,6 +26,9 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import "../Pages/RoomManager.css";
+import UnitHistoryModal from "./UnitHistoryModal";
+import { SecurityPinStatusField, useSystemSecurityPinStatus } from "./SecurityPinSetup";
+import { getVisiblePropertyWings } from "../utils/propertyHierarchy";
 const ROOM_COLORS = [
   "#eef5ff",
   "#e8f8f5",
@@ -63,6 +67,13 @@ function normalizeFloorKey(value) {
   if (/\b(third|3rd)\b/.test(s) || /^\s*3(\D|$)/.test(s)) return "3";
   const m = s.match(/\d+/);
   return m ? String(Number(m[0])) : "";
+}
+
+function floorPlanIdentity(value) {
+  return normalizeCategoryName(value).toLowerCase().replace(/\s+/g, " ")
+    .replace(/^floor\s+|\s+floor$/g, "")
+    .replace(/^(\d+)(st|nd|rd|th)$/, "$1")
+    .replace(/^ground$/, "0");
 }
 
 function floorLabelFromKey(k) {
@@ -272,7 +283,10 @@ export default function RoomManager() {
   ];
   const [rooms, setRooms] = useState([]);
   const [tenants, setTenants] = useState([]);
+  const [unitHistoryTarget, setUnitHistoryTarget] = useState(null);
   const [unitLimits, setUnitLimits] = useState({ beds: 0, rooms: 0, shops: 0 });
+  const [flexibleTrial, setFlexibleTrial] = useState(false);
+  const [flexibleConfigured, setFlexibleConfigured] = useState(false);
   const [allowedTypes, setAllowedTypes] = useState([]);
   const propertyTypeOptions = useMemo(
     () => PROPERTY_TYPE_OPTIONS.filter((option) => allowedTypes.some((type) => type.value === option.value)),
@@ -287,6 +301,8 @@ export default function RoomManager() {
   const [propertyDraft, setPropertyDraft] = useState({ propertyType: "bed", name: "", wingNames: "", floorNames: "", wingFloors: {}, floorUnitCounts: {} });
   const [floorEntry, setFloorEntry] = useState({ key: "", value: "", wingName: "" });
   const [floorSaving, setFloorSaving] = useState(false);
+  const [floorPlanWarning, setFloorPlanWarning] = useState(null);
+  const floorPlanResolverRef = React.useRef(null);
   const [collapsedHierarchyFloors, setCollapsedHierarchyFloors] = useState({});
   const [addingNewWing, setAddingNewWing] = useState(false);
   const [addingNewFloor, setAddingNewFloor] = useState(false);
@@ -339,6 +355,7 @@ export default function RoomManager() {
     propertyType: "",
     password: "",
   });
+  const deletePinStatus = useSystemSecurityPinStatus(showDeleteBedModal || showDeleteRoomModal);
 
   const [showCatEditor, setShowCatEditor] = useState(false);
   const [catDrafts, setCatDrafts] = useState([]);
@@ -418,6 +435,8 @@ export default function RoomManager() {
       .then((bootstrap) => {
         setUnitLimits(getUnitLimits(bootstrap));
         setAllowedTypes(allowedUnitTypes(bootstrap));
+        setFlexibleConfigured(bootstrap.organization?.onboardingMode === "flexible" && Boolean(bootstrap.organization.unitCountsConfigured));
+        setFlexibleTrial(bootstrap.organization?.onboardingMode === "flexible" && !bootstrap.organization.unitCountsConfigured && !bootstrap.subscription?.planId && Number(bootstrap.subscription?.amount || 0) === 0);
       })
       .catch(() => {
         setUnitLimits({ beds: 0, rooms: 0, shops: 0 });
@@ -768,12 +787,64 @@ export default function RoomManager() {
   const hasQuotaForType = (type) => {
     const key = quotaKeyForType(type);
     const limit = Number(unitLimits[key] || 0);
-    return limit <= 0 || unitUsage[key] < limit;
+    return flexibleConfigured ? unitUsage[key] < limit : limit <= 0 || unitUsage[key] < limit;
+  };
+  const introductoryLimitReached = flexibleTrial && unitUsage.beds + unitUsage.rooms + unitUsage.shops >= 10;
+  const promptUnitCounts = () => {
+    if (window.confirm("You have added 10 units. Set your unit counts in Profile to add more. Open Profile now?")) navigate("/profile");
   };
   const hasReachedHostelBedLimit = !hasQuotaForType("bed") || totalHostelBeds >= MAX_HOSTEL_BEDS;
   const canAddHostelBed = !hasReachedHostelBedLimit;
+  const answerFloorPlanWarning = React.useCallback((accepted) => {
+    const resolve = floorPlanResolverRef.current;
+    floorPlanResolverRef.current = null;
+    setFloorPlanWarning(null);
+    resolve?.(accepted);
+  }, []);
+  useEffect(() => {
+    if (!floorPlanWarning) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") answerFloorPlanWarning(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [floorPlanWarning, answerFloorPlanWarning]);
+  useEffect(() => () => { floorPlanResolverRef.current?.(false); }, []);
+  const confirmBeyondFloorPlan = ({ propertyType, category, wingName, floorNo, excludeRoomId = "" }) => {
+    const normalizedType = normalizePropertyType(propertyType);
+    const propertyName = normalizeCategoryName(category);
+    const wing = normalizeCategoryName(wingName);
+    const floor = floorPlanIdentity(floorNo);
+    const location = propertyLocations.find((item) =>
+      normalizePropertyType(item.propertyType) === normalizedType &&
+      normalizeCategoryName(item.name).toLowerCase() === propertyName.toLowerCase()
+    );
+    const plan = Object.entries(location?.floorUnitCounts || {}).find(([key]) => {
+      const [plannedWing, ...plannedFloor] = key.split("::");
+      return normalizeCategoryName(plannedWing).toLowerCase() === (wing || "No Wing").toLowerCase() &&
+        floorPlanIdentity(plannedFloor.join("::")) === floor;
+    });
+    const plannedCount = Number(plan?.[1] || 0);
+    if (!Number.isFinite(plannedCount) || plannedCount <= 0) return Promise.resolve(true);
+
+    const existingCount = readyRooms.filter((room) =>
+      String(room._id || "") !== String(excludeRoomId) &&
+      normalizePropertyType(room.propertyType) === normalizedType &&
+      normalizeCategoryName(room.category).toLowerCase() === propertyName.toLowerCase() &&
+      normalizeCategoryName(room.wingName).toLowerCase() === wing.toLowerCase() &&
+      floorPlanIdentity(room.floorNo) === floor
+    ).length;
+    if (existingCount < plannedCount) return Promise.resolve(true);
+
+    const unitLabel = getUnitLabel(normalizedType).toLowerCase();
+    const locationLabel = `${propertyName}${wing ? `, Wing ${wing}` : ""}, ${hierarchyFloorLabel(floorNo)}`;
+    return new Promise((resolve) => {
+      if (floorPlanResolverRef.current) return resolve(false);
+      floorPlanResolverRef.current = resolve;
+      setFloorPlanWarning({ locationLabel, existingCount, plannedCount, unitLabel });
+    });
+  };
   const openQuickAdd = (requestedType = propertyFilter, preset = null) => {
     const type = normalizePropertyType(requestedType);
+    if (introductoryLimitReached) { promptUnitCounts(); return; }
     if (!hasQuotaForType(type) && !hasReusableReservedUnit(type)) {
       const key = quotaKeyForType(type);
       alert(`${getPropertyTypeLabel(type)} limit reached (${unitUsage[key]} / ${unitLimits[key]}). Add more units to your subscription to continue.`);
@@ -1045,6 +1116,7 @@ export default function RoomManager() {
 
   const addRoom = async () => {
     const propertyType = String(roomForm.propertyType || "bed").trim().toLowerCase();
+    if (introductoryLimitReached) { promptUnitCounts(); return; }
     if (!hasQuotaForType(propertyType) && !hasReusableReservedUnit(propertyType)) {
       const key = quotaKeyForType(propertyType);
       alert(`${getPropertyTypeLabel(propertyType)} limit reached (${unitUsage[key]} / ${unitLimits[key]}). Add more units to your subscription to continue.`);
@@ -1103,6 +1175,7 @@ export default function RoomManager() {
       return;
     }
 
+    if (!(await confirmBeyondFloorPlan({ propertyType, category, wingName, floorNo }))) return;
 
     try {
       // 1) Create room
@@ -1176,6 +1249,7 @@ export default function RoomManager() {
   /* -------- Bed operations -------- */
 
   const openAddBedModal = (room) => {
+    if (introductoryLimitReached) { promptUnitCounts(); return; }
     if (!canAddHostelBed) {
       alert("Hostel bed limit reached. Increase your subscription limit to add more beds.");
       return;
@@ -1186,6 +1260,7 @@ export default function RoomManager() {
   };
 
   const addBedToRoom = async () => {
+    if (introductoryLimitReached) { promptUnitCounts(); return; }
     if (!selectedRoom || !bedForm.bedNo.trim()) {
       alert("Bed No is required.");
       return;
@@ -1293,6 +1368,8 @@ export default function RoomManager() {
   const handleDeleteBed = async () => {
     const { roomId, selectedBedNo, password } = deleteBedState;
 
+    if (!deletePinStatus.configured) return;
+
     if (!selectedBedNo) {
       alert("Please select a bed to delete.");
       return;
@@ -1321,6 +1398,10 @@ export default function RoomManager() {
       });
       fetchRooms();
     } catch (err) {
+      if (err.response?.status === 428) {
+        deletePinStatus.markUnconfigured();
+        return;
+      }
       console.error("Failed to delete bed:", err.response?.data || err.message);
       alert(
         "Failed to delete bed: " +
@@ -1772,6 +1853,12 @@ export default function RoomManager() {
           ? "Rental Room"
           : String(setupForm.bedCategory || "").trim() || "Standard";
 
+    const destinationChanged = isPendingSetup ||
+      normalizeCategoryName(setupTarget.category).toLowerCase() !== category.toLowerCase() ||
+      normalizeCategoryName(setupTarget.wingName).toLowerCase() !== wingName.toLowerCase() ||
+      floorPlanIdentity(setupTarget.floorNo) !== floorPlanIdentity(floorNo);
+    if (destinationChanged && !(await confirmBeyondFloorPlan({ propertyType, category, wingName, floorNo, excludeRoomId: setupTarget._id }))) return;
+
     try {
       setSetupSaving(true);
 
@@ -1851,6 +1938,7 @@ export default function RoomManager() {
   };
 
   const deleteRoomOrShop = async () => {
+    if (!deletePinStatus.configured) return;
     const propertyType = normalizePropertyType(deleteRoomState.propertyType);
     const unitLabel =
       propertyType === "shop"
@@ -1878,6 +1966,10 @@ export default function RoomManager() {
       });
       fetchRooms();
     } catch (err) {
+      if (err.response?.status === 428) {
+        deletePinStatus.markUnconfigured();
+        return;
+      }
       console.error("Failed to delete unit:", err.response?.data || err.message);
       alert(
         err.response?.data?.message || `Failed to delete ${unitLabel}.`
@@ -2137,43 +2229,18 @@ export default function RoomManager() {
               ? `Selected location: ${roomForm.hasWing ? `${activeWingName} -> ` : ""}${currentFloor}. Current count: ${currentFloorUnits}`
               : `Select ${roomForm.hasWing ? "a wing and floor" : "a floor"} first, then fill ${unitLabel} type/number below.`}
           </div>
-          {isResidential && (
-            <div className="d-grid mt-3" style={{ gap: "10px" }}>
-              <select
-                className="form-select"
-                value={roomForm.flatType}
-                onChange={(e) =>
-                  setRoomForm((prev) => ({ ...prev, flatType: e.target.value }))
-                }
-              >
-                <option value="">Select Flat Type</option>
-                {FLAT_TYPE_OPTIONS.map((flatType) => (
-                  <option key={flatType} value={flatType}>
-                    {flatType}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                className="form-control"
-                placeholder={getUnitPlaceholder(roomForm.propertyType)}
-                value={roomForm.roomNo}
-                onChange={(e) =>
-                  setRoomForm((prev) => ({ ...prev, roomNo: e.target.value }))
-                }
-              />
-
-              <input
-                type="number"
-                className="form-control"
-                placeholder="Flat Price (₹)"
-                value={roomForm.bedPrice}
-                onChange={(e) =>
-                  setRoomForm((prev) => ({ ...prev, bedPrice: e.target.value }))
-                }
-              />
-            </div>
-          )}
+          <div className="d-grid mt-3" style={{ gap: "10px" }}>
+            {isResidential && <select className="form-select" value={roomForm.flatType} onChange={(event) => setRoomForm((prev) => ({ ...prev, flatType: event.target.value }))}>
+              <option value="">Select flat type</option>
+              {FLAT_TYPE_OPTIONS.map((flatType) => <option key={flatType} value={flatType}>{flatType}</option>)}
+            </select>}
+            <input className="form-control" placeholder={getUnitPlaceholder(roomForm.propertyType)} value={roomForm.roomNo} onChange={(event) => setRoomForm((prev) => ({ ...prev, roomNo: event.target.value }))} />
+            {roomForm.propertyType === "bed" && <>
+              <input className="form-control" placeholder="Bed No (e.g., B1)" value={roomForm.bedNo} onChange={(event) => setRoomForm((prev) => ({ ...prev, bedNo: event.target.value }))} />
+              <input className="form-control" placeholder="Bed Category (e.g., Upper, Lower)" value={roomForm.bedCategory} onChange={(event) => setRoomForm((prev) => ({ ...prev, bedCategory: event.target.value }))} />
+            </>}
+            <input type="number" min="0" inputMode="decimal" className="form-control" placeholder={`${unitLabelTitle} Price (Rs.)`} value={roomForm.bedPrice} onChange={(event) => setRoomForm((prev) => ({ ...prev, bedPrice: event.target.value }))} />
+          </div>
         </div>
       </div>
     );
@@ -2233,80 +2300,6 @@ export default function RoomManager() {
                 {selectedBuildingOption === NEW_CATEGORY_VALUE || !roomForm.category ? <input type="text" className="form-control" placeholder="Enter property / building name" value={roomForm.category} onChange={(event) => setRoomForm((prev) => ({ ...prev, category: event.target.value }))} /> : null}
 
                 {renderStructureBuilder(false)}
-
-                {roomForm.propertyType === "room" && (
-                  <select
-                    className="form-select"
-                    value={roomForm.flatType}
-                    onChange={(e) => setRoomForm((prev) => ({ ...prev, flatType: e.target.value }))}
-                  >
-                    <option value="">Select flat type</option>
-                    {FLAT_TYPE_OPTIONS.map((flatType) => <option key={flatType} value={flatType}>{flatType}</option>)}
-                  </select>
-                )}
-
-                {
-                  <input
-                    className="form-control"
-                    placeholder={getUnitPlaceholder(roomForm.propertyType)}
-                    value={roomForm.roomNo}
-                    onChange={(e) =>
-                      setRoomForm((prev) => ({
-                        ...prev,
-                        roomNo: e.target.value,
-                      }))
-                    }
-                  />
-                }
-
-                {roomForm.propertyType === "bed" && (
-                  <input
-                    className="form-control"
-                    placeholder="Bed No (e.g., B1)"
-                    value={roomForm.bedNo}
-                    onChange={(e) =>
-                      setRoomForm((prev) => ({
-                        ...prev,
-                        bedNo: e.target.value,
-                      }))
-                    }
-                  />
-                )}
-
-                {roomForm.propertyType === "bed" && (
-                  <input
-                    className="form-control"
-                    placeholder="Bed Category (e.g., Upper, Lower)"
-                    value={roomForm.bedCategory}
-                    onChange={(e) =>
-                      setRoomForm((prev) => ({
-                        ...prev,
-                        bedCategory: e.target.value,
-                      }))
-                    }
-                  />
-                )}
-
-                <input
-                    type="number"
-                    className="form-control"
-                    min="0"
-                    inputMode="decimal"
-                    placeholder={
-                      roomForm.propertyType === "bed"
-                        ? "Bed Price (₹)"
-                        : roomForm.propertyType === "shop"
-                          ? "Shop Price (₹)"
-                          : "Flat Price (₹)"
-                    }
-                    value={roomForm.bedPrice}
-                    onChange={(e) =>
-                      setRoomForm((prev) => ({
-                        ...prev,
-                        bedPrice: e.target.value,
-                      }))
-                    }
-                  />
 
                 <button
                   className="btn px-3 text-white"
@@ -2490,7 +2483,7 @@ export default function RoomManager() {
         floors: [],
         units: group.wings.flatMap((wing) => wing.floors.flatMap((floor) => floor.units)),
       })),
-    ];
+    ].filter((location) => getVisiblePropertyWings(location, wingFilter, floorFilter).length > 0);
 
     const unitCountFor = (units) => selectedType === "bed"
       ? units.reduce((sum, room) => sum + (room.beds?.length || 0), 0)
@@ -2515,31 +2508,14 @@ export default function RoomManager() {
           <div className="room-manager-hierarchy-list">
             {!hierarchy.length && <div className="text-center text-muted py-4">No properties or units match these filters.</div>}
             {hierarchy.map((location, propertyIndex) => {
-              const savedWings = location.wings || [];
-              const wingNames = mergeCategoryNames(
-                savedWings.map((wing) => wing.name),
-                location.units.map((room) => normalizeCategoryName(room.wingName) || "No Wing")
-              );
-              const wings = (wingNames.length ? wingNames : ["No Wing"]).map((name) => {
-                const savedWing = savedWings.find((wing) => normalizeCategoryName(wing.name).toLowerCase() === normalizeCategoryName(name).toLowerCase());
-                const unitFloors = location.units
-                  .filter((room) => (normalizeCategoryName(room.wingName) || "No Wing").toLowerCase() === normalizeCategoryName(name).toLowerCase())
-                  .map((room) => room.floorNo || "No Floor");
-                return {
-                  name,
-                  floors: mergeCategoryNames(
-                    savedWing?.floors || [],
-                    name === "No Wing" ? location.floors || [] : [],
-                    unitFloors
-                  ),
-                };
-              });
-              const allFloors = [...new Set([...wings.flatMap((wing) => wing.floors || []), ...location.units.map((room) => room.floorNo || "No Floor")])];
+              const wings = getVisiblePropertyWings(location, wingFilter, floorFilter);
+              const floorCount = wings.reduce((total, wing) => total + wing.floors.length, 0);
+              const wingCount = wings.filter((wing) => wing.name !== "No Wing").length;
               const unitCount = unitCountFor(location.units);
               return <article className="room-manager-hierarchy-property" key={`${selectedType}:${location.name}:${propertyIndex}`}>
                 <div className="room-manager-hierarchy-property-head">
                   <div className="room-manager-hierarchy-property-title"><span className="room-manager-hierarchy-property-icon"><FaBuilding /></span>
-                  <div><strong  style={{ textAlign: "justify" }}>{location.name}</strong><small><b><FaLayerGroup /> {allFloors.length} Floors</b><span>·</span><b><FaBuilding /> {wings.length} {wings.length === 1 ? "Wing" : "Wings"}</b><span>·</span><b><FaBed /> {unitCount} Units</b></small></div></div>
+                  <div><strong  style={{ textAlign: "justify" }}>{location.name}</strong><small><b><FaLayerGroup /> {floorCount} {floorCount === 1 ? "Floor" : "Floors"}</b><span>·</span><b><FaBuilding /> {wingCount} {wingCount === 1 ? "Wing" : "Wings"}</b><span>·</span><b><FaBed /> {unitCount} Units</b></small></div></div>
                   <div className="room-manager-property-actions room-manager-property-actions--desktop room-manager-hierarchy-property-actions"><button type="button" className="room-manager-hierarchy-edit-button" onClick={() => editPropertyLocation(location)}><FaEdit /><span>Edit</span></button><button type="button" className="room-manager-hierarchy-add-floor-button room-manager-property-add-floor" onClick={() => { const key = `property:${selectedType}:${normalizeCategoryName(location.name).toLowerCase()}`; setFloorEntry((current) => current.key === key ? { key: "", value: "", wingName: "" } : { key, value: "", wingName: wings[0]?.name || "No Wing" }); }}><FaPlus /><span>Add Floor</span></button></div>
                 </div>
                 {floorEntry.key === `property:${selectedType}:${normalizeCategoryName(location.name).toLowerCase()}` && <form className="room-manager-property-floor-form" onSubmit={(event) => { event.preventDefault(); saveFloorToProperty(location, floorEntry.wingName); }}>
@@ -2549,21 +2525,21 @@ export default function RoomManager() {
                   <button type="button" className="btn btn-sm btn-link text-muted" onClick={() => setFloorEntry({ key: "", value: "", wingName: "" })}>Cancel</button>
                 </form>}
                 <div className="room-manager-hierarchy-content room-manager-hierarchy-content--flat">{wings.map((wing) => {
-                  const floorNames = [...new Set([...(wing.floors || []), ...location.units.filter((room) => (room.wingName || "No Wing") === wing.name).map((room) => room.floorNo || "No Floor")])];
+                  const floorNames = wing.floors || [];
                   const floors = floorNames.length ? floorNames : ["No Floor"];
                   const wingEntryKey = `${selectedType}:${normalizeCategoryName(location.name).toLowerCase()}:${wing.name}`;
                   return <section className="room-manager-hierarchy-wing" key={`${location.name}:${wing.name}`}>
                     <div className="room-manager-hierarchy-wing-title"><span className="room-manager-hierarchy-wing-label">{wing.name === "No Wing" ? "NO WING" : `WING ${wing.name}`}</span><span className="room-manager-hierarchy-wing-line" /><button type="button" className="btn btn-sm btn-light room-manager-add-floor-trigger" onClick={() => setFloorEntry((current) => current.key === wingEntryKey ? { key: "", value: "" } : { key: wingEntryKey, value: "" })}><FaPlus className="me-1" />Add floor</button></div>
                     {floorEntry.key === wingEntryKey && <form className="room-manager-add-floor-form" onSubmit={(event) => { event.preventDefault(); saveFloorToProperty(location, wing.name); }}><input autoFocus className="form-control form-control-sm" value={floorEntry.value} onChange={(event) => setFloorEntry((current) => ({ ...current, value: event.target.value }))} placeholder="e.g. Ground floor or 3" aria-label={`Floor name for ${location.name}, ${wing.name}`} /><button type="submit" className="btn btn-sm btn-primary" disabled={floorSaving}>{floorSaving ? "Saving..." : "Save floor"}</button><button type="button" className="btn btn-sm btn-link text-muted" onClick={() => setFloorEntry({ key: "", value: "" })}>Cancel</button></form>}
                     {floors.map((floor) => {
-                      const floorUnits = location.units.filter((room) => (room.wingName || "No Wing") === wing.name && (room.floorNo || "No Floor") === floor);
+                      const floorUnits = location.units.filter((room) => normalizeCategoryName(room.wingName || "No Wing").toLowerCase() === normalizeCategoryName(wing.name).toLowerCase() && normalizeCategoryName(room.floorNo || "No Floor").toLowerCase() === normalizeCategoryName(floor).toLowerCase());
                       const floorKey = `${selectedType}:${normalizeCategoryName(location.name).toLowerCase()}:${wing.name}:${floor}`;
                       const floorCollapsed = collapsedHierarchyFloors[floorKey] ?? floorUnits.length === 0;
                       return <section className="room-manager-hierarchy-floor-card" key={`${location.name}:${wing.name}:${floor}`}>
-                        <header className="room-manager-hierarchy-floor-head" onClick={() => setCollapsedHierarchyFloors((current) => ({ ...current, [floorKey]: !current[floorKey] }))} role="button" tabIndex={0} aria-expanded={!floorCollapsed} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setCollapsedHierarchyFloors((current) => ({ ...current, [floorKey]: !current[floorKey] })); } }}><div className="room-manager-hierarchy-floor-title"><span className="room-manager-hierarchy-floor-chevron">{floorCollapsed ? <FaChevronDown /> : <FaChevronUp />}</span><span className="room-manager-hierarchy-floor-icon"><FaLayerGroup /></span><div><strong style={{textAlign: "justify"}}>{hierarchyFloorLabel(floor)}</strong><span>{floorUnits.length} {floorUnits.length === 1 ? "unit" : "units"} · {wing.name === "No Wing" ? "No wing" : `Wing ${wing.name}`}</span></div></div><div className="room-manager-floor-actions">{(!floorUnits.length || selectedType !== "bed") && <button type="button" className="btn btn-sm btn-outline-primary" onClick={(event) => { event.stopPropagation(); addAt(location, wing.name, floor); }}><FaPlus className="me-1" />Add {getUnitLabel(selectedType)}</button>}<button type="button" className="room-manager-floor-delete-button" onClick={(event) => { event.stopPropagation(); deleteFloorFromProperty(location, wing.name, floor); }} title="Delete floor" aria-label={`Delete ${hierarchyFloorLabel(floor)}`} disabled={floorSaving}><FaTrash /></button></div></header>
-                        {!floorCollapsed && (floorUnits.length ? selectedType === "bed" ? <div className="room-manager-hierarchy-units">{floorUnits.map((room, roomIndex) => <article className="room-manager-hierarchy-unit" key={room._id || `${room.category}-${room.roomNo}`}>
-                           <div className="room-manager-hierarchy-unit-main"><div className="room-manager-hostel-room-heading"><div className="room-manager-hostel-room-identity"><span className="room-manager-hostel-room-number">{room.roomNo}</span><strong>Room {room.roomNo}</strong><small>{room.beds?.length || 0} {room.beds?.length === 1 ? "bed" : "beds"}</small></div><div className="room-manager-hostel-room-actions">{roomIndex === 0 && <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => addAt(location, wing.name, floor)}><FaPlus className="me-1" />Add Room</button>}{canAddHostelBed && <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => openAddBedModal(room)}><FaPlus className="me-1" />Add Bed</button>}<button type="button" className="room-manager-room-action is-edit" onClick={() => openSetupUnitModal(room)} title={`Edit room ${room.roomNo}`}><FaEdit />Edit room</button><button type="button" className="room-manager-room-action is-delete" onClick={() => openDeleteRoomModal(room)} title={`Delete room ${room.roomNo}`}><FaTrash />Delete room</button></div></div><div className="room-manager-hierarchy-bed-list">{(room.beds || []).map((bed, idx) => <div className="room-manager-hostel-bed-row" key={`${room.roomNo}-${bed.bedNo}-${idx}`}><span className="room-manager-hostel-bed-number">Bed {bed.bedNo}</span>{bed.bedCategory ? <span className="room-manager-hostel-bed-category">{bed.bedCategory}</span> : <span className="room-manager-hostel-bed-category is-empty">—</span>}<span className="room-manager-hostel-bed-price">{bed.price == null ? "—" : `Rs. ${Number(bed.price).toLocaleString("en-IN")}`}</span><span className="room-manager-bed-chip-actions"><button type="button" className="room-manager-unit-icon-action is-edit" onClick={() => openEditModal(room._id, room.roomNo, bed.bedNo, bed.bedCategory ?? "", bed.price ?? "")} title={`Edit bed ${bed.bedNo}`} aria-label={`Edit bed ${bed.bedNo}`}><FaEdit /></button><button type="button" className="room-manager-unit-icon-action is-delete" onClick={() => openDeleteBedModal(room, bed.bedNo)} title={`Delete bed ${bed.bedNo}`} aria-label={`Delete bed ${bed.bedNo}`}><FaTrash /></button></span></div>)}{!room.beds?.length && <small>No beds added</small>}</div></div>
-                        </article>)}</div> : <div className={`room-manager-hierarchy-flat-table-wrap${selectedType === "shop" ? " is-commercial" : ""}`}><table className="room-manager-hierarchy-flat-table"><colgroup><col className="unit-number-col" /><col className="unit-type-col" /><col className="unit-rent-col" /><col className="unit-status-col" /><col className="unit-actions-col" /></colgroup><tbody>{floorUnits.map((room) => <tr key={room._id || `${room.category}-${room.roomNo}`}><td data-label={selectedType === "shop" ? "Shop" : "Unit"}><span className="roomNoPill" style={{ "--bg": roomColors(room).bg, "--fg": roomColors(room).fg }}>{room.roomNo}</span>{selectedType === "shop" && <strong className="room-manager-commercial-title">Shop {room.roomNo}</strong>}</td><td data-label="Type"><span className="room-manager-unit-kind">{selectedType === "shop" ? <FaBuilding /> : <FaBed />} {room.flatType || getPropertyTypeLabel(room.propertyType)}</span></td><td data-label="Monthly rent">{room.beds?.[0]?.price == null ? "—" : `Rs. ${Number(room.beds[0].price).toLocaleString("en-IN")}`}</td><td data-label="Status"><span className={`room-manager-unit-occupancy ${isOccupied(room) ? "is-occupied" : "is-vacant"}`}>{isOccupied(room) ? "Occupied" : "Vacant"}</span></td><td data-label="Actions"><div className="room-manager-property-actions room-manager-property-actions--desktop"><button type="button" className="room-manager-unit-icon-action is-edit" onClick={() => openSetupUnitModal(room)} title="Edit unit" aria-label="Edit unit"><FaEdit /></button><button type="button" className="room-manager-unit-icon-action is-delete" onClick={() => openDeleteRoomModal(room)} title="Delete unit" aria-label="Delete unit"><FaTrash /></button></div></td></tr>)}</tbody></table></div> : <div className="room-manager-hierarchy-empty">No {getUnitLabel(selectedType).toLowerCase()} on this floor yet.</div>)}
+                        <header className="room-manager-hierarchy-floor-head" onClick={() => setCollapsedHierarchyFloors((current) => ({ ...current, [floorKey]: !current[floorKey] }))} role="button" tabIndex={0} aria-expanded={!floorCollapsed} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setCollapsedHierarchyFloors((current) => ({ ...current, [floorKey]: !current[floorKey] })); } }}><div className="room-manager-hierarchy-floor-title"><span className="room-manager-hierarchy-floor-chevron">{floorCollapsed ? <FaChevronDown /> : <FaChevronUp />}</span><span className="room-manager-hierarchy-floor-icon"><FaLayerGroup /></span><div><strong style={{textAlign: "justify"}}>{hierarchyFloorLabel(floor)}</strong><span>{floorUnits.length} {floorUnits.length === 1 ? "unit" : "units"} · {wing.name === "No Wing" ? "No wing" : `Wing ${wing.name}`}</span></div></div><div className="room-manager-floor-actions"><button type="button" className="btn btn-sm btn-outline-primary" onClick={(event) => { event.stopPropagation(); addAt(location, wing.name, floor); }}><FaPlus className="me-1" />Add {getUnitLabel(selectedType)}</button><button type="button" className="room-manager-floor-delete-button" onClick={(event) => { event.stopPropagation(); deleteFloorFromProperty(location, wing.name, floor); }} title="Delete floor" aria-label={`Delete ${hierarchyFloorLabel(floor)}`} disabled={floorSaving}><FaTrash /></button></div></header>
+                        {!floorCollapsed && (floorUnits.length ? selectedType === "bed" ? <div className="room-manager-hierarchy-units">{floorUnits.map((room) => <article className="room-manager-hierarchy-unit" key={room._id || `${room.category}-${room.roomNo}`}>
+                           <div className="room-manager-hierarchy-unit-main"><div className="room-manager-hostel-room-heading"><div className="room-manager-hostel-room-identity"><span className="room-manager-hostel-room-number">{room.roomNo}</span><strong>Room {room.roomNo}</strong><small>{room.beds?.length || 0} {room.beds?.length === 1 ? "bed" : "beds"}</small></div><div className="room-manager-hostel-room-actions">{canAddHostelBed && <button type="button" className="room-manager-room-action is-add" onClick={() => openAddBedModal(room)}><FaPlus />Add Bed</button>}<button type="button" className="room-manager-room-action is-edit" onClick={() => openSetupUnitModal(room)} title={`Edit room ${room.roomNo}`}><FaEdit />Edit room</button><button type="button" className="room-manager-room-action is-delete" onClick={() => openDeleteRoomModal(room)} title={`Delete room ${room.roomNo}`}><FaTrash />Delete room</button></div></div><div className="room-manager-hierarchy-bed-list">{(room.beds || []).map((bed, idx) => <div className="room-manager-hostel-bed-row" key={`${room.roomNo}-${bed.bedNo}-${idx}`}><span className="room-manager-hostel-bed-number">Bed {bed.bedNo}</span>{bed.bedCategory ? <span className="room-manager-hostel-bed-category">{bed.bedCategory}</span> : <span className="room-manager-hostel-bed-category is-empty">—</span>}<span className="room-manager-hostel-bed-price">{bed.price == null ? "—" : `Rs. ${Number(bed.price).toLocaleString("en-IN")}`}</span><span className="room-manager-bed-chip-actions"><button type="button" className="room-manager-unit-icon-action is-history" onClick={() => setUnitHistoryTarget({ room, bedNo: bed.bedNo })} title={`History for bed ${bed.bedNo}`} aria-label={`History for bed ${bed.bedNo}`}><FaHistory /></button><button type="button" className="room-manager-unit-icon-action is-edit" onClick={() => openEditModal(room._id, room.roomNo, bed.bedNo, bed.bedCategory ?? "", bed.price ?? "")} title={`Edit bed ${bed.bedNo}`} aria-label={`Edit bed ${bed.bedNo}`}><FaEdit /></button><button type="button" className="room-manager-unit-icon-action is-delete" onClick={() => openDeleteBedModal(room, bed.bedNo)} title={`Delete bed ${bed.bedNo}`} aria-label={`Delete bed ${bed.bedNo}`}><FaTrash /></button></span></div>)}{!room.beds?.length && <small>No beds added</small>}</div></div>
+                        </article>)}</div> : <div className={`room-manager-hierarchy-flat-table-wrap${selectedType === "shop" ? " is-commercial" : ""}`}><table className="room-manager-hierarchy-flat-table"><colgroup><col className="unit-number-col" /><col className="unit-type-col" /><col className="unit-rent-col" /><col className="unit-status-col" /><col className="unit-actions-col" /></colgroup><tbody>{floorUnits.map((room) => <tr key={room._id || `${room.category}-${room.roomNo}`}><td data-label={selectedType === "shop" ? "Shop" : "Unit"}><span className="roomNoPill" style={{ "--bg": roomColors(room).bg, "--fg": roomColors(room).fg }}>{room.roomNo}</span>{selectedType === "shop" && <strong className="room-manager-commercial-title">Shop {room.roomNo}</strong>}</td><td data-label="Type"><span className="room-manager-unit-kind">{selectedType === "shop" ? <FaBuilding /> : <FaBed />} {room.flatType || getPropertyTypeLabel(room.propertyType)}</span></td><td data-label="Monthly rent">{room.beds?.[0]?.price == null ? "—" : `Rs. ${Number(room.beds[0].price).toLocaleString("en-IN")}`}</td><td data-label="Status"><span className={`room-manager-unit-occupancy ${isOccupied(room) ? "is-occupied" : "is-vacant"}`}>{isOccupied(room) ? "Occupied" : "Vacant"}</span></td><td data-label="Actions"><div className="room-manager-property-actions room-manager-property-actions--desktop"><button type="button" className="room-manager-unit-icon-action is-history" onClick={() => setUnitHistoryTarget({ room })} title="Unit history" aria-label={`History for ${selectedType === "shop" ? "shop" : "room"} ${room.roomNo}`}><FaHistory /></button><button type="button" className="room-manager-unit-icon-action is-edit" onClick={() => openSetupUnitModal(room)} title="Edit unit" aria-label="Edit unit"><FaEdit /></button><button type="button" className="room-manager-unit-icon-action is-delete" onClick={() => openDeleteRoomModal(room)} title="Delete unit" aria-label="Delete unit"><FaTrash /></button></div></td></tr>)}</tbody></table></div> : <div className="room-manager-hierarchy-empty">No {getUnitLabel(selectedType).toLowerCase()} on this floor yet.</div>)}
                       </section>;
                     })}
                   </section>;
@@ -2944,6 +2920,8 @@ export default function RoomManager() {
       className="container-fluid px-3 px-md-4 py-3"
       style={{ fontFamily: "Poppins, sans-serif" }}
     >
+      {unitHistoryTarget && <UnitHistoryModal room={unitHistoryTarget.room} bedNo={unitHistoryTarget.bedNo} onClose={() => setUnitHistoryTarget(null)} />}
+      {introductoryLimitReached && <div className="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2" role="status"><span>You have added 10 units. Set your unit counts to add more.</span><button type="button" className="btn btn-primary btn-sm" onClick={() => navigate("/profile")}>Set unit counts</button></div>}
       <div className="room-manager-mobile room-manager-mobile-layout d-lg-none">
         <div className="room-manager-mobile-topbar">
           <button
@@ -3186,73 +3164,6 @@ export default function RoomManager() {
               ) : null}
 
               {renderStructureBuilder(true)}
-
-              {roomForm.propertyType === "room" && (
-                <select
-                  className="form-select"
-                  value={roomForm.flatType}
-                  onChange={(e) =>
-                    setRoomForm((prev) => ({ ...prev, flatType: e.target.value }))
-                  }
-                >
-                  <option value="">Select Flat Type</option>
-                  {FLAT_TYPE_OPTIONS.map((flatType) => (
-                    <option key={flatType} value={flatType}>
-                      {flatType}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              <input
-                type="text"
-                className="form-control"
-                placeholder={getUnitPlaceholder(roomForm.propertyType)}
-                value={roomForm.roomNo}
-                onChange={(e) =>
-                  setRoomForm((prev) => ({ ...prev, roomNo: e.target.value }))
-                }
-              />
-
-              {roomForm.propertyType === "bed" && (
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Bed No (e.g., B1)"
-                  value={roomForm.bedNo}
-                  onChange={(e) =>
-                    setRoomForm((prev) => ({ ...prev, bedNo: e.target.value }))
-                  }
-                />
-              )}
-
-              {roomForm.propertyType === "bed" && (
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Bed Category (e.g., Upper, Lower)"
-                  value={roomForm.bedCategory}
-                  onChange={(e) =>
-                    setRoomForm((prev) => ({ ...prev, bedCategory: e.target.value }))
-                  }
-                />
-              )}
-
-              <input
-                type="number"
-                className="form-control"
-                placeholder={
-                  roomForm.propertyType === "bed"
-                    ? "Bed Price (Rs.)"
-                    : roomForm.propertyType === "shop"
-                      ? "Shop Price (Rs.)"
-                      : "Flat Price (Rs.)"
-                }
-                value={roomForm.bedPrice}
-                onChange={(e) =>
-                  setRoomForm((prev) => ({ ...prev, bedPrice: e.target.value }))
-                }
-              />
 
               <button
                 type="button"
@@ -4328,28 +4239,27 @@ export default function RoomManager() {
                   </select>
                 </div>
 
-                <div className="mb-2">
-                  <label className="form-label mb-1">
-                    Security PIN (required to delete)
-                  </label>
-                  <input
-                    type="password"
-                    name="delete-bed-security-pin"
-                    autoComplete="new-password"
-                    className="form-control form-control-sm"
-                    value={deleteBedState.password}
-                    inputMode="numeric"
-                    maxLength="8"
-                    onChange={(e) =>
-                      setDeleteBedState((prev) => ({
-                        ...prev,
-                        password: e.target.value.replace(/\D/g, "").slice(0, 8),
-                      }))
-                    }
-                    placeholder="Enter 4 to 8 digit security PIN"
-                  />
-
-                </div>
+                <SecurityPinStatusField
+                  status={deletePinStatus}
+                  onRetry={deletePinStatus.refresh}
+                  onSaved={(pin) => { deletePinStatus.markConfigured(); setDeleteBedState((prev) => ({ ...prev, password: pin })); }}
+                >
+                  <div className="mb-2">
+                    <label className="form-label mb-1" htmlFor="delete-bed-security-pin">Security PIN (required to delete)</label>
+                    <input
+                      id="delete-bed-security-pin"
+                      type="password"
+                      name="delete-bed-security-pin"
+                      autoComplete="new-password"
+                      className="form-control form-control-sm"
+                      value={deleteBedState.password}
+                      inputMode="numeric"
+                      maxLength="8"
+                      onChange={(e) => setDeleteBedState((prev) => ({ ...prev, password: e.target.value.replace(/\D/g, "").slice(0, 8) }))}
+                      placeholder="Enter 4 to 8 digit security PIN"
+                    />
+                  </div>
+                </SecurityPinStatusField>
 
                 <div className="alert alert-warning small mt-2">
                   This will permanently remove the selected bed from this room.
@@ -4366,6 +4276,7 @@ export default function RoomManager() {
                 <button
                   className="btn btn-danger w-100 w-sm-auto"
                   onClick={handleDeleteBed}
+                  disabled={!deletePinStatus.configured}
                 >
                   Delete Bed
                 </button>
@@ -4432,29 +4343,31 @@ export default function RoomManager() {
                     Deletion is allowed only when no active tenant is assigned to this unit.
                   </strong>
                 </div>
-                <label className="form-label fw-semibold mt-3" htmlFor="delete-room-security-pin">
-                  Security PIN
-                </label>
-                <input
-                  id="delete-room-security-pin"
-                  type="password"
-                  autoComplete="new-password"
-                  className="form-control"
-                  value={deleteRoomState.password}
-                  inputMode="numeric"
-                  pattern="\d{4,8}"
-                  required
-                  maxLength={8}
-                  onChange={(event) => setDeleteRoomState((prev) => ({
-                    ...prev,
-                    password: event.target.value.replace(/\D/g, "").slice(0, 8),
-                  }))}
-                  placeholder="Enter your 4 to 8 digit security PIN"
-                  aria-describedby="delete-room-security-pin-help"
-                />
-                <div id="delete-room-security-pin-help" className="form-text">
-                  Enter the security PIN you set in your profile.
-                </div>
+                <SecurityPinStatusField
+                  status={deletePinStatus}
+                  onRetry={deletePinStatus.refresh}
+                  onSaved={(pin) => { deletePinStatus.markConfigured(); setDeleteRoomState((prev) => ({ ...prev, password: pin })); }}
+                >
+                  <label className="form-label fw-semibold mt-3" htmlFor="delete-room-security-pin">Security PIN</label>
+                  <input
+                    id="delete-room-security-pin"
+                    type="password"
+                    autoComplete="new-password"
+                    className="form-control"
+                    value={deleteRoomState.password}
+                    inputMode="numeric"
+                    pattern="\d{4,8}"
+                    required
+                    maxLength={8}
+                    onChange={(event) => setDeleteRoomState((prev) => ({
+                      ...prev,
+                      password: event.target.value.replace(/\D/g, "").slice(0, 8),
+                    }))}
+                    placeholder="Enter your 4 to 8 digit security PIN"
+                    aria-describedby="delete-room-security-pin-help"
+                  />
+                  <div id="delete-room-security-pin-help" className="form-text">Enter the security PIN you set in your profile.</div>
+                </SecurityPinStatusField>
               </div>
 
               <div className="modal-footer py-2 flex-wrap gap-2 room-manager-delete-footer">
@@ -4467,6 +4380,7 @@ export default function RoomManager() {
                 <button
                   className="btn btn-danger w-100 w-sm-auto"
                   onClick={deleteRoomOrShop}
+                  disabled={!deletePinStatus.configured}
                 >
                   Delete {deleteRoomState.propertyType === "shop"
                     ? "Shop"
@@ -4558,6 +4472,17 @@ export default function RoomManager() {
                     Save Categories
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {floorPlanWarning && renderModal(
+          <div style={{ ...modalBackdropStyle, zIndex: 10001 }} onClick={() => answerFloorPlanWarning(false)}>
+            <div className="modal-dialog modal-dialog-centered room-manager-floor-plan-dialog" role="dialog" aria-modal="true" aria-labelledby="floor-plan-warning-title" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-content room-manager-floor-plan-modal">
+                <div className="modal-header"><h5 className="modal-title" id="floor-plan-warning-title">Planned floor count reached</h5><button type="button" className="room-manager-floor-plan-close" onClick={() => answerFloorPlanWarning(false)} aria-label="Close"><FaTimes /></button></div>
+                <div className="modal-body"><p><strong>{floorPlanWarning.locationLabel}</strong> already has <strong>{floorPlanWarning.existingCount} {floorPlanWarning.unitLabel}{floorPlanWarning.existingCount === 1 ? "" : "s"}</strong> added. You planned {floorPlanWarning.plannedCount} for this floor.</p><p className="mb-0">Do you want to add another {floorPlanWarning.unitLabel}?</p></div>
+                <div className="modal-footer"><button type="button" className="btn btn-outline-secondary" onClick={() => answerFloorPlanWarning(false)} autoFocus>Cancel</button><button type="button" className="btn btn-primary" onClick={() => answerFloorPlanWarning(true)}>Yes</button></div>
               </div>
             </div>
           </div>

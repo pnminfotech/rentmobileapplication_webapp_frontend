@@ -72,7 +72,7 @@ export default function RegisterBusiness() {
         phone,
         password: form.password,
       });
-      setMessage("Trial account created. Login with your Login ID and password, then set your unit counts.");
+      setMessage("Trial account created. Login and select your property types to get started.");
       window.setTimeout(() => navigate("/login", { replace: true }), 1200);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to create trial account.");
@@ -130,7 +130,7 @@ export default function RegisterBusiness() {
               </label>
             </div>
 
-            <p className="business-register-note"><strong>15-day free access.</strong> After login, set your beds, rooms, and shops. When the trial ends, you can choose a plan.</p>
+            <p className="business-register-note"><strong>15-day free access.</strong> After login, select your property types and add units as needed. When the trial ends, you can choose a plan.</p>
             {error ? <div className="business-register-alert error" role="alert">{error}</div> : null}
             {message ? <div className="business-register-alert success" role="status">{message}</div> : null}
             <button type="submit" className="business-register-submit" disabled={saving}>

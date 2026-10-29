@@ -1,0 +1,19 @@
+.security-pin-setup { display: grid; gap: 10px; margin-top: 14px; padding: 15px; border: 1px solid #cbdcff; border-radius: 10px; background: #f4f7ff; color: #17335f; }
+.security-pin-setup > strong { font-size: 15px; }
+.security-pin-setup > p { margin: 0; color: #536987; font-size: 13px; line-height: 1.45; }
+.security-pin-setup label { display: grid; gap: 5px; font-size: 13px; font-weight: 700; }
+.security-pin-setup input { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #c7d5ec; border-radius: 7px; background: #fff; color: #14213d; }
+.security-pin-setup input:focus { outline: 2px solid #79a7ff; outline-offset: 1px; }
+.security-pin-setup button { justify-self: start; min-height: 39px; padding: 8px 15px; border: 0; border-radius: 7px; background: #315fe8; color: #fff; font-weight: 700; cursor: pointer; }
+.security-pin-setup button:disabled { opacity: .65; cursor: wait; }
+.security-pin-setup .security-pin-setup-error { color: #b42318; font-weight: 700; }
+.security-pin-status { margin: 12px 0 0; padding: 12px; border-radius: 8px; background: #f4f7ff; color: #526685; font-size: 13px; }
+.security-pin-status button { margin-left: 8px; border: 0; background: none; color: #255cd6; font-weight: 700; cursor: pointer; }
+@media (max-width: 600px) { .security-pin-setup { padding: 12px; }.security-pin-setup button { width: 100%; } }
+.security-pin-delete-overlay { position: fixed; inset: 0; z-index: 20000; display: grid; place-items: center; padding: 14px; background: rgba(12, 27, 52, .58); }
+.security-pin-delete-dialog { display: flex; flex-direction: column; width: min(480px, 100%); max-height: calc(100dvh - 28px); overflow: hidden; border-radius: 14px; background: #fff; color: #17335f; box-shadow: 0 20px 55px rgba(12, 27, 52, .25); }
+.security-pin-delete-dialog header, .security-pin-delete-dialog footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 18px; flex: 0 0 auto; }
+.security-pin-delete-dialog header { border-bottom: 1px solid #e3eaf4; }.security-pin-delete-dialog h2 { margin: 0; font-size: 18px; }.security-pin-delete-dialog header p { margin: 4px 0 0; color: #64748b; font-size: 13px; }.security-pin-delete-close { flex: 0 0 34px; height: 34px; border: 1px solid #d2dcec; border-radius: 7px; background: #f6f8fd; color: #254e88; font-size: 22px; line-height: 1; cursor: pointer; }
+.security-pin-delete-body { min-height: 0; overflow-y: auto; padding: 18px; }.security-pin-delete-body > label { display: grid; gap: 7px; font-size: 13px; font-weight: 700; }.security-pin-delete-body > label input { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #c7d5ec; border-radius: 7px; }
+.security-pin-delete-error, .security-pin-delete-success { margin: 0 0 12px; padding: 10px; border-radius: 7px; font-size: 13px; }.security-pin-delete-error { background: #fff0ee; color: #b42318; }.security-pin-delete-success { background: #e9faf1; color: #087443; }
+.security-pin-delete-dialog footer { justify-content: flex-end; border-top: 1px solid #e3eaf4; }.security-pin-delete-dialog footer button { min-height: 38px; padding: 8px 15px; border-radius: 7px; font-weight: 700; cursor: pointer; }.security-pin-delete-cancel { border: 1px solid #c7d5ec; background: #fff; color: #526685; }.security-pin-delete-confirm { border: 0; background: #d92d36; color: #fff; }.security-pin-delete-confirm:disabled { opacity: .55; cursor: not-allowed; }

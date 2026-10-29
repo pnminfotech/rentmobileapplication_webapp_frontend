@@ -7,6 +7,8 @@ import * as XLSX from "xlsx";
 import { HiHome } from "react-icons/hi";
 import { FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { api } from "../api";
+import SecurityPinDeleteDialog from "../componenet/SecurityPinDeleteDialog";
 import "../Pages/lightbill.css";
 import "../componenet/RentTracker.css";
 
@@ -85,6 +87,7 @@ const OtherExpense = ({ embedded = false, propertyScope = null }) => {
   // Edit modal
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
+  const [deletingExpense, setDeletingExpense] = useState(null);
 
   // New entry
   const [newEntry, setNewEntry] = useState({
@@ -265,24 +268,12 @@ const OtherExpense = ({ embedded = false, propertyScope = null }) => {
     }
   };
 
-  const handleDelete = async (exp) => {
-    if (!window.confirm("Delete this expense?")) return;
-
-    try {
-      const res = await fetch(
-        `   http://localhost:8000/api/other-expense/${exp._id}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (!res.ok) throw new Error("Delete failed");
-
-      alert("Deleted!");
-      fetchExpenses();
-    } catch (err) {
-      alert(err.message);
-    }
+  const handleDelete = (exp) => { if (exp?._id) setDeletingExpense(exp); };
+  const deleteExpense = async (securityPin) => {
+    await api.delete(`/other-expense/${deletingExpense._id}`, { data: { securityPin } });
+    setSelectedExpense(null);
+    setShowEditModal(false);
+    await fetchExpenses();
   };
 
   // Excel export
@@ -361,6 +352,8 @@ const OtherExpense = ({ embedded = false, propertyScope = null }) => {
       { total: 0, pending: 0 }
     );
   }, [filteredExpenses]);
+
+  const deleteDialog = <SecurityPinDeleteDialog open={Boolean(deletingExpense)} title="Delete expense" description="This will permanently remove the selected expense." onClose={() => setDeletingExpense(null)} onDelete={deleteExpense} />;
 
   if (isMobile) {
     return (
@@ -781,6 +774,7 @@ const OtherExpense = ({ embedded = false, propertyScope = null }) => {
               </div>
             </div>
           )}
+          {deleteDialog}
         </div>
       </div>
     );
@@ -1228,6 +1222,7 @@ const OtherExpense = ({ embedded = false, propertyScope = null }) => {
           </div>
         </div>
       )}
+      {deleteDialog}
     </div>
   );
 };

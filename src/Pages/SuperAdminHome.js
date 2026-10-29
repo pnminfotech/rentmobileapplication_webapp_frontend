@@ -294,7 +294,7 @@ export default function SuperAdminHome() {
     const tenantNames = (unit.occupants || []).map((tenant) => tenant.name).filter(Boolean).join(", ");
     const confirmed = window.confirm(
       occupied
-        ? `Retire ${unit.label} today? ${tenantNames || "The tenant"} will move to former records. Rent, payments and documents will remain saved.`
+        ? `Remove occupied unit ${unit.label} today? The stay for ${tenantNames || "the tenant"} will end today and move to former tenant records. Rent, payments and documents will remain saved.`
         : `Remove vacant ${unit.label}?`
     );
     if (!confirmed) return;
@@ -634,7 +634,7 @@ export default function SuperAdminHome() {
                 </div>
                 <div className="modal-body">
                   <p className="small text-muted mb-3">
-                    Occupied units can be retired from today. Tenant documents, rent, payment history and earlier records remain stored.
+                    Removing an occupied unit ends the current tenant's stay today and moves them to former tenant records. Their documents, rent and payment history remain saved.
                   </p>
                   {supportLoading ? (
                     <div className="text-center py-4"><div className="spinner-border text-primary" role="status" /></div>
@@ -659,7 +659,7 @@ export default function SuperAdminHome() {
                               onClick={() => retireSupportUnit(unit)}
                               disabled={Boolean(supportAction)}
                             >
-                              {supportAction === unit.id ? "Updating..." : occupied ? "Retire" : "Remove"}
+                              {supportAction === unit.id ? "Updating..." : "Remove"}
                             </button>
                           </div>
                         );

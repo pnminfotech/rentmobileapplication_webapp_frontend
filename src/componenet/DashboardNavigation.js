@@ -4,7 +4,7 @@ import { clearAuthSession, getAuthToken, getAuthUser } from "../authStorage";
 import { useDashboardMenuItems } from "./dashboardMenuItems";
 import "./DashboardNavigation.css";
 
-const excludedPaths = new Set(["/", "/login", "/register", "/register-business", "/form", "/tenant-intake", "/form-submitted", "/trial-unit-setup", "/subscription-expired", "/superadmin", "/admin", "/maindashboard", "/maindashbaord"]);
+const excludedPaths = new Set(["/", "/login", "/register", "/register-business", "/form", "/tenant-intake", "/form-submitted", "/trial-unit-setup", "/property-types", "/subscription-expired", "/superadmin", "/admin", "/maindashboard", "/maindashbaord"]);
 
 export default function DashboardNavigation() {
   const location = useLocation();

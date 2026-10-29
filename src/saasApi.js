@@ -61,13 +61,45 @@ export async function getAppBootstrap() {
   return data;
 }
 
+export async function getOwnerDocuments() {
+  const { data } = await api.get("/saas/app/owner-documents");
+  return data.documents;
+}
+
+export async function uploadOwnerDocument(kind, file) {
+  const body = new FormData();
+  body.append("file", file);
+  const { data } = await api.put(`/saas/app/owner-documents/${kind}`, body, { timeout: 60000 });
+  return data.document;
+}
+
+export async function removeOwnerDocument(kind) {
+  const { data } = await api.delete(`/saas/app/owner-documents/${kind}`);
+  return data;
+}
+
 export async function saveOnboardingUnits(payload = {}) {
   const { data } = await api.post("/saas/onboarding/units", payload);
   return data;
 }
 
+export async function savePropertyTypes(types) {
+  const { data } = await api.put("/saas/onboarding/property-types", { types });
+  return data;
+}
+
+export async function saveUnitCounts(units) {
+  const { data } = await api.put("/saas/onboarding/unit-counts", { units });
+  return data;
+}
+
 export async function requestSubscriptionRenewal(payload = {}) {
   const { data } = await api.post("/saas/subscription/renew-request", payload);
+  return data;
+}
+
+export async function quoteReferralCode(payload = {}) {
+  const { data } = await api.post("/saas/referrals/quote", payload);
   return data;
 }
 

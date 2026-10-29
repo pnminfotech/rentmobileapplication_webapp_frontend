@@ -11,6 +11,8 @@ import {
   getWalletSummary,
   requestUnitReductionSupport,
   requestSubscriptionRenewal,
+  quoteReferralCode,
+  saveUnitCounts,
 } from "../saasApi";
 
 function money(value) {
@@ -88,6 +90,12 @@ export default function SubscriptionExpired() {
   const [renewing, setRenewing] = useState(false);
   const [requestingSupport, setRequestingSupport] = useState(false);
   const [error, setError] = useState("");
+  const [counts, setCounts] = useState({ beds: "", rooms: "", shops: "" });
+  const [savingCounts, setSavingCounts] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
+  const [appliedReferral, setAppliedReferral] = useState(null);
+  const [referralError, setReferralError] = useState("");
+  const [checkingReferral, setCheckingReferral] = useState(false);
 
   async function load() {
     try {
@@ -97,7 +105,7 @@ export default function SubscriptionExpired() {
         getWalletSummary().catch(() => null),
       ]);
 
-      if (data.access?.canUseSystem) {
+      if (data.access?.canUseSystem && !data.access?.readOnly) {
         navigate(data.user?.role === "superadmin" ? "/superadmin" : "/admin", { replace: true });
         return;
       }
@@ -105,10 +113,18 @@ export default function SubscriptionExpired() {
       const activePlans = Array.isArray(data?.plans)
         ? data.plans.filter((plan) => plan.isActive !== false)
         : [];
-      if (!selectedPlanId && activePlans[0]?._id) {
-        setSelectedPlanId(String(activePlans[0]._id));
+      const pending = isPendingPaymentStatus(data.subscription?.status);
+      const pendingPlanId = data.subscription?.planId?._id || data.subscription?.planId;
+      if (pending && pendingPlanId) setSelectedPlanId(String(pendingPlanId));
+      else if (!selectedPlanId && activePlans[0]?._id) setSelectedPlanId(String(activePlans[0]._id));
+      if (pending) {
+        setReferralCode(String(data.subscription?.pricing?.referralCode || ""));
+        setAppliedReferral(null);
+        setUseWallet(Number(data.subscription?.pricing?.walletCoinsUsed || 0) > 0);
       }
       setBootstrap(data);
+      const initialCounts = data.organization?.unitCountsConfigured ? data.subscription?.units : data.unitUsage;
+      setCounts(Object.fromEntries(["beds", "rooms", "shops"].map((key) => [key, String(initialCounts?.[key] || 0)])));
       setWallet(walletData);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load subscription.");
@@ -143,6 +159,11 @@ export default function SubscriptionExpired() {
       setRenewing(true);
       setError("");
 
+      if ((trialEnded || pendingPayment) && referralCode.trim() &&
+          referralCode.trim().toUpperCase() !== pendingReferralCode && !referralApplied) {
+        throw new Error("Apply the referral code for your selected plan before purchasing.");
+      }
+
       const isPendingPayment =
         isPendingPaymentStatus(bootstrap?.subscription?.status) ||
         isPendingPaymentStatus(bootstrap?.organization?.status);
@@ -155,13 +176,15 @@ export default function SubscriptionExpired() {
           !latestTransaction.subscriptionId ||
           String(latestTransaction.subscriptionId) === String(bootstrap.subscription._id));
       const existingTransactionId = canReuseLatestTransaction ? latestTransaction._id : null;
-      let transactionId = existingTransactionId;
+      let transactionId = checkoutOptionsChanged ? null : existingTransactionId;
 
       if (!transactionId) {
         const renewal = await requestSubscriptionRenewal({
           planId: selectedPlan?._id || selectedPlanId || undefined,
           durationMonths: selectedPlan?.durationMonths || bootstrap?.subscription?.durationMonths || 12,
           useWallet,
+          referralCode: referralApplied ? appliedReferral.referral.code : undefined,
+          ...(checkoutOptionsChanged ? { repricePending: true, referralCode: referralCode.trim() } : {}),
         });
         transactionId = renewal?.transaction?._id;
       }
@@ -173,6 +196,12 @@ export default function SubscriptionExpired() {
       const payment = await createSaasPayment({ transactionId });
       const provider = String(payment?.payment?.provider || "").toLowerCase();
       const paymentActionLabel = isPendingPayment && existingTransactionId ? "activated" : "renewed";
+
+      if (String(payment?.payment?.status || "").toLowerCase() === "success") {
+        window.alert("Subscription activated successfully.");
+        navigate("/admin", { replace: true });
+        return;
+      }
 
       if (provider === "mock" && payment?.payment?.mockSuccessUrl) {
         await completeMockSaasPayment(transactionId);
@@ -218,6 +247,15 @@ export default function SubscriptionExpired() {
     }
   }
 
+  async function saveTrialCounts() {
+    try {
+      setSavingCounts(true); setError("");
+      await saveUnitCounts(Object.fromEntries(["beds", "rooms", "shops"].map((key) => [key, Number(counts[key] || 0)])));
+      await load();
+    } catch (err) { setError(err.response?.data?.message || "Unable to save unit counts."); }
+    finally { setSavingCounts(false); }
+  }
+
   async function requestUnitHelp() {
     try {
       setRequestingSupport(true);
@@ -225,34 +263,69 @@ export default function SubscriptionExpired() {
       const result = await requestUnitReductionSupport();
       window.alert(result?.message || "Your request was sent. Our support team will contact you using the phone or email on your account.");
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to contact Superadmin right now.");
+      setError(err.response?.data?.message || "Unable to Contact Support right now.");
     } finally {
       setRequestingSupport(false);
     }
   }
 
+  async function applyReferral() {
+    if (!referralCode.trim() || (!pendingPayment && !checkoutPlanId)) return;
+    try {
+      setCheckingReferral(true);
+      setReferralError("");
+      const quote = await quoteReferralCode({ referralCode: referralCode.trim(), planId: checkoutPlanId });
+      setAppliedReferral({ ...quote, planId: String(checkoutPlanId), unitKey: JSON.stringify(units) });
+      setReferralCode(quote.referral.code);
+    } catch (err) {
+      setAppliedReferral(null);
+      setReferralError(err.response?.data?.message || "Unable to apply this referral code.");
+    } finally {
+      setCheckingReferral(false);
+    }
+  }
+
   const organization = bootstrap?.organization || {};
   const subscription = bootstrap?.subscription || {};
-  const units = subscription.units || organization.unitAllocation || {};
+  const units = organization.onboardingMode === "flexible" && !organization.unitCountsConfigured && isTrialSubscription(subscription)
+    ? bootstrap?.unitUsage || {} : subscription.units || organization.unitAllocation || {};
   const pendingPayment = isPendingPaymentStatus(subscription.status) || isPendingPaymentStatus(organization.status);
   const trialEnded = !pendingPayment && isTrialSubscription(subscription);
+  const pendingReferralCode = pendingPayment ? String(subscription.pricing?.referralCode || "") : "";
+  const showCountSetup = organization.onboardingMode === "flexible" && trialEnded && !organization.unitCountsConfigured;
   const plans = useMemo(
     () => (Array.isArray(bootstrap?.plans) ? bootstrap.plans.filter((plan) => plan.isActive !== false) : []),
     [bootstrap]
   );
   const selectedPlan = plans.find((plan) => String(plan._id) === String(selectedPlanId)) || plans[0] || null;
+  const checkoutPlanId = pendingPayment ? String(subscription.planId?._id || subscription.planId || "") : String(selectedPlan?._id || "");
   const selectedPlanPricing = calculatePlanPricing(selectedPlan, units);
-  const renewalAmount = pendingPayment ? Number(subscription.amount || 0) : calculatePlanAmount(selectedPlan, units);
-  const walletBalance = pendingPayment ? 0 : Number(wallet?.balance || 0);
+  const referralApplied = Boolean(appliedReferral?.referral?.code &&
+    appliedReferral.planId === checkoutPlanId &&
+    appliedReferral.unitKey === JSON.stringify(units) &&
+    referralCode.trim().toUpperCase() === appliedReferral.referral.code);
+  const referralDiscount = referralApplied ? Number(appliedReferral.pricing?.referralDiscountAmount || 0) : 0;
+  const pendingBeforeWallet = Number(subscription.amount || 0) + Number(subscription.pricing?.walletCoinsUsed || 0);
+  const pendingWithoutReferral = Number(subscription.pricing?.subtotal || 0) > 0
+    ? Math.max(0, Number(subscription.pricing.subtotal) - Number(subscription.pricing.planDiscountAmount || 0))
+    : pendingBeforeWallet + Number(subscription.pricing?.referralDiscountAmount || 0);
+  const renewalAmount = pendingPayment
+    ? referralApplied ? Number(appliedReferral.pricing?.payableAmount || 0)
+      : referralCode.trim().toUpperCase() === pendingReferralCode ? pendingBeforeWallet : pendingWithoutReferral
+    : referralApplied ? Number(appliedReferral.pricing?.payableAmount || 0) : calculatePlanAmount(selectedPlan, units);
+  const walletBalance = Number(wallet?.balance || 0);
   const walletCoinsUsed = useWallet ? Math.min(walletBalance, renewalAmount) : 0;
   const payableAmount = Math.max(0, renewalAmount - walletCoinsUsed);
+  const checkoutOptionsChanged = pendingPayment &&
+    (referralCode.trim().toUpperCase() !== pendingReferralCode ||
+      (walletBalance > 0 && useWallet !== (Number(subscription.pricing?.walletCoinsUsed || 0) > 0)));
 
   const pageCopy = pendingPayment
     ? {
         eyebrow: "Payment required",
         title: "Subscription payment required",
         subtitle: `${organization.name || "Your account"} needs activation payment to start.`,
-        cardText: "Complete the subscription payment to activate dashboard, tenants, payments and reports.",
+        cardText: "Review your wallet and referral options, then complete payment to activate your subscription.",
         amountLabel: "Activation amount",
         buttonText: "Complete payment",
       }
@@ -260,7 +333,9 @@ export default function SubscriptionExpired() {
       ? {
           eyebrow: "Free trial ended",
           title: "Choose a plan to continue",
-          subtitle: `${organization.name || "Your account"} needs a paid plan to continue.`,
+          subtitle: bootstrap?.access?.readOnly
+            ? `Your data is available to view and download until ${formatDate(bootstrap.access.readOnlyUntil)}. Purchase a plan to add or change records.`
+            : `${organization.name || "Your account"} needs a paid plan to continue.`,
           cardText: "Choose a plan, review its price for your registered units, then complete payment to start using the system again.",
           amountLabel: "Plan amount",
           buttonText: "Purchase plan",
@@ -673,6 +748,15 @@ export default function SubscriptionExpired() {
         .subscription-wallet:disabled .subscription-wallet-title { color: #223a69; }
         .subscription-wallet:disabled .subscription-wallet-text { color: #68769b; }
         .subscription-wallet:disabled .subscription-toggle { background: #cdd7e8; }
+        .subscription-referral { margin-top: 12px; padding: 16px; border: 1px solid #d8d2fa; border-radius: 13px; background: #f8f6ff; }
+        .subscription-referral-title { margin: 0 0 4px; color: #19345e; font-size: 15px; font-weight: 900; }
+        .subscription-referral-copy { margin: 0 0 12px; color: #5d6d89; font-size: 12px; line-height: 1.5; }
+        .subscription-referral-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+        .subscription-referral-controls input { flex: 1 1 180px; min-width: 0; text-transform: uppercase; }
+        .subscription-referral-controls button { min-height: 40px; padding: 0 16px; border: 1px solid #366be5; border-radius: 8px; background: #fff; color: #1755cc; font-weight: 800; }
+        .subscription-referral-controls button:disabled { opacity: .55; }
+        .subscription-referral-benefit { margin: 10px 0 0; color: #146b45; font-size: 12px; font-weight: 700; line-height: 1.5; }
+        .subscription-referral-error { margin: 10px 0 0; color: #b42318; font-size: 12px; font-weight: 700; }
         @media (max-width: 860px) {
           .subscription-page {
             padding: 76px 13px 28px;
@@ -704,6 +788,9 @@ export default function SubscriptionExpired() {
             <h1 className="subscription-title">{pageCopy.title}</h1>
             <p className="subscription-subtitle">{pageCopy.subtitle}</p>
           </div>
+          {bootstrap?.access?.readOnly && (
+            <button type="button" className="btn btn-outline-primary" onClick={() => navigate("/admin")}>View my data</button>
+          )}
           <button className="subscription-logout" type="button" onClick={logout} title="Logout">
             <LogOut size={18} />
           </button>
@@ -721,7 +808,7 @@ export default function SubscriptionExpired() {
               <div className="subscription-summary-value">{subscription.status || organization.status || "-"}</div>
             </div>
             <div className="subscription-summary-item">
-              <div className="subscription-summary-label">{pageCopy.amountLabel}</div>
+              <div className="subscription-summary-label">{referralApplied ? "After referral" : pageCopy.amountLabel}</div>
               <div className="subscription-summary-value">{money(renewalAmount)}</div>
               {!pendingPayment && selectedPlanPricing.discountPercent > 0 ? (
                 <div className="subscription-summary-note">{selectedPlanPricing.discountPercent}% off · saving {money(selectedPlanPricing.discountAmount)}</div>
@@ -736,7 +823,7 @@ export default function SubscriptionExpired() {
           {!pendingPayment ? (
             <>
               <div className="subscription-plan-title">Choose plan</div>
-              {!plans.length ? <div className="subscription-error">No active plans available. Please contact superadmin.</div> : null}
+              {!plans.length ? <div className="subscription-error">No active plans available. Please Contact Support.</div> : null}
               <div className="subscription-plan-list">
                 {plans.map((plan) => {
                   const active = String(selectedPlan?._id) === String(plan._id);
@@ -746,7 +833,7 @@ export default function SubscriptionExpired() {
                       className={`subscription-plan-card ${active ? "is-active" : ""}`}
                       type="button"
                       key={plan._id}
-                      onClick={() => setSelectedPlanId(String(plan._id))}
+                      onClick={() => { setSelectedPlanId(String(plan._id)); setAppliedReferral(null); setReferralError(""); }}
                     >
                       <div className="subscription-plan-head">
                         <span>{plan.name || planDurationLabel(plan.durationMonths)}</span>
@@ -768,7 +855,7 @@ export default function SubscriptionExpired() {
             </>
           ) : null}
 
-          {!pendingPayment ? (
+          {(
             <button
               className="subscription-wallet"
               type="button"
@@ -787,7 +874,22 @@ export default function SubscriptionExpired() {
                 <span className="subscription-toggle-dot" />
               </span>
             </button>
-          ) : null}
+          )}
+          {(trialEnded || pendingPayment) && (
+            <div className="subscription-referral">
+              <h3 className="subscription-referral-title">Have a referral code?</h3>
+              <p className="subscription-referral-copy">Apply it to your first paid plan. We’ll show its exact benefit before payment.</p>
+              <div className="subscription-referral-controls">
+                <input className="form-control" value={referralCode} maxLength={24} autoCapitalize="characters" placeholder="Enter referral code" aria-label="Referral code" onChange={(event) => { setReferralCode(event.target.value.toUpperCase()); setAppliedReferral(null); setReferralError(""); }} />
+                <button type="button" onClick={applyReferral} disabled={!referralCode.trim() || checkingReferral || (!pendingPayment && !checkoutPlanId) || showCountSetup}>{checkingReferral ? "Checking..." : "Apply code"}</button>
+                {referralCode && <button type="button" onClick={() => { setReferralCode(""); setAppliedReferral(null); setReferralError(""); }}>Clear</button>}
+              </div>
+              {referralApplied && <p className="subscription-referral-benefit">Code applied. {referralDiscount > 0 ? `${appliedReferral.referral.discountPercent}% off this plan (${money(referralDiscount)} saved).` : "This code does not discount your plan."} {appliedReferral.referral.ownerOrganizationId && Number(appliedReferral.referral.rewardCoins || 0) > 0 ? `The referrer receives ${Number(appliedReferral.referral.rewardCoins).toLocaleString("en-IN")} wallet coins after payment.` : ""}</p>}
+              {referralError && <p className="subscription-referral-error" role="alert">{referralError}</p>}
+            </div>
+          )}
+          {pendingPayment && subscription.pricing?.referralCode && referralCode.trim().toUpperCase() === pendingReferralCode && !referralApplied && <p className="subscription-referral-benefit">Current payment uses referral code {pendingReferralCode}: {money(subscription.pricing.referralDiscountAmount)} saved.</p>}
+          {pendingPayment && <p className="subscription-referral-copy" style={{ marginTop: 12 }}>If your earlier payment is still processing, changes can be saved after it fails or expires.</p>}
         </div>
 
         <aside className="subscription-card subscription-side">
@@ -798,6 +900,8 @@ export default function SubscriptionExpired() {
           {!pendingPayment && selectedPlanPricing.discountPercent > 0 ? (
             <div className="subscription-payable-note">Plan discount: {selectedPlanPricing.discountPercent}% · saved {money(selectedPlanPricing.discountAmount)}</div>
           ) : null}
+          {(referralApplied || (pendingPayment && referralCode.trim().toUpperCase() === pendingReferralCode)) && (referralApplied ? referralDiscount : Number(subscription.pricing?.referralDiscountAmount || 0)) > 0 && <div className="subscription-payable-note">Referral discount: -{money(referralApplied ? referralDiscount : subscription.pricing.referralDiscountAmount)}</div>}
+          {walletCoinsUsed > 0 && <div className="subscription-payable-note">Wallet coins: -{money(walletCoinsUsed)}</div>}
 
           <div className="subscription-unit-grid">
             <UnitBox label="Beds" value={units.beds} />
@@ -805,13 +909,15 @@ export default function SubscriptionExpired() {
             <UnitBox label="Shops" value={units.shops} />
           </div>
 
+          {showCountSetup && <div className="subscription-support-card"><h2 className="subscription-support-title">Set unit counts</h2><p className="subscription-support-copy">Choose the counts for your plan. They must include your existing units.</p>{[["beds", "bed", "Beds"], ["rooms", "room", "Rooms"], ["shops", "shop", "Shops"]].filter(([, type]) => organization.selectedPropertyTypes?.includes(type)).map(([key, , label]) => <label key={key} style={{ display: "block", marginBottom: 10 }}>{label}<input className="form-control" inputMode="numeric" value={counts[key]} onChange={(event) => setCounts((current) => ({ ...current, [key]: event.target.value.replace(/\D/g, "") }))} /></label>)}<button type="button" className="subscription-support-button" onClick={saveTrialCounts} disabled={savingCounts}>{savingCounts ? "Saving..." : "Save counts and update price"}</button></div>}
+
           {!pendingPayment ? (
             <div className="subscription-support-card">
               <h2 className="subscription-support-title">Need fewer units?</h2>
               <p className="subscription-support-copy">Ask Superadmin to review your occupied and vacant units before you renew. Our team will contact you using the phone or email on your account.</p>
               <button className="subscription-support-button " type="button" onClick={requestUnitHelp} disabled={requestingSupport}>
                 <MessageCircle size={16} />
-                {requestingSupport ? "Sending request..." : "Contact Superadmin"}
+                {requestingSupport ? "Sending request..." : "Contact support"}
               </button>
               {(SUPPORT_PHONE || SUPPORT_EMAIL) ? (
                 <div className="subscription-support-contacts">
@@ -828,7 +934,7 @@ export default function SubscriptionExpired() {
             className="subscription-primary"
             type="button"
             onClick={renewNow}
-            disabled={renewing || (!pendingPayment && !selectedPlan)}
+            disabled={renewing || checkingReferral || showCountSetup || (!pendingPayment && !selectedPlan) || ((trialEnded || pendingPayment) && Boolean(referralCode.trim()) && referralCode.trim().toUpperCase() !== pendingReferralCode && !referralApplied)}
           >
             {renewing ? (
               "Processing..."

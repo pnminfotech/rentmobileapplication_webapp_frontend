@@ -917,6 +917,7 @@
 .lb-list-title { background:linear-gradient(180deg,#fff,#f7faff); }.lb-list th { background:#f5f7ff; color:#53657f; }.lb-list td { border-color:#edf2f8; }.lb-list td strong { color:#16263f; }.lb-status { border-radius:999px; }.lb-status.paid { background:#e0f2fe; color:#0369a1; }.lb-status.pending { background:#eef2ff; color:#2f3fb8; }
 .lb-modal { border-radius:22px; }.lb-modal header { background:linear-gradient(135deg,#f6f7ff,#eef2ff); border-color:#dbe3f0; }.lb-modal h3 { color:#10233f; }.lb-rule { border-color:#edf2f8; }.lb-form input,.lb-form select,.lb-rule input:not([type=checkbox]),.lb-rule select { border-color:#dbe3f0; border-radius:10px; }.lb-alert { border-color:#fecaca; border-radius:14px; }
 .lb-modal-error { margin:12px 20px 0; padding:10px 12px; border:1px solid #fecaca; border-radius:10px; background:#fff4f2; color:#a4352b; font-size:13px; }
+.lb-delete-pin-grid > * { grid-column: 1 / -1; }
 .lb-automatic { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 18px; padding:12px 14px; border:1px solid #dbe3f0; border-radius:12px; background:#f7faff; color:#244f70; }
 .lb-automatic strong { width:100%; }
 .lb-automatic span { font-weight:600; }

@@ -6,6 +6,7 @@ import { FaArrowLeft, FaEdit, FaPlus, FaRedoAlt } from "react-icons/fa";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useNavigate } from "react-router-dom";
+import SecurityPinDeleteDialog from "./SecurityPinDeleteDialog";
 export default function StaffExpenses({ embedded = false, openAddModal = false, onModalOpened }) {
   const navigate = useNavigate();
 
@@ -26,6 +27,7 @@ const apiUrl = (process.env.REACT_APP_API_URL || "   http://localhost:8000/api/"
   });
 
   const [showExpensesModal, setShowExpensesModal] = useState(false);
+  const [deletingExpense, setDeletingExpense] = useState(null);
 const [editId, setEditId] = useState(null);
 const [isEditMode, setIsEditMode] = useState(false);
 
@@ -76,7 +78,7 @@ const handleEdit = (item) => {
 };
 
 const handleDelete = (item) => {
-  deleteExpense(item._id);
+  setDeletingExpense(item);
 };
 
   const openAddExpenseModal = () => {
@@ -164,18 +166,13 @@ const saveExpense = async () => {
 };
 
 
-  const deleteExpense = async (id) => {
-    if (!window.confirm("Delete this expense?")) return;
-    try {
-      await api.delete(`/staff-expenses/${id}`);
-      fetchExpenses();
-    } catch (err) {
-      console.error("Delete staff expense error:", err);
-      alert(err?.response?.data?.message || "Failed to delete expense");
-    }
+  const deleteExpense = async (securityPin) => {
+    await api.delete(`/staff-expenses/${deletingExpense._id}`, { data: { securityPin } });
+    await fetchExpenses();
   };
 
   const total = items.reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
+  const deleteDialog = <SecurityPinDeleteDialog open={Boolean(deletingExpense)} title="Delete staff expense" description="This will permanently remove the selected expense." onClose={() => setDeletingExpense(null)} onDelete={deleteExpense} />;
 
   if (isMobile) {
     return (
@@ -423,6 +420,7 @@ const saveExpense = async () => {
               </div>
             </div>
           )}
+          {deleteDialog}
         </div>
       </div>
     );
@@ -635,6 +633,7 @@ const saveExpense = async () => {
           </div>
         </div>
       )}
+      {deleteDialog}
     </div>
   );
 }   

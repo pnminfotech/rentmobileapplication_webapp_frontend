@@ -15,5 +15,45 @@
 .dashboard-nav-submenu button { font-size: 14px; background: #ffffff12; margin-bottom: 3px; }
 
 @media (max-width: 768px) {
-  .dashboard-nav-bar { display: none; }
+  .dashboard-nav-bar {
+    display: flex;
+    min-height: 64px;
+    padding: 10px 14px;
+    background: #f7f9ff;
+  }
+
+  .dashboard-nav-toggle {
+    min-height: 42px;
+    padding: 9px 14px;
+    font-size: 14px;
+  }
+
+  .dashboard-nav-backdrop {
+    z-index: 1090;
+    background: rgba(10, 25, 54, 0.58);
+  }
+
+  .dashboard-nav-drawer {
+    z-index: 1091;
+    width: min(330px, 88vw);
+    background: linear-gradient(180deg, #173b8a, #112d6c);
+  }
+
+  .dashboard-nav-header {
+    padding: 20px 18px 16px;
+  }
+
+  .dashboard-nav-drawer ul {
+    padding: 0 12px 20px;
+  }
+
+  .dashboard-nav-item,
+  .dashboard-nav-submenu button {
+    min-height: 46px;
+    border-radius: 10px;
+  }
+
+  .dashboard-nav-submenu {
+    padding-left: 18px !important;
+  }
 }

@@ -1,29 +1,53 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
 import {
   FiCheckCircle,
+  FiArrowRight,
+  FiBriefcase,
+  FiCalendar,
+  FiCamera,
+  FiChevronRight,
+  FiClock,
   FiCopy,
   FiCreditCard,
+  FiDatabase,
   FiDollarSign,
+  FiExternalLink,
+  FiFileText,
   FiGift,
+  FiGrid,
+  FiHome,
   FiInfo,
+  FiLayers,
+  FiPhone,
   FiPlus,
+  FiRefreshCw,
   FiShare2,
   FiShield,
+  FiTrash2,
   FiUser,
   FiUsers,
+  FiUpload,
+  FiX,
 } from "react-icons/fi";
 
 import {
   completeMockSaasPayment,
   createSaasPayment,
   getAppBootstrap,
+  getOwnerDocuments,
   getSaasPaymentStatus,
   getSystemSecurityPinStatus,
   getWalletSummary,
+  removeOwnerDocument,
   requestSubscriptionUpgrade,
   resetSystemSecurityPin,
   saveSystemSecurityPin,
+  saveUnitCounts,
+  uploadOwnerDocument,
 } from "../saasApi";
+import { PropertyTypePicker } from "./PropertyTypes";
 import "./ProfileSettings.css";
 
 const unitFields = [
@@ -31,6 +55,13 @@ const unitFields = [
   { key: "rooms", label: "Rooms" },
   { key: "shops", label: "Shops" },
 ];
+const emptyPinForm = { pin: "", confirm: "", currentPin: "", password: "", reset: false };
+const ownerDocumentFields = [
+  { key: "photo", label: "Owner photo", hint: "A clear photo of the owner", Icon: FiCamera },
+  { key: "aadhaar", label: "Aadhaar card", hint: "A readable image of the card", Icon: FiFileText },
+  { key: "pan", label: "PAN card", hint: "A readable image of the card", Icon: FiCreditCard },
+];
+const emptyOwnerDocuments = { photo: null, aadhaar: null, pan: null };
 
 const formatDate = (value) => {
   if (!value) return "-";
@@ -60,13 +91,22 @@ export default function ProfileSettings() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [showUnitsModal, setShowUnitsModal] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
   const [upgradeUnits, setUpgradeUnits] = useState({ beds: "", rooms: "", shops: "" });
   const [useWallet, setUseWallet] = useState(true);
   const [walletFilter, setWalletFilter] = useState("all");
   const [referralCopied, setReferralCopied] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
-  const [pinForm, setPinForm] = useState({ pin: "", confirm: "", currentPin: "", password: "", reset: false });
+  const [pinForm, setPinForm] = useState(emptyPinForm);
   const [savingPin, setSavingPin] = useState(false);
+  const [unitCounts, setUnitCounts] = useState({ beds: "", rooms: "", shops: "" });
+  const [savingCounts, setSavingCounts] = useState(false);
+  const [ownerDocuments, setOwnerDocuments] = useState(emptyOwnerDocuments);
+  const [ownerDocumentError, setOwnerDocumentError] = useState("");
+  const [ownerDocumentNotice, setOwnerDocumentNotice] = useState("");
+  const [ownerDocumentBusy, setOwnerDocumentBusy] = useState("");
+  const [confirmRemoveOwnerDocument, setConfirmRemoveOwnerDocument] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -77,8 +117,20 @@ export default function ProfileSettings() {
         getSystemSecurityPinStatus().catch(() => ({ configured: false })),
       ]);
       setBootstrap(account);
+      if (account.organization?.onboardingMode === "flexible") {
+        const initial = account.organization.unitCountsConfigured ? account.subscription?.units : account.unitUsage;
+        setUnitCounts(Object.fromEntries(unitFields.map(({ key }) => [key, String(initial?.[key] || 0)])));
+      }
       setWallet(walletData);
       setPinConfigured(Boolean(pin?.configured));
+      if (account.user?.role === "system_admin") {
+        try {
+          setOwnerDocuments(await getOwnerDocuments());
+          setOwnerDocumentError("");
+        } catch (documentError) {
+          setOwnerDocumentError(documentError.response?.data?.message || "Could not load owner documents.");
+        }
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load your profile.");
     } finally {
@@ -88,7 +140,37 @@ export default function ProfileSettings() {
 
   useEffect(() => { load(); }, [load]);
 
+  const closePinModal = useCallback(() => {
+    setShowPinModal(false);
+    setPinForm(emptyPinForm);
+  }, []);
+
+  useEffect(() => {
+    if (!showUnitsModal && !showPinModal) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setShowUnitsModal(false);
+        closePinModal();
+      }
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [showUnitsModal, showPinModal, closePinModal]);
+
   const subscription = bootstrap?.subscription || {};
+  const access = bootstrap?.access || {};
+  const subscriptionStatus = access.readOnly
+    ? "View only"
+    : access.needsPayment
+      ? "Payment required"
+      : access.expired
+        ? "Expired"
+        : titleCase(subscription.status || "Unknown");
   const organization = bootstrap?.organization || {};
   const user = bootstrap?.user || {};
   const units = subscription.units || organization.unitAllocation || {};
@@ -99,7 +181,62 @@ export default function ProfileSettings() {
   const usedCoins = useMemo(() => walletEntries.filter((entry) => entry.direction === "debit").reduce((sum, entry) => sum + Number(entry.coins || 0), 0), [walletEntries]);
   const entries = useMemo(() => walletFilter === "all" ? walletEntries : walletEntries.filter((entry) => entry.direction === walletFilter), [walletEntries, walletFilter]);
   const referral = wallet?.referralCode;
-  const totalUnits = unitFields.reduce((sum, { key }) => sum + Number(units[key] || 0), 0);
+  const flexible = organization.onboardingMode === "flexible";
+  const registeredUnits = flexible ? (bootstrap?.unitUsage || {}) : units;
+  const totalUnits = unitFields.reduce((sum, { key }) => sum + Number(registeredUnits[key] || 0), 0);
+  const selectedTypes = organization.selectedPropertyTypes || [];
+
+  const saveOwnerDocument = async (kind, label, file) => {
+    const isImage = ["image/jpeg", "image/png"].includes(file.type) && /\.(jpe?g|png)$/i.test(file.name);
+    const isPdf = kind !== "photo" && file.type === "application/pdf" && /\.pdf$/i.test(file.name);
+    if (!isImage && !isPdf) {
+      setOwnerDocumentError(kind === "photo" ? "Choose a JPG or PNG owner photo." : "Choose a JPG, PNG, or PDF document.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setOwnerDocumentError("The file must be 5 MB or smaller.");
+      return;
+    }
+    try {
+      setOwnerDocumentBusy(kind);
+      setOwnerDocumentError("");
+      setOwnerDocumentNotice("");
+      const document = await uploadOwnerDocument(kind, file);
+      setOwnerDocuments((current) => ({ ...current, [kind]: document }));
+      setOwnerDocumentNotice(`${label} saved.`);
+      setConfirmRemoveOwnerDocument("");
+    } catch (uploadError) {
+      setOwnerDocumentError(uploadError.response?.data?.message || `Could not save ${label.toLowerCase()}.`);
+    } finally {
+      setOwnerDocumentBusy("");
+    }
+  };
+
+  const deleteOwnerDocument = async (kind, label) => {
+    try {
+      setOwnerDocumentBusy(kind);
+      setOwnerDocumentError("");
+      setOwnerDocumentNotice("");
+      await removeOwnerDocument(kind);
+      setOwnerDocuments((current) => ({ ...current, [kind]: null }));
+      setOwnerDocumentNotice(`${label} removed.`);
+      setConfirmRemoveOwnerDocument("");
+    } catch (deleteError) {
+      setOwnerDocumentError(deleteError.response?.data?.message || `Could not remove ${label.toLowerCase()}.`);
+    } finally {
+      setOwnerDocumentBusy("");
+    }
+  };
+
+  const saveCounts = async () => {
+    try {
+      setSavingCounts(true); setError(""); setNotice("");
+      await saveUnitCounts(Object.fromEntries(unitFields.map(({ key }) => [key, Number(unitCounts[key] || 0)])));
+      await load();
+      setNotice("Unit counts saved. Your existing units have been kept.");
+    } catch (err) { setError(err.response?.data?.message || "Unable to save unit counts."); }
+    finally { setSavingCounts(false); }
+  };
 
   const changeUpgradeUnit = (key, value) => setUpgradeUnits((current) => ({
     ...current,
@@ -186,7 +323,7 @@ export default function ProfileSettings() {
       setSavingPin(true); setError(""); setNotice("");
       if (pinConfigured && pinForm.reset) await resetSystemSecurityPin({ pin: pinForm.pin, password: pinForm.password });
       else await saveSystemSecurityPin({ pin: pinForm.pin, currentPin: pinForm.currentPin });
-      setPinConfigured(true); setPinForm({ pin: "", confirm: "", currentPin: "", password: "", reset: false }); setNotice("Security PIN saved.");
+      setPinConfigured(true); setPinForm(emptyPinForm); setNotice("Security PIN saved.");
     } catch (err) { setError(err.response?.data?.message || "Unable to save the security PIN."); }
     finally { setSavingPin(false); }
   };
@@ -196,53 +333,153 @@ export default function ProfileSettings() {
   return (
     <main className="profile-page">
       <div className="profile-shell">
-        <header className="profile-header"><span>ACCOUNT SETTINGS</span><h1>Profile</h1><p>Manage your business, subscription, wallet and security.</p></header>
+        <div className="profile-content">
+        <header className="profile-header">
+          <div><span>ACCOUNT SETTINGS</span><h1>Profile</h1><p>Manage your business, subscription, wallet and security.</p></div>
+          <nav className="profile-breadcrumb" aria-label="Breadcrumb"><Link to="/admin">Home</Link><FiChevronRight /><span>Profile</span></nav>
+        </header>
         {error && <div className="profile-message error">{error}</div>}
         {notice && <div className="profile-message success"><FiCheckCircle />{notice}</div>}
 
         <section className="profile-hero">
           <div className="profile-avatar">{String(user.name || user.email || "AD").slice(0, 2).toUpperCase()}</div>
-          <div><h2>{user.name || "System admin"}</h2><p>{user.email || "-"}</p><b>{titleCase(user.role || "system admin")}</b></div>
+          <div className="profile-hero-identity"><h2>{user.name || "System admin"}</h2><p>{user.email || "-"}</p><b>{titleCase(user.role || "system admin")}</b></div>
+          <div className="profile-hero-art" aria-hidden="true"><div className="profile-art-sheet"><span /><span /><span /></div><div className="profile-art-user"><FiUser /></div></div>
+          <div className="profile-hero-message"><strong>Manage your account</strong><span>Keep your business information, subscription and security settings up to date.</span></div>
         </section>
 
         <section className="profile-stat-grid" aria-label="Profile overview">
-          <button type="button" className="profile-stat-card profile-stat-blue" onClick={() => scrollToProfileSection("profile-subscription")}><FiPlus /><div><span>Registered units</span><strong>{number(totalUnits)}</strong><small>View capacity</small></div></button>
-          <button type="button" className="profile-stat-card profile-stat-green" onClick={() => scrollToProfileSection("profile-upgrade")}><FiCreditCard /><div><span>Subscription</span><strong>{titleCase(subscription.status || "active")}</strong><small>Manage plan</small></div></button>
-          <button type="button" className="profile-stat-card profile-stat-amber" onClick={() => scrollToProfileSection("profile-wallet")}><FiDollarSign /><div><span>Wallet coins</span><strong>{number(walletBalance)}</strong><small>View activity</small></div></button>
-          <button type="button" className="profile-stat-card profile-stat-purple" onClick={() => scrollToProfileSection("profile-security-pin")}><FiShield /><div><span>Security PIN</span><strong>{pinConfigured ? "Set" : "Not set"}</strong><small>{pinConfigured ? "Manage PIN" : "Set PIN"}</small></div></button>
+          <button type="button" className="profile-stat-card profile-stat-blue" onClick={() => { setError(""); setNotice(""); setShowUnitsModal(true); }}><FiHome /><div><span>Registered units</span><strong>{number(totalUnits)}</strong><small>{flexible ? "Manage property types" : "View capacity"}</small></div></button>
+          <button type="button" className="profile-stat-card profile-stat-plan" onClick={() => scrollToProfileSection("profile-subscription")}><FiGift /><div><span>Subscription</span><strong>{subscriptionStatus}</strong><small>View subscription details</small></div></button>
+          <button type="button" className="profile-stat-card profile-stat-wallet" onClick={() => scrollToProfileSection("profile-wallet")}><FiDatabase /><div><span>Wallet coins</span><strong>{number(walletBalance)}</strong><small>View activity</small></div></button>
+          <button type="button" className="profile-stat-card profile-stat-purple" onClick={() => { setError(""); setNotice(""); setPinForm(emptyPinForm); setShowPinModal(true); }}><FiShield /><div><span>Security PIN</span><strong>{pinConfigured ? "Set" : "Not set"}</strong><small>{pinConfigured ? "Manage PIN" : "Set PIN"}</small></div></button>
         </section>
 
-        <div className="profile-grid">
-          <section className="profile-card"><h2><FiUser /> Account & business</h2><div className="profile-details"><p><span>Name</span><strong>{user.name || "System admin"}</strong></p><p><span>Phone</span><strong>{organization.phone || user.phone || "-"}</strong></p><p><span>Business</span><strong>{organization.name || "-"}</strong></p><p><span>Business type</span><strong>{titleCase(organization.businessType)}</strong></p><p><span>Created</span><strong>{formatDate(user.createdAt)}</strong></p><p><span>Owner</span><strong>{organization.ownerName || "-"}</strong></p></div></section>
-          <section className="profile-card" id="profile-subscription"><h2><FiCreditCard /> Subscription</h2><div className="profile-subscription"><span className="profile-status">{titleCase(subscription.status || "active")}</span><p><span>Plan amount</span><strong>{money(subscription.amount, subscription.currency)}</strong></p><p><span>Valid until</span><strong>{formatDate(subscription.endDate)}</strong></p><p><span>Duration</span><strong>{subscription.durationMonths ? `${subscription.durationMonths} months` : "-"}</strong></p></div><div className="profile-unit-grid">{unitFields.map(({ key, label }) => <div key={key}><strong>{number(units[key])}</strong><span>{label}</span></div>)}</div></section>
+        <div className="profile-main-columns">
+          <div className="profile-column">
+            <section className="profile-card profile-account-card">
+              <div className="profile-section-heading"><h2><FiUser /> Account &amp; business details</h2></div>
+              <div className="profile-details">
+                <p><FiUsers /><span>Name<strong>{user.name || "System admin"}</strong></span></p>
+                <p><FiPhone /><span>Phone<strong>{organization.phone || user.phone || "-"}</strong></span></p>
+                <p><FiBriefcase /><span>Business<strong>{organization.name || "-"}</strong></span></p>
+                <p><FiGrid /><span>Business type<strong>{titleCase(organization.businessType)}</strong></span></p>
+                <p><FiClock /><span>Created<strong>{formatDate(user.createdAt)}</strong></span></p>
+                <p><FiUser /><span>Owner<strong>{organization.ownerName || "-"}</strong></span></p>
+              </div>
+            </section>
+            {user.role === "system_admin" && <section className="profile-card profile-owner-documents" id="profile-owner-documents">
+              <div className="profile-section-heading">
+                <div><h2><FiFileText /> Owner documents</h2><p>Save the owner's photo and identity cards for police verification.</p></div>
+              </div>
+              {ownerDocumentError && <div className="profile-message error" role="alert">{ownerDocumentError}</div>}
+              {ownerDocumentNotice && <div className="profile-message success" role="status"><FiCheckCircle />{ownerDocumentNotice}</div>}
+              {access.readOnly && <div className="profile-owner-document-readonly"><FiInfo /><span>Your subscription is view only. Renew it to upload or change owner documents.</span><Link to="/subscription-expired">Renew subscription</Link></div>}
+              <div className="profile-owner-document-grid">
+                {ownerDocumentFields.map(({ key, label, hint, Icon }) => {
+                  const document = ownerDocuments?.[key];
+                  return <article className="profile-owner-document" key={key}>
+                    <div className="profile-owner-document-heading"><Icon /><div><strong>{label}</strong><small>{hint}</small></div></div>
+                    {document?.url
+                      ? <a className={`profile-owner-document-preview${key === "photo" ? " is-photo" : ""}`} href={document.url} target="_blank" rel="noopener noreferrer" aria-label={`View ${label}`}>{document.mimeType === "application/pdf" ? <span className="profile-owner-document-pdf"><FiFileText /> PDF document</span> : <img src={document.url} alt={label} />}<span className="profile-owner-document-view"><FiExternalLink /> View {document.mimeType === "application/pdf" ? "PDF" : "image"}</span></a>
+                      : <div className="profile-owner-document-placeholder"><Icon /><span>No image uploaded</span></div>}
+                    {document && <small className="profile-owner-document-date">Saved {formatDate(document.uploadedAt)}</small>}
+                    <div className="profile-owner-document-actions">
+                      {!access.readOnly && <label className="profile-owner-upload"><FiUpload /> {ownerDocumentBusy === key ? "Saving…" : document ? "Replace" : "Upload"}<input type="file" accept={key === "photo" ? "image/jpeg,image/png,.jpg,.jpeg,.png" : "image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"} disabled={Boolean(ownerDocumentBusy)} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) saveOwnerDocument(key, label, file); }} /></label>}
+                      {access.readOnly && <Link className="profile-owner-upload" to="/subscription-expired"><FiUpload /> Renew to upload</Link>}
+                      {document && !access.readOnly && <button type="button" className="profile-owner-remove" onClick={() => setConfirmRemoveOwnerDocument(key)} disabled={Boolean(ownerDocumentBusy)} aria-label={`Remove ${label}`}><FiTrash2 /> Remove</button>}
+                    </div>
+                    {confirmRemoveOwnerDocument === key && <div className="profile-owner-remove-confirm"><span>Remove {label.toLowerCase()}?</span><button type="button" onClick={() => deleteOwnerDocument(key, label)} disabled={Boolean(ownerDocumentBusy)}>Yes, remove</button><button type="button" onClick={() => setConfirmRemoveOwnerDocument("")} disabled={Boolean(ownerDocumentBusy)}>Cancel</button></div>}
+                  </article>;
+                })}
+              </div>
+              <p className="profile-owner-document-help">Photo: JPG or PNG. Cards: JPG, PNG, or PDF. Maximum 5 MB per file.</p>
+            </section>}
+            <section className="profile-card profile-subscription-card" id="profile-subscription">
+              <div className="profile-section-heading"><h2><FiCreditCard /> Subscription</h2>{(access.readOnly || access.expired || access.needsPayment) && <Link className="profile-section-action" to="/subscription-expired"><FiRefreshCw /> {access.needsPayment ? "Complete payment" : "Renew subscription"}</Link>}</div>
+              <span className={`profile-status ${access.readOnly ? "profile-status-read-only" : access.expired || access.needsPayment ? "profile-status-inactive" : ""}`}>{subscriptionStatus}</span>
+              <div className="profile-subscription">
+                <p><FiCreditCard /><span>Plan amount<strong>{money(subscription.amount, subscription.currency)}</strong></span></p>
+                <p><FiCalendar /><span>Valid until<strong>{formatDate(subscription.endDate)}</strong></span></p>
+                <p><FiClock /><span>Duration<strong>{subscription.durationMonths ? `${subscription.durationMonths} months` : "-"}</strong></span></p>
+              </div>
+              {access.readOnly && <p className="profile-read-only-note"><FiInfo /> You can view and download your data until {formatDate(access.readOnlyUntil)}. Renew your subscription to add or change records.</p>}
+              <div className="profile-unit-grid">{unitFields.map(({ key, label }) => <div key={key}>{key === "beds" ? <FiLayers /> : key === "rooms" ? <FiHome /> : <FiBriefcase />}<strong>{flexible && isTrial && !organization.unitCountsConfigured ? "Not set" : number(units[key])}</strong><span>{label} capacity</span></div>)}</div>
+            </section>
+          </div>
+
+          <div className="profile-column">
+            {!(flexible && isTrial && !organization.unitCountsConfigured) && <section className="profile-card profile-upgrade" id="profile-upgrade">
+              <div className="profile-card-title"><div><h2><FiPlus /> {isTrial ? "Trial units" : "Upgrade units"}</h2><p>Add capacity whenever you need more beds, rooms, or shops.</p></div><button type="button" className="profile-primary-button" onClick={() => setShowUpgrade((value) => !value)}><FiPlus /> {showUpgrade ? "Close" : "Add units"}</button></div>
+              <div className="profile-wallet-summary"><span className="profile-wallet-summary-icon"><FiDatabase /></span><div><span>Wallet balance</span><strong>{number(walletBalance)} coins</strong></div><span className="profile-coins-art" aria-hidden="true">◉</span></div>
+              {showUpgrade && <div className="profile-upgrade-form"><div className="profile-upgrade-inputs">{unitFields.map(({ key, label }) => <label key={key}>Extra {label.toLowerCase()}<input inputMode="numeric" value={upgradeUnits[key]} onChange={(event) => changeUpgradeUnit(key, event.target.value)} placeholder="0" /></label>)}</div>{!isTrial && <label className="profile-wallet-toggle"><input type="checkbox" checked={useWallet} disabled={!walletBalance} onChange={(event) => setUseWallet(event.target.checked)} /> Use wallet coins ({number(walletBalance)} available)</label>}<button type="button" className="profile-primary-button" onClick={upgrade} disabled={upgrading}>{upgrading ? "Starting payment…" : isTrial ? "Add trial units" : "Continue to payment"}</button></div>}
+            </section>}
+
+            <section className="profile-wallet-page" id="profile-wallet">
+              <div className="profile-section-heading"><div><h2><FiDatabase /> Wallet</h2><p>Coins, referrals and reward history</p></div><button type="button" className="profile-section-action" onClick={openWalletUpgrade}><FiRefreshCw /> Upgrade package</button></div>
+              <div className="profile-wallet-balance-card"><span className="profile-wallet-balance-icon"><FiDollarSign /></span><div><span>Available balance</span><strong>{number(walletBalance)} coins</strong><p>Use coins when upgrading your package</p></div><FiArrowRight className="profile-wallet-balance-arrow" /></div>
+            </section>
+            <section className="profile-referral-panel">
+              {referral?.code && <div className="profile-referral-card">
+                <div className="profile-referral-heading"><FiDatabase /><div><h3>Invite &amp; earn</h3><p>Earn {number(referral.rewardCoins || 100)} coins after your friend completes their first payment.</p></div></div>
+                <div className="profile-referral-actions"><button type="button" className="profile-referral-code" onClick={copyReferralCode}>{referral.code}<FiCopy /></button><button type="button" className="profile-referral-share" onClick={shareReferralCode}><FiShare2 /> Share code</button></div>
+                {referralCopied && <small className="profile-referral-copied">Referral code copied.</small>}
+              </div>}
+              <div className="profile-wallet-stats"><div><FiGift /><strong>{number(earnedCoins)}</strong><span>Earned</span></div><div><FiDollarSign /><strong>{number(usedCoins)}</strong><span>Used</span></div><div><FiUsers /><strong>{number(referral?.usedCount)}</strong><span>Referrals</span></div></div>
+            </section>
+            <section className="profile-history-panel"><div className="profile-wallet-history-heading"><h3><FiGift /> Reward history</h3><select value={walletFilter} onChange={(event) => setWalletFilter(event.target.value)} aria-label="Filter reward history"><option value="all">All activity</option><option value="credit">Coins earned</option><option value="debit">Coins used</option></select></div><div className="profile-wallet-history">{entries.length ? entries.map((entry) => <WalletEntry entry={entry} key={entry._id || `${entry.createdAt}-${entry.coins}`} />) : <p className="profile-empty">No wallet activity for this filter.</p>}</div><p className="profile-wallet-disclaimer"><FiInfo /> Coins have no cash value</p></section>
+          </div>
         </div>
-
-        <section className="profile-card profile-upgrade" id="profile-upgrade"><div className="profile-card-title"><div><h2><FiPlus /> {isTrial ? "Trial units" : "Upgrade units"}</h2><p>Add capacity whenever you need more beds, rooms, or shops.</p></div><button type="button" className="profile-outline-button" onClick={() => setShowUpgrade((value) => !value)}>{showUpgrade ? "Close" : "Add units"}</button></div><div className="profile-wallet-summary"><FiDollarSign /><div><span>Wallet balance</span><strong>{number(walletBalance)} coins</strong></div></div>{showUpgrade && <div className="profile-upgrade-form"><div className="profile-upgrade-inputs">{unitFields.map(({ key, label }) => <label key={key}>Extra {label.toLowerCase()}<input inputMode="numeric" value={upgradeUnits[key]} onChange={(event) => changeUpgradeUnit(key, event.target.value)} placeholder="0" /></label>)}</div>{!isTrial && <label className="profile-wallet-toggle"><input type="checkbox" checked={useWallet} disabled={!walletBalance} onChange={(event) => setUseWallet(event.target.checked)} /> Use wallet coins ({number(walletBalance)} available)</label>}<button type="button" className="profile-primary-button" onClick={upgrade} disabled={upgrading}>{upgrading ? "Starting payment…" : isTrial ? "Add trial units" : "Continue to payment"}</button></div>}</section>
-
-        <div className="profile-grid">
-          <section className="profile-card" id="profile-security-pin"><h2><FiShield /> Security PIN</h2><p className="profile-card-copy">Your PIN is required before deleting tenants, units, bills, and expenses.</p><form className="profile-pin-form" onSubmit={savePin}>{pinConfigured && !pinForm.reset && <label>Current security PIN<input type="password" inputMode="numeric" maxLength="8" value={pinForm.currentPin} onChange={(event) => setPinForm({ ...pinForm, currentPin: event.target.value.replace(/\D/g, "") })} /></label>}{pinConfigured && pinForm.reset && <label>Account password<input type="password" value={pinForm.password} onChange={(event) => setPinForm({ ...pinForm, password: event.target.value })} /></label>}<label>New security PIN<input type="password" inputMode="numeric" maxLength="8" placeholder="4 to 8 digits" value={pinForm.pin} onChange={(event) => setPinForm({ ...pinForm, pin: event.target.value.replace(/\D/g, "") })} /></label><label>Confirm security PIN<input type="password" inputMode="numeric" maxLength="8" value={pinForm.confirm} onChange={(event) => setPinForm({ ...pinForm, confirm: event.target.value.replace(/\D/g, "") })} /></label>{pinConfigured && <button className="profile-link-button" type="button" onClick={() => setPinForm({ ...pinForm, reset: !pinForm.reset, currentPin: "", password: "" })}>{pinForm.reset ? "Use current PIN" : "Forgot PIN? Reset with account password"}</button>}<button className="profile-primary-button" disabled={savingPin}>{savingPin ? "Saving…" : pinConfigured ? "Update PIN" : "Set security PIN"}</button></form></section>
-          <section className="profile-wallet-page" id="profile-wallet">
-            <header className="profile-wallet-header"><span>REWARDS &amp; REFERRALS</span><h2>Wallet</h2><p>Coins, referrals and reward history</p></header>
-            <div className="profile-wallet-balance-card">
-              <div><span>Available balance</span><strong>{number(walletBalance)} coins</strong><p>Use coins when upgrading your package</p></div>
-              <div className="profile-wallet-balance-action"><FiDollarSign /><button type="button" onClick={openWalletUpgrade}>Upgrade package</button></div>
-            </div>
-            {referral?.code && <div className="profile-referral-card">
-              <h3>Invite &amp; earn</h3><p>Earn {number(referral.rewardCoins || 100)} coins after your friend completes their first payment.</p>
-              <div className="profile-referral-actions"><button type="button" className="profile-referral-code" onClick={copyReferralCode}>{referral.code}<FiCopy /></button><button type="button" className="profile-referral-share" onClick={shareReferralCode}><FiShare2 /> Share code</button></div>
-              {referralCopied && <small className="profile-referral-copied">Referral code copied.</small>}
-            </div>}
-            <div className="profile-wallet-stats">
-              <div><FiGift /><strong>{number(earnedCoins)}</strong><span>Earned</span></div>
-              <div><FiDollarSign /><strong>{number(usedCoins)}</strong><span>Used</span></div>
-              <div><FiUsers /><strong>{number(referral?.usedCount)}</strong><span>Referrals</span></div>
-            </div>
-            <div className="profile-wallet-history-heading"><h3>Reward history</h3><select value={walletFilter} onChange={(event) => setWalletFilter(event.target.value)} aria-label="Filter reward history"><option value="all">All activity</option><option value="credit">Coins earned</option><option value="debit">Coins used</option></select></div>
-            <div className="profile-wallet-history">{entries.length ? entries.map((entry) => <WalletEntry entry={entry} key={entry._id || `${entry.createdAt}-${entry.coins}`} />) : <p className="profile-empty">No wallet activity for this filter.</p>}</div>
-            <p className="profile-wallet-disclaimer"><FiInfo /> Coins have no cash value</p>
-          </section>
         </div>
       </div>
+      {showUnitsModal && createPortal(
+        <div className="profile-units-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowUnitsModal(false); }}>
+          <section className="profile-units-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-units-title">
+            <header className="profile-units-dialog-header">
+              <div><h2 id="profile-units-title">{flexible ? "Property types & unit counts" : "Registered units"}</h2><p>{flexible ? "View your capacity and manage the property types you use." : "View the units in your current plan."}</p></div>
+              <button type="button" className="profile-units-close" onClick={() => setShowUnitsModal(false)} aria-label="Close registered units" autoFocus><FiX /></button>
+            </header>
+            <div className="profile-units-dialog-body">
+              {error && <div className="profile-message error" role="alert">{error}</div>}
+              {notice && <div className="profile-message success" role="status"><FiCheckCircle />{notice}</div>}
+              <h3 className="profile-units-added-title">Units added</h3>
+              <div className="profile-unit-grid">{unitFields.map(({ key, label }) => <div key={key}><strong>{number(registeredUnits[key])}</strong><span>{label}</span></div>)}</div>
+              {flexible && <>
+                <p className="profile-card-copy">Select the property types you use. Types with existing units or allocated capacity must remain selected.</p>
+                <PropertyTypePicker initialTypes={selectedTypes} onSaved={async () => { await load(); setNotice("Property types saved."); }} />
+                {isTrial && <div className="profile-upgrade-form"><h3>Set unit counts</h3><p className="profile-card-copy">Your existing units: {number(bootstrap?.unitUsage?.beds)} beds, {number(bootstrap?.unitUsage?.rooms)} rooms and {number(bootstrap?.unitUsage?.shops)} shops. Counts must cover these units.</p><div className="profile-upgrade-inputs">{unitFields.filter(({ key }) => selectedTypes.includes(({ beds: "bed", rooms: "room", shops: "shop" })[key])).map(({ key, label }) => <label key={key}>{label}<input inputMode="numeric" value={unitCounts[key]} onChange={(event) => setUnitCounts((current) => ({ ...current, [key]: event.target.value.replace(/\D/g, "") }))} /></label>)}</div><button type="button" className="profile-primary-button" onClick={saveCounts} disabled={savingCounts}>{savingCounts ? "Saving..." : "Save unit counts"}</button></div>}
+              </>}
+              {!flexible && <button type="button" className="profile-primary-button" onClick={() => { setShowUnitsModal(false); openWalletUpgrade(); }}>Add units</button>}
+            </div>
+            <footer className="profile-units-dialog-footer"><button type="button" className="profile-outline-button" onClick={() => setShowUnitsModal(false)}>Close</button></footer>
+          </section>
+        </div>,
+        document.body
+      )}
+      {showPinModal && createPortal(
+        <div className="profile-units-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) closePinModal(); }}>
+          <section className="profile-units-dialog profile-pin-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-pin-title">
+            <header className="profile-units-dialog-header">
+              <div><h2 id="profile-pin-title"><FiShield /> Security PIN</h2><p>Your PIN is required before deleting tenants, units, bills, and expenses.</p></div>
+              <button type="button" className="profile-units-close" onClick={closePinModal} aria-label="Close security PIN" autoFocus><FiX /></button>
+            </header>
+            <div className="profile-units-dialog-body">
+              {error && <div className="profile-message error" role="alert">{error}</div>}
+              {notice && <div className="profile-message success" role="status"><FiCheckCircle />{notice}</div>}
+              <form className="profile-pin-form" onSubmit={savePin}>
+                {pinConfigured && !pinForm.reset && <label>Current security PIN<input type="password" inputMode="numeric" maxLength="8" value={pinForm.currentPin} onChange={(event) => setPinForm({ ...pinForm, currentPin: event.target.value.replace(/\D/g, "") })} /></label>}
+                {pinConfigured && pinForm.reset && <label>Account password<input type="password" value={pinForm.password} onChange={(event) => setPinForm({ ...pinForm, password: event.target.value })} /></label>}
+                <label>New security PIN<input type="password" inputMode="numeric" maxLength="8" placeholder="4 to 8 digits" value={pinForm.pin} onChange={(event) => setPinForm({ ...pinForm, pin: event.target.value.replace(/\D/g, "") })} /></label>
+                <label>Confirm security PIN<input type="password" inputMode="numeric" maxLength="8" value={pinForm.confirm} onChange={(event) => setPinForm({ ...pinForm, confirm: event.target.value.replace(/\D/g, "") })} /></label>
+                {pinConfigured && <button className="profile-link-button" type="button" onClick={() => setPinForm({ ...pinForm, reset: !pinForm.reset, currentPin: "", password: "" })}>{pinForm.reset ? "Use current PIN" : "Forgot PIN? Reset with account password"}</button>}
+                <button className="profile-primary-button" disabled={savingPin}>{savingPin ? "Saving…" : pinConfigured ? "Update PIN" : "Set security PIN"}</button>
+              </form>
+            </div>
+            <footer className="profile-units-dialog-footer"><button type="button" className="profile-outline-button" onClick={closePinModal}>Close</button></footer>
+          </section>
+        </div>,
+        document.body
+      )}
     </main>
   );
 }

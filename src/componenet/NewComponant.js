@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import "bootstrap/dist/css/bootstrap.min.css";
 import './Style.css';
 import "../Pages/NewComponent.css";
+import "./RentTracker.css";
 
 import { API_BASE, api } from "../api";
 import { getRentSummary, importTenantsFromSheet } from "../api/tenantApi";
@@ -39,6 +40,7 @@ import RentHeaderBar from "./RentHeaderBar";
 import MobileSectionSidebar from "./MobileSectionSidebar";
 import RentTenantListView from "./RentTenantListView";
 import RentTenantProfileView from "./RentTenantProfileViewCard";
+import { SecurityPinStatusField, useSystemSecurityPinStatus } from "./SecurityPinSetup";
 import LeavedTenantScreen from "./LeavedTenantScreen";
 import VacantBedScreen from "./VacantBedScreen";
 import { MdOutlineBedroomParent, MdLightbulbOutline, MdOutlineReceiptLong, MdPerson, MdCalendarToday, MdDashboard } from "react-icons/md";
@@ -344,6 +346,47 @@ function normalizeTenantPropertyType(tenant) {
   if (bedNo === "SHOP-1") return "shop";
   return "bed";
 }
+
+const normalizeLocationFilterValue = (value) => String(value ?? "").trim().toLowerCase();
+
+function trackerRoomFilterLocation(room) {
+  return {
+    building: String(room?.buildingName || room?.category || "").trim(),
+    wing: String(room?.wingName || "").trim(),
+    floor: String(room?.floorNo ?? "").trim(),
+  };
+}
+
+function trackerTenantFilterLocation(tenant, rooms) {
+  const unitId = tenant?.roomId?._id || tenant?.roomId || tenant?.room?._id || tenant?.room;
+  const roomNo = String(tenant?.roomNo || tenant?.roomId?.roomNo || "").trim();
+  const tenantBuilding = String(tenant?.buildingName || tenant?.category || "").trim();
+  const tenantWing = String(tenant?.wingName || "").trim();
+  const tenantFloor = String(tenant?.floorNo ?? "").trim();
+  const roomList = Array.isArray(rooms) ? rooms : [];
+  const matchedRoom = roomList.find((room) => unitId && String(room?._id) === String(unitId)) ||
+    roomList.find((room) =>
+      roomNo && String(room?.roomNo || "").trim() === roomNo &&
+      (!tenantBuilding || normalizeLocationFilterValue(trackerRoomFilterLocation(room).building) === normalizeLocationFilterValue(tenantBuilding)) &&
+      (!tenantWing || normalizeLocationFilterValue(room?.wingName) === normalizeLocationFilterValue(tenantWing)) &&
+      (!tenantFloor || normalizeLocationFilterValue(room?.floorNo ?? "") === normalizeLocationFilterValue(tenantFloor))
+    );
+  const unitLocation = trackerRoomFilterLocation(matchedRoom);
+  return {
+    building: unitLocation.building || tenantBuilding,
+    wing: unitLocation.wing || tenantWing,
+    floor: unitLocation.floor || tenantFloor,
+  };
+}
+
+function matchesTrackerLocation(location, filters) {
+  return (!filters.building || normalizeLocationFilterValue(location.building) === normalizeLocationFilterValue(filters.building)) &&
+    (!filters.wing || normalizeLocationFilterValue(location.wing) === normalizeLocationFilterValue(filters.wing)) &&
+    (!filters.floor || normalizeLocationFilterValue(location.floor) === normalizeLocationFilterValue(filters.floor));
+}
+
+const trackerLocationOptions = (values) => Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)))
+  .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }));
 
 function matchesTrackerUnitType(room, trackerType) {
   const normalizedType = normalizeRoomPropertyType(room);
@@ -754,6 +797,7 @@ const [editReceiptUrl, setEditReceiptUrl] = useState("");
   const [lightBills, setLightBills] = useState([]);
   // const [activeTab, setActiveTab] = useState('light'); // 'light' or 'other'
   const [searchText, setSearchText] = useState("");
+  const [trackerLocationFilters, setTrackerLocationFilters] = useState({ building: "", wing: "", floor: "" });
   const [currentTablePage, setCurrentTablePage] = useState(1);
   const [tableRowsPerPage, setTableRowsPerPage] = useState(25);
   const [currentLeavedPage, setCurrentLeavedPage] = useState(1);
@@ -772,6 +816,7 @@ const [editReceiptUrl, setEditReceiptUrl] = useState("");
     tenantId: "",
     message: "",
     vacantBeds: [],
+    pendingDetailsCount: 0,
     selectedIndex: "",
     busy: false,
   });
@@ -820,6 +865,8 @@ const [editReceiptUrl, setEditReceiptUrl] = useState("");
  const [assigningQuickTenant, setAssigningQuickTenant] = useState(null);
  const [quickTenantSlotKey, setQuickTenantSlotKey] = useState("");
  const [quickTenantAssigning, setQuickTenantAssigning] = useState(false);
+ const [quickTenantAvailabilityLoading, setQuickTenantAvailabilityLoading] = useState(false);
+ const [quickTenantAvailabilityReady, setQuickTenantAvailabilityReady] = useState(false);
  const [newTenant, setNewTenant] = useState({
     srNo: "",
     name: "",
@@ -882,6 +929,7 @@ const [editReceiptUrl, setEditReceiptUrl] = useState("");
     roomNo: "",
     price: "",
     bedCategory: "",
+    bedNo: "",
   });
   const [newTenantPinStatus, setNewTenantPinStatus] = useState("idle");
   useEffect(() => {
@@ -1009,6 +1057,7 @@ const totalBeds = (Array.isArray(roomsData) ? roomsData : []).reduce(
 
     return [
       { key: "dashboard", label: "Dashboard", icon: <MdDashboard size={20} /> },
+      { key: "units", label: "Units", icon: <MdOutlineBedroomParent size={20} /> },
       {
         key: "rent-group",
         label: "Rent Tracker",
@@ -1027,7 +1076,22 @@ const totalBeds = (Array.isArray(roomsData) ? roomsData : []).reduce(
         icon: <MdOutlineReceiptLong />,
         children: enabled.map((item) => ({ key: item.expenseKey, label: item.expenseLabel })),
       },
+      ...(trackerNavigationTypes.some((item) => item.value === "bed")
+        ? [
+            {
+              key: "canteen-group",
+              label: "Canteen",
+              icon: <FaUtensils size={18} />,
+              children: [
+                { key: "canteen-settings", label: "Meal settings" },
+                { key: "canteen-attendance", label: "Meal attendance" },
+              ],
+            },
+            { key: "hostel-rules", label: "Hostel rules", icon: <MdOutlineReceiptLong size={20} /> },
+          ]
+        : []),
       { key: "staff", label: "Staff", icon: <MdPerson /> },
+      { key: "profile", label: "Profile", icon: <MdPerson size={20} /> },
     ];
   }, [trackerNavigationTypes]);
 
@@ -1325,6 +1389,23 @@ const getTrackerPropertyLabelForTenant = (tenant) => {
 
   return getTrackerPropertyLabel(tenant);
 };
+
+const trackerFilterLocations = useMemo(() => [
+  ...(roomsData || []).filter((room) => normalizeRoomPropertyType(room) === trackerType).map(trackerRoomFilterLocation),
+  ...(formData || []).filter((tenant) => normalizeTenantPropertyType(tenant) === trackerType).map((tenant) => trackerTenantFilterLocation(tenant, allRoomsData)),
+  ...(deletedData || []).filter((tenant) => normalizeTenantPropertyType(tenant) === trackerType).map((tenant) => trackerTenantFilterLocation(tenant, allRoomsData)),
+], [roomsData, formData, deletedData, allRoomsData, trackerType]);
+const trackerBuildingOptions = trackerLocationOptions(trackerFilterLocations.map((item) => item.building));
+const trackerWingOptions = trackerLocationOptions(trackerFilterLocations
+  .filter((item) => matchesTrackerLocation(item, { building: trackerLocationFilters.building, wing: "", floor: "" }))
+  .map((item) => item.wing));
+const trackerFloorOptions = trackerLocationOptions(trackerFilterLocations
+  .filter((item) => matchesTrackerLocation(item, { building: trackerLocationFilters.building, wing: trackerLocationFilters.wing, floor: "" }))
+  .map((item) => item.floor));
+
+useEffect(() => {
+  setTrackerLocationFilters({ building: "", wing: "", floor: "" });
+}, [trackerType]);
 
 const getTrackerFlatTypeForTenant = (tenant) => {
   const directFlatType = String(tenant?.flatType || "").trim();
@@ -1697,6 +1778,7 @@ const getStatusWeight = (status) => {
 };
 
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const deletePinStatus = useSystemSecurityPinStatus(showPasswordPrompt);
   const [password, setPassword] = useState("");
   const [currentDeleteId, setCurrentDeleteId] = useState(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
@@ -3141,6 +3223,7 @@ const vacantBedsList = useMemo(() => {
   const list = [];
   const seenBeds = new Set();
   (roomsData || []).forEach((room) => {
+    if (!matchesTrackerLocation(trackerRoomFilterLocation(room), trackerLocationFilters)) return;
     const roomNo = room.roomNo ?? room.room ?? room.number ?? "";
     const floorNo = room.floorNo ?? room.floor ?? "";
     const category = room.category ?? "";
@@ -3177,7 +3260,7 @@ const vacantBedsList = useMemo(() => {
   });
 
   return list;
-}, [roomsData, occupiedBedSet, trackerType]);
+}, [roomsData, occupiedBedSet, trackerType, trackerLocationFilters]);
 
 const vacantCount = vacantBedsList.length;
 
@@ -3542,7 +3625,7 @@ function getCycleRangeStr(tenant, cycleIndex) {
   const openQuickTenantModal = () => {
     setQuickTenantError("");
     setQuickTenantEditing(null);
-    setQuickTenantSection("");
+    setQuickTenantSection(trackerNavigationTypes.length === 1 ? trackerNavigationTypes[0].value : "");
     setQuickTenantForm({
       name: "",
       phoneNo: "",
@@ -3559,6 +3642,12 @@ function getCycleRangeStr(tenant, cycleIndex) {
     });
     setShowQuickTenantModal(true);
   };
+
+  useEffect(() => {
+    if (showQuickTenantModal && !quickTenantEditing && trackerNavigationTypes.length === 1) {
+      setQuickTenantSection(trackerNavigationTypes[0].value);
+    }
+  }, [showQuickTenantModal, quickTenantEditing, trackerNavigationTypes]);
 
   const editQuickTenant = (tenant) => {
     setQuickTenantError("");
@@ -3653,6 +3742,35 @@ function getCycleRangeStr(tenant, cycleIndex) {
     }
   };
 
+  const refreshQuickTenantAvailability = async () => {
+    setQuickTenantAvailabilityLoading(true);
+    setQuickTenantAvailabilityReady(false);
+    setQuickTenantError("");
+    setQuickTenantSlotKey("");
+    try {
+      const [unitsResponse, tenantsResponse] = await Promise.all([
+        api.get("/rooms"),
+        api.get("/forms"),
+      ]);
+      if (!Array.isArray(unitsResponse.data) || !Array.isArray(tenantsResponse.data)) {
+        throw new Error("Invalid availability response");
+      }
+      setAllRoomsData(unitsResponse.data);
+      setRoomsData(filterRoomsForTracker(unitsResponse.data));
+      setAllTenantsData(tenantsResponse.data);
+      setFormData(filterTenantsForTracker(tenantsResponse.data));
+      setAssigningQuickTenant((current) => current
+        ? tenantsResponse.data.find((tenant) => String(tenant._id) === String(current._id)) || current
+        : current);
+      setQuickTenantAvailabilityReady(true);
+    } catch (error) {
+      console.error("Failed to refresh unit availability:", error);
+      setQuickTenantError("Could not load unit availability. Please try refreshing again.");
+    } finally {
+      setQuickTenantAvailabilityLoading(false);
+    }
+  };
+
   const assignQuickTenantToSlot = async () => {
     if (!assigningQuickTenant || !quickTenantSlotKey || quickTenantAssigning) return;
     const tenantType = normalizeTenantPropertyType(assigningQuickTenant);
@@ -3678,7 +3796,7 @@ function getCycleRangeStr(tenant, cycleIndex) {
         bedNo: tenantType === "bed" ? slot.bedNo : tenantType === "shop" ? "SHOP-1" : "ROOM-1",
         baseRent: assignedRent,
         rentAmount: assignedRent,
-        tenantRentOverride: true,
+        ...(assigningQuickTenant.pendingAssignmentOrigin === "returning_tenant" ? {} : { tenantRentOverride: true }),
         intakeStatus: "submitted",
       });
       await refreshTenants();
@@ -4016,6 +4134,7 @@ const openTenantUnitSetupModal = (room = addTenantSelectedRoom) => {
   const hasWing = Boolean(String(room?.wingName || "").trim());
 
   setTenantUnitSetupTarget(room);
+  setDocMsg("");
   setTenantUnitSetupCustom({});
   setTenantUnitSetupForm({
     category: hasPendingUnitDetails(room) ? "" : getRoomBuildingLabel(room),
@@ -4039,7 +4158,15 @@ const openTenantUnitSetupModal = (room = addTenantSelectedRoom) => {
       String(firstBed?.bedCategory || "").trim().toLowerCase() === "unassigned"
         ? ""
         : String(firstBed?.bedCategory || "").trim(),
+    bedNo: "",
   });
+};
+
+const openCreateTenantUnit = () => {
+  setDocMsg("");
+  setTenantUnitSetupCustom({});
+  setTenantUnitSetupTarget({ _id: "__new_unit__", propertyType: trackerType, isNewUnit: true });
+  setTenantUnitSetupForm({ category: newTenant.category || "", hasWing: Boolean(newTenant.wingName), wingName: newTenant.wingName || "", floorNo: newTenant.floorNo || "", flatType: "", roomNo: "", price: "", bedCategory: "", bedNo: "" });
 };
 
 const closeTenantUnitSetupModal = () => {
@@ -4055,6 +4182,7 @@ const closeTenantUnitSetupModal = () => {
     roomNo: "",
     price: "",
     bedCategory: "",
+    bedNo: "",
   });
 };
 
@@ -4071,6 +4199,7 @@ const saveTenantUnitSetup = async () => {
   const priceValue = String(tenantUnitSetupForm.price || "").trim();
   const price = priceValue === "" ? undefined : Number(priceValue);
   const bedCategory = String(tenantUnitSetupForm.bedCategory || "").trim();
+  const newBedNo = String(tenantUnitSetupForm.bedNo || "").trim();
 
   if (!category) {
     setDocMsg("Please enter property name.");
@@ -4090,6 +4219,10 @@ const saveTenantUnitSetup = async () => {
   }
   if (targetType === "room" && !flatType) {
     setDocMsg("Please enter flat type.");
+    return;
+  }
+  if (tenantUnitSetupTarget.isNewUnit && targetType === "bed" && !newBedNo) {
+    setDocMsg("Please enter bed number.");
     return;
   }
   if (price !== undefined && (Number.isNaN(price) || price < 0)) {
@@ -4118,7 +4251,7 @@ const saveTenantUnitSetup = async () => {
     setTenantUnitSetupSaving(true);
     setDocMsg("");
 
-    const updatedResponse = await axios.put(`${ROOMS_API}/${tenantUnitSetupTarget._id}`, {
+    const unitPayload = {
       category,
       hasWing,
       wingName,
@@ -4126,11 +4259,14 @@ const saveTenantUnitSetup = async () => {
       flatType,
       roomNo,
       isPlaceholder: false,
-    });
+    };
+    const updatedResponse = tenantUnitSetupTarget.isNewUnit
+      ? await axios.post(ROOMS_API, { ...unitPayload, propertyType: targetType, ...(targetType === "bed" ? { bedCount: 1, bedNo: newBedNo, bedCategory } : {}), ...(price !== undefined ? { price } : {}) })
+      : await axios.put(`${ROOMS_API}/${tenantUnitSetupTarget._id}`, unitPayload);
 
     const updatedRoom = updatedResponse?.data || {};
     const targetBedNo =
-      String(newTenant.bedNo || "").trim() ||
+      (tenantUnitSetupTarget.isNewUnit ? updatedRoom?.beds?.[0]?.bedNo : String(newTenant.bedNo || "").trim()) ||
       tenantUnitSetupTarget?.beds?.[0]?.bedNo ||
       getPrimaryUnitBedNo(targetType);
 
@@ -4146,7 +4282,7 @@ const saveTenantUnitSetup = async () => {
       isPlaceholder: false,
     };
 
-    if ((price !== undefined || bedCategory) && targetBedNo) {
+    if (!tenantUnitSetupTarget.isNewUnit && (price !== undefined || bedCategory) && targetBedNo) {
       await axios.put(`${ROOMS_API}/${nextRoom._id || tenantUnitSetupTarget._id}/bed/${targetBedNo}`, {
         ...(price !== undefined ? { price } : {}),
         ...(bedCategory ? { bedCategory } : {}),
@@ -4165,12 +4301,11 @@ const saveTenantUnitSetup = async () => {
       };
     }
 
-    const replaceRoom = (rooms = []) =>
-      (Array.isArray(rooms) ? rooms : []).map((room) =>
-        String(room?._id) === String(nextRoom._id || tenantUnitSetupTarget._id)
-          ? nextRoom
-          : room
-      );
+    const replaceRoom = (rooms = []) => {
+      const list = Array.isArray(rooms) ? rooms : [];
+      const found = list.some((room) => String(room?._id) === String(nextRoom._id));
+      return found ? list.map((room) => String(room?._id) === String(nextRoom._id) ? nextRoom : room) : [...list, nextRoom];
+    };
 
     setRoomsData((prev) => filterRoomsForTracker(replaceRoom(prev)));
     setAllRoomsData((prev) => replaceRoom(prev));
@@ -6335,10 +6470,11 @@ const filteredDeletedData = useMemo(() => {
     return (
       d <= today &&
       tenantMatchesSearchText(tenant) &&
-      tenantMatchesSelectedYear(tenant)
+      tenantMatchesSelectedYear(tenant) &&
+      matchesTrackerLocation(trackerTenantFilterLocation(tenant, allRoomsData), trackerLocationFilters)
     ); // already left
   });
-}, [allTenantsData, leaveDates, trackerType, searchText, selectedYear]);
+}, [allTenantsData, deletedData, leaveDates, trackerType, searchText, selectedYear, allRoomsData, trackerLocationFilters]);
 
 const totalLeavedRows = filteredDeletedData.length;
 const totalLeavedPages = Math.max(1, Math.ceil(totalLeavedRows / leavedRowsPerPage));
@@ -6349,7 +6485,7 @@ const paginatedLeavedRows = useMemo(() => {
 
 useEffect(() => {
   setCurrentLeavedPage(1);
-}, [searchText, selectedYear, trackerType, showLeavedHistoryView]);
+}, [searchText, selectedYear, trackerType, showLeavedHistoryView, trackerLocationFilters]);
 
 useEffect(() => {
   if (currentLeavedPage > totalLeavedPages) {
@@ -6601,7 +6737,8 @@ const calculateDue = (rents = [], joiningDateStr, tenant, roomsData) => {
     return (
       !isLeaved &&
       tenantMatchesSearchText(t) &&
-      tenantMatchesSelectedYear(t)
+      tenantMatchesSelectedYear(t) &&
+      matchesTrackerLocation(trackerTenantFilterLocation(t, allRoomsData), trackerLocationFilters)
     );
   });
 
@@ -6682,7 +6819,7 @@ if (sortConfig.column) {
 }
 
 return sorted;
-  }, [formData, leaveDates, searchText, selectedYear, sortConfig, roomsData]);
+  }, [formData, leaveDates, searchText, selectedYear, sortConfig, roomsData, allRoomsData, trackerLocationFilters]);
 
   // Vacant slots = slots that are not currently occupied (by a visible, non-leaved tenant)
   const extraVacantSlots = useMemo(() => {
@@ -6706,6 +6843,7 @@ return sorted;
 
     const key = makeOccKey(slot.roomNo, slot.bedNo, slot.propertyLabel || slot.category);
     if (activeKeys.has(key)) return false;
+    if (!matchesTrackerLocation({ building: slot.propertyLabel || slot.category, wing: slot.wingName, floor: slot.floorNo }, trackerLocationFilters)) return false;
 
     const matchesSearch =
       !search ||
@@ -6717,7 +6855,7 @@ return sorted;
   })
   .sort(compareRoomBed); // ✅ vacant flow
 
-  }, [slots, formData, leaveDates, searchText, selectedYear, trackerType, visibleTenants, allRoomsData]);
+  }, [slots, formData, leaveDates, searchText, selectedYear, trackerType, visibleTenants, allRoomsData, trackerLocationFilters]);
 
   // Build combined rows (occupied + vacant) in room-wise flow when no sorting selected
   const combinedRows = useMemo(() => {
@@ -6779,6 +6917,7 @@ return sorted;
     (roomsData || []).forEach((room) => {
       if (trackerType !== "bed" && normalizeRoomPropertyType(room) !== trackerType) return;
       if (trackerType === "bed" && normalizeRoomPropertyType(room) !== "bed") return;
+      if (!matchesTrackerLocation(trackerRoomFilterLocation(room), trackerLocationFilters)) return;
       const roomNo = String(room?.roomNo ?? "").trim();
       const propertyLabel = getTrackerPropertyLabel(room);
       if (!roomNo) return;
@@ -6826,7 +6965,7 @@ return sorted;
     });
 
     return rows;
-  }, [visibleTenants, extraVacantSlots, roomsData, sortConfig, trackerType, allRoomsData]);
+  }, [visibleTenants, extraVacantSlots, roomsData, sortConfig, trackerType, allRoomsData, trackerLocationFilters]);
 
   const propertyBuildingByRoomKey = useMemo(() => {
     const map = new Map();
@@ -6940,7 +7079,7 @@ return sorted;
 
   useEffect(() => {
     setCurrentTablePage(1);
-  }, [searchText, selectedYear, sortConfig, trackerType, activeTab]);
+  }, [searchText, selectedYear, sortConfig, trackerType, activeTab, trackerLocationFilters]);
 
   useEffect(() => {
     if (currentTablePage > totalTablePages) {
@@ -7850,7 +7989,12 @@ const handleMobileSectionSelect = (key) => {
   setShowMobileSections(false);
 
   if (key === "dashboard") {
-    navigate("/maindashboard");
+    navigate("/admin");
+    return;
+  }
+
+  if (key === "units") {
+    navigate("/roommanager");
     return;
   }
 
@@ -7881,6 +8025,26 @@ const handleMobileSectionSelect = (key) => {
 
   if (key === "staff") {
     openNewComponantSection("staff");
+    return;
+  }
+
+  if (key === "canteen-settings") {
+    navigate("/canteen-settings");
+    return;
+  }
+
+  if (key === "canteen-attendance") {
+    navigate("/canteen-attendance");
+    return;
+  }
+
+  if (key === "hostel-rules") {
+    navigate("/hostel-rules");
+    return;
+  }
+
+  if (key === "profile") {
+    navigate("/profile");
     return;
   }
 
@@ -7984,7 +8148,7 @@ const handleMobileSectionSelect = (key) => {
     console.log("Sending leave payload:", payload);
 
     const res = await axios.post(
-      `${apiUrl}/leave`,
+      `${apiUrl}leave`,
       payload
     );
 
@@ -8160,8 +8324,14 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
 
   // formupdate
 
- const formatVacantBedOption = (bed) =>
-  `${formatTrackerUnit(bed.roomNo, bed.bedNo)}`;
+ const formatVacantBedOption = (bed) => {
+  const location = [
+    bed?.category,
+    bed?.wingName && `Wing ${bed.wingName}`,
+    bed?.floorNo && `Floor ${bed.floorNo}`,
+  ].filter(Boolean).join(" · ");
+  return [location, formatTrackerUnit(bed?.roomNo, bed?.bedNo)].filter(Boolean).join(" — ");
+ };
 
  const getTrackerVacancyNoun = useCallback(() => {
   if (trackerType === "shop") return "shop";
@@ -8190,62 +8360,36 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
 
  const filterVacantSlotsForCurrentTracker = useCallback(
   (vacantSlots = []) => {
-    const allowedRoomNos = new Set(
-      (roomsData || [])
-        .map((room) => String(room?.roomNo ?? "").trim())
-        .filter(Boolean)
-    );
-
-    const occupiedRoomNos = new Set(
-      (formData || [])
-        .filter((tenant) => isActiveTenant(tenant))
-        .map((tenant) => String(tenant?.roomNo ?? "").trim())
-        .filter(Boolean)
-    );
-
     const seenKeys = new Set();
 
     return (Array.isArray(vacantSlots) ? vacantSlots : []).filter((slot) => {
       const roomNo = String(slot?.roomNo ?? "").trim();
       const bedNo = String(slot?.bedNo ?? "").trim();
+      const roomId = String(slot?.roomId ?? "").trim();
 
-      if (!allowedRoomNos.has(roomNo)) return false;
+      if (String(slot?.propertyType || "").trim().toLowerCase() !== trackerType) return false;
 
-      if (trackerType !== "bed" && occupiedRoomNos.has(roomNo)) return false;
-
-      const dedupeKey = trackerType === "bed" ? `${roomNo}__${bedNo}` : roomNo;
+      const dedupeKey = trackerType === "bed" ? `${roomId || roomNo}__${bedNo}` : (roomId || roomNo);
       if (seenKeys.has(dedupeKey)) return false;
       seenKeys.add(dedupeKey);
 
       return true;
     });
   },
-  [roomsData, formData, trackerType, today0]
+  [trackerType]
  );
 
 
 
- const openUndoBedModal = (tenantId, message, vacantBeds = []) => {
+ const openUndoBedModal = (tenantId, message, vacantBeds = [], pendingDetailsCount = 0) => {
   const filteredVacantBeds = filterVacantSlotsForCurrentTracker(vacantBeds);
-
-  if (!filteredVacantBeds.length) {
-    const trackerLabel =
-      trackerType === "shop" ? "shop" : trackerType === "room" ? "room" : "bed";
-    alert(
-      `${message}\n\nNo vacant ${trackerLabel}s are available right now. ${
-        trackerType === "bed"
-          ? "Please free another bed first."
-          : `Please add or free another ${trackerLabel} first.`
-      }`
-    );
-    return;
-  }
 
   setUndoBedModal({
     show: true,
     tenantId,
     message,
     vacantBeds: filteredVacantBeds,
+    pendingDetailsCount: Math.max(0, Number(pendingDetailsCount) || 0),
     selectedIndex: "",
     busy: false,
   });
@@ -8254,12 +8398,15 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
  const undoLeaveRequest = async (tenantId, bedOverride = null) => {
   const payload = { id: tenantId };
   if (bedOverride) {
+    payload.roomId = bedOverride.roomId;
     payload.roomNo = bedOverride.roomNo;
     payload.bedNo = bedOverride.bedNo;
     payload.category = bedOverride.category;
+    payload.wingName = bedOverride.wingName;
+    payload.floorNo = bedOverride.floorNo;
   }
 
-  return axios.post(`${apiUrl}/cancel-leave`, payload);
+  return axios.post(`${apiUrl}cancel-leave`, payload);
 };
 
  const handleConfirmUndoWithSelectedBed = async () => {
@@ -8283,6 +8430,7 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
         tenantId: "",
         message: "",
         vacantBeds: [],
+        pendingDetailsCount: 0,
         selectedIndex: "",
         busy: false,
       });
@@ -8292,6 +8440,18 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
     alert(retryRes.data?.message || "Failed to undo leave.");
     setUndoBedModal((prev) => ({ ...prev, busy: false }));
   } catch (retryError) {
+    const data = retryError?.response?.data;
+    if (retryError?.response?.status === 409 && (data?.code === "BED_OCCUPIED" || data?.code === "BED_REQUIRED")) {
+      setUndoBedModal((prev) => ({
+        ...prev,
+        message: data?.message || `Please select another vacant ${getTrackerVacancyNoun()}.`,
+        vacantBeds: filterVacantSlotsForCurrentTracker(data.vacantBeds || []),
+        pendingDetailsCount: Math.max(0, Number(data.pendingDetailsCount) || 0),
+        selectedIndex: "",
+        busy: false,
+      }));
+      return;
+    }
     console.error("Error undoing leave with selected bed:", retryError);
     alert(retryError?.response?.data?.message || "Failed to undo leave with selected bed.");
     setUndoBedModal((prev) => ({ ...prev, busy: false }));
@@ -8317,10 +8477,9 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
     if (error?.response?.status === 409 && (data?.code === "BED_OCCUPIED" || data?.code === "BED_REQUIRED")) {
       openUndoBedModal(
         tenantId,
-        data?.code === "BED_OCCUPIED"
-          ? buildUndoLeaveConflictMessage(data)
-          : `Please select another vacant ${getTrackerVacancyNoun()}.`,
-        data.vacantBeds || []
+        data?.message || buildUndoLeaveConflictMessage(data),
+        data.vacantBeds || [],
+        data.pendingDetailsCount
       );
       return;
     }
@@ -9289,6 +9448,7 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
     setShowPasswordPrompt(true);
   };
   const verifyPassword = () => {
+    if (!deletePinStatus.configured) return;
     if (/^\d{4,8}$/.test(String(password || "").trim())) {
       setShowPasswordPrompt(false);
       setShowDeleteConfirmation(true);
@@ -9310,8 +9470,14 @@ setEditReceiptUrl(String(latestRent?.receiptUrl || ""));
       // The edit form belongs to the deleted tenant, so close it immediately.
       closeEditTenantModal();
     } catch (error) {
+      if (error.response?.status === 428) {
+        deletePinStatus.markUnconfigured();
+        setShowDeleteConfirmation(false);
+        setShowPasswordPrompt(true);
+        return;
+      }
       console.error("Error deleting:", error);
-      alert("Failed to delete tenant.");
+      alert(error.response?.data?.message || "Failed to delete tenant.");
     }
   };
 
@@ -9691,7 +9857,7 @@ const handleCancelLeave = async (id) => {
   if (!ok) return;
 
   try {
-    const res = await axios.post(`${apiUrl}/cancel-leave`, { id });
+    const res = await axios.post(`${apiUrl}cancel-leave`, { id });
     if (res.data?.success) {
       // remove the scheduled leave date locally
       setLeaveDates((prev) => {
@@ -9750,7 +9916,7 @@ const isTodayOrFuture = (iso) => {
 
 {showVacantModal && (
   <div
-    className="modal d-block"
+    className="modal d-block tracker-summary-modal"
     tabIndex="-1"
     style={{
       background: "rgba(0,0,0,0.5)",
@@ -9777,9 +9943,10 @@ const isTodayOrFuture = (iso) => {
 
         <div className="modal-body">
           {vacantBedsList.length === 0 ? (
-            <p>No vacant beds found.</p>
+            <p>No vacant {trackerType === "shop" ? "shops" : trackerType === "room" ? "rooms" : "beds"} found.</p>
           ) : (
-            <table className="table table-bordered">
+            <div className="table-responsive">
+              <table className="table table-bordered align-middle">
               <thead>
                 <tr>
                   {trackerType !== "bed" && <th>Property</th>}
@@ -9794,15 +9961,14 @@ const isTodayOrFuture = (iso) => {
               <tbody>
                 {vacantBedsList.map((b, i) => (
                   <tr key={i}>
-                    {trackerType !== "bed" && <td>{b.propertyLabel || "-"}</td>}
-                    <td>{b.roomNo}</td>
-                    {trackerType === "bed" && <td>{b.bedNo}</td>}
-                    <td>{b.floorNo}</td>
-                    <td>{b.category}</td>
-                    <td>
+                    {trackerType !== "bed" && <td data-label="Property">{b.propertyLabel || "-"}</td>}
+                    <td data-label={trackerType === "shop" ? "Shop" : "Room"}>{b.roomNo}</td>
+                    {trackerType === "bed" && <td data-label="Bed">{b.bedNo}</td>}
+                    <td data-label="Floor">{b.floorNo}</td>
+                    <td data-label="Category">{b.category}</td>
+                    <td data-label="Action">
                       <button
-                        className="btn btn-sm"
-                        style={{ backgroundColor: "#3db7b1", color: "white" }}
+                        className="btn btn-sm tracker-summary-action"
                         onClick={() => {
                           setShowVacantModal(false);
                           openAddForSlot(b);
@@ -9811,11 +9977,12 @@ const isTodayOrFuture = (iso) => {
                         <FaPlus className="me-1" /> Add Tenant
                       </button>
                     </td>
-                    <td>₹{Number(b.price || 0).toLocaleString("en-IN")}</td>
+                    <td data-label="Price">₹{Number(b.price || 0).toLocaleString("en-IN")}</td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           )}
         </div>
 
@@ -10259,6 +10426,77 @@ const isTodayOrFuture = (iso) => {
    {activeTab === "rent" && (
   <div className={`table-responsive rent-table-wrapper${showUnassignedTenantsView ? " unassigned-tenants-mode" : ""}`}>
 
+<div className="rent-mobile-tools">
+  <div className="rent-mobile-tools-heading">
+    <div>
+      <span className="rent-mobile-tools-eyebrow">Rent and deposit</span>
+      <strong>{showUnassignedTenantsView ? "Quick tenant add" : `${trackerLabel} tracker`}</strong>
+    </div>
+    <NotificationBell
+      apiUrl={apiUrl}
+      onApproved={handleApprovedFromBell}
+      onLeaveApproved={({ tenantId, leaveDateISO }) => {
+        setLeaveDates((prev) => ({
+          ...prev,
+          [tenantId]: (leaveDateISO || new Date().toISOString()).slice(0, 10),
+        }));
+        refreshTenants();
+      }}
+    />
+  </div>
+  <div className="rent-mobile-tools-tabs" role="group" aria-label="Tracker sections">
+    {trackerNavigationTypes.map(({ value: type }) => (
+      <button
+        key={type}
+        type="button"
+        className={trackerType === type && !showUnassignedTenantsView ? "is-active" : ""}
+        onClick={() => {
+          setShowUnassignedTenantsView(false);
+          openTrackerView(type, "rent");
+        }}
+      >
+        {type === "shop" ? "Shops" : type === "room" ? "Rooms" : "Hostel"}
+      </button>
+    ))}
+    <button
+      type="button"
+      className={showUnassignedTenantsView ? "is-active" : ""}
+      onClick={() => setShowUnassignedTenantsView(true)}
+    >
+      Quick tenant add {pendingQuickTenants.length > 0 ? `(${pendingQuickTenants.length})` : ""}
+    </button>
+  </div>
+  <details className="rent-mobile-tools-menu">
+    <summary>
+      <FaBars />
+      <span>All tracker actions</span>
+      <span className="rent-mobile-tools-menu-hint">Manage, import and export</span>
+    </summary>
+    <div className="rent-mobile-tools-actions">
+      <button type="button" onClick={handleManageUnitsNavigation}>Manage units</button>
+      <button type="button" onClick={openAddModal}>
+        {trackerType === "shop" ? "Add shop tenant" : trackerType === "room" ? "Add room tenant" : "Add hostel tenant"}
+      </button>
+      <button type="button" onClick={openQuickTenantModal}>Quick add tenant</button>
+      <button type="button" onClick={() => importFileInputRef.current?.click()} disabled={importingType === trackerType}>
+        {importingType === trackerType ? "Importing..." : "Import tenants"}
+      </button>
+      <button type="button" onClick={() => downloadImportTemplate(trackerType)} disabled={templateType === trackerType}>
+        {templateType === trackerType ? "Preparing..." : "Download template"}
+      </button>
+      <button type="button" onClick={handleDownloadExcel}>Download Excel</button>
+      <button type="button" onClick={() => {
+        setShowLeavedHistoryView(false);
+        openMobileLeavedTenants();
+      }}>Leaved tenant history</button>
+      <button type="button" onClick={openMobileVacantBeds}>
+        Vacant {trackerType === "shop" ? "shops" : trackerType === "room" ? "rooms" : "beds"}
+      </button>
+      {trackerType === "bed" && <button type="button" onClick={() => setActiveTab("canteen")}>Canteen</button>}
+    </div>
+  </details>
+</div>
+
 <div className="position-relative d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
   <button
     type="button"
@@ -10375,14 +10613,14 @@ const isTodayOrFuture = (iso) => {
           <tbody>
             {pendingQuickTenants.length ? pendingQuickTenants.map((tenant) => (
               <tr key={tenant._id}>
-                <td>{tenant.srNo ?? "—"}</td>
-                <td className="fw-semibold">{tenant.name || "—"}</td>
-                <td>{tenant.phoneNo || "—"}</td>
-                <td>{normalizeTenantPropertyType(tenant) === "bed" ? "Hostel" : normalizeTenantPropertyType(tenant) === "room" ? "Residential Room" : "Commercial Shop"}</td>
-                <td>Rs. {Number(tenant.baseRent ?? tenant.rentAmount ?? 0).toLocaleString("en-IN")}</td>
-                <td>Rs. {Number(tenant.depositAmount || 0).toLocaleString("en-IN")}</td>
-                <td>{tenant.joiningDate ? new Date(tenant.joiningDate).toLocaleDateString() : "—"}</td>
-                <td>
+                <td data-label="Sr No">{tenant.srNo ?? "—"}</td>
+                <td data-label="Tenant" className="fw-semibold">{tenant.name || "—"}</td>
+                <td data-label="Phone">{tenant.phoneNo || "—"}</td>
+                <td data-label="Section">{normalizeTenantPropertyType(tenant) === "bed" ? "Hostel" : normalizeTenantPropertyType(tenant) === "room" ? "Residential Room" : "Commercial Shop"}</td>
+                <td data-label="Monthly rent">Rs. {Number(tenant.baseRent ?? tenant.rentAmount ?? 0).toLocaleString("en-IN")}</td>
+                <td data-label="Deposit">Rs. {Number(tenant.depositAmount || 0).toLocaleString("en-IN")}</td>
+                <td data-label="Joining date">{tenant.joiningDate ? new Date(tenant.joiningDate).toLocaleDateString() : "—"}</td>
+                <td data-label="Actions">
                   <div className="d-flex gap-2 flex-wrap">
                     <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => editQuickTenant(tenant)}>
                       <FaEdit className="me-1" /> Edit
@@ -10390,11 +10628,11 @@ const isTodayOrFuture = (iso) => {
                     <button
                     type="button"
                     className="btn btn-sm btn-outline-primary"
-                    disabled={!quickAssignVacantSlots.some((slot) => slot.propertyType === normalizeTenantPropertyType(tenant))}
                     onClick={() => {
                       setQuickTenantError("");
                       setQuickTenantSlotKey("");
                       setAssigningQuickTenant(tenant);
+                      refreshQuickTenantAvailability();
                     }}
                   >
                     Assign unit
@@ -10428,6 +10666,39 @@ const isTodayOrFuture = (iso) => {
   onCanteenDuesClick={() => setShowCanteenDueModal(true)}
   onCanteenTenantsClick={() => setShowCanteenTenantModal(true)}
 />
+
+{!showUnassignedTenantsView && (
+  <section className="rent-location-filters" aria-label="Tenant location filters">
+    <label className="rent-location-filter-field">
+      <span>Property type</span>
+      <select className="form-select" value={trackerType} onChange={(event) => openTrackerView(event.target.value, "rent")}>
+        {trackerNavigationTypes.map(({ value }) => <option key={value} value={value}>{value === "bed" ? "Hostel" : value === "room" ? "Residential Room" : "Commercial Shop"}</option>)}
+      </select>
+    </label>
+    <label className="rent-location-filter-field">
+      <span>Property / building</span>
+      <select className="form-select" value={trackerLocationFilters.building} onChange={(event) => setTrackerLocationFilters({ building: event.target.value, wing: "", floor: "" })}>
+        <option value="">All</option>
+        {trackerBuildingOptions.map((building) => <option key={building} value={building}>{building}</option>)}
+      </select>
+    </label>
+    <label className="rent-location-filter-field">
+      <span>Wing</span>
+      <select className="form-select" value={trackerLocationFilters.wing} onChange={(event) => setTrackerLocationFilters((current) => ({ ...current, wing: event.target.value, floor: "" }))}>
+        <option value="">All</option>
+        {trackerWingOptions.map((wing) => <option key={wing} value={wing}>{wing}</option>)}
+      </select>
+    </label>
+    <label className="rent-location-filter-field">
+      <span>Floor</span>
+      <select className="form-select" value={trackerLocationFilters.floor} onChange={(event) => setTrackerLocationFilters((current) => ({ ...current, floor: event.target.value }))}>
+        <option value="">All</option>
+        {trackerFloorOptions.map((floor) => <option key={floor} value={floor}>{floor}</option>)}
+      </select>
+    </label>
+    <button type="button" className="rent-location-filter-reset" disabled={!trackerLocationFilters.building && !trackerLocationFilters.wing && !trackerLocationFilters.floor} onClick={() => setTrackerLocationFilters({ building: "", wing: "", floor: "" })}>Reset filters</button>
+  </section>
+)}
 
   {showMobileVacantBeds ? (
     <VacantBedScreen
@@ -10490,6 +10761,7 @@ const isTodayOrFuture = (iso) => {
     <>
       <RentTenantListView
         loading={loading}
+        trackerType={trackerType}
         visibleTenants={visibleTenants}
         visibleMonths={visibleMonths}
         groupedRooms={groupedRooms}
@@ -11696,14 +11968,16 @@ const isTodayOrFuture = (iso) => {
         <div className="modal-body">
           <div className="mb-3">
             <label className="form-label">Section <span className="text-danger">*</span></label>
-            <select className="form-select" value={quickTenantSection} onChange={(event) => setQuickTenantSection(event.target.value)} required>
+            {trackerNavigationTypes.length === 1 && (!quickTenantEditing || quickTenantSection === trackerNavigationTypes[0].value) ? (
+              <input className="form-control" value={trackerNavigationTypes[0].value === "bed" ? "Hostel" : trackerNavigationTypes[0].value === "room" ? "Residential Room" : "Commercial Shop"} readOnly aria-label="Section" />
+            ) : <select className="form-select" value={quickTenantSection} onChange={(event) => setQuickTenantSection(event.target.value)} required>
               <option value="">Select section</option>
               {trackerNavigationTypes.map(({ value }) => (
                 <option key={value} value={value}>
                   {value === "bed" ? "Hostel" : value === "room" ? "Residential Room" : "Commercial Shop"}
                 </option>
               ))}
-            </select>
+            </select>}
           </div>
           <div className="mb-3">
             <label className="form-label">Tenant name <span className="text-danger">*</span></label>
@@ -11792,7 +12066,7 @@ const isTodayOrFuture = (iso) => {
         </div>
         <div className="modal-body">
           <label className="form-label">Available {assigningQuickTenantType === "bed" ? "bed" : assigningQuickTenantType === "shop" ? "shop" : "room"}</label>
-          <select className="form-select" value={quickTenantSlotKey} onChange={(event) => { setQuickTenantSlotKey(event.target.value); setQuickTenantError(""); }}>
+          <select className="form-select" value={quickTenantSlotKey} disabled={quickTenantAvailabilityLoading || !quickTenantAvailabilityReady} onChange={(event) => { setQuickTenantSlotKey(event.target.value); setQuickTenantError(""); }}>
             <option value="">Select an available unit</option>
             {quickAssignVacantSlots.filter((slot) => slot.propertyType === assigningQuickTenantType).map((slot) => {
               const key = `${slot.roomId}::${slot.bedNo}`;
@@ -11801,12 +12075,20 @@ const isTodayOrFuture = (iso) => {
               return <option key={key} value={key}>{[location, unit, `Rs. ${Number(slot.price || 0).toLocaleString("en-IN")}`].filter(Boolean).join(" — ")}</option>;
             })}
           </select>
-          {!quickAssignVacantSlots.some((slot) => slot.propertyType === assigningQuickTenantType) && <div className="form-text text-danger">There are no vacant units in this section yet.</div>}
+          {quickTenantAvailabilityLoading ? (
+            <div className="form-text">Checking available units...</div>
+          ) : quickTenantAvailabilityReady && !quickTenantError && !quickAssignVacantSlots.some((slot) => slot.propertyType === assigningQuickTenantType) ? (
+            <div className="alert alert-warning mt-3 mb-0">
+              No vacant {assigningQuickTenantType === "bed" ? "beds" : assigningQuickTenantType === "shop" ? "shops" : "residential rooms"} are available. Add or free a unit in Manage Units, then refresh availability.
+              <div className="mt-2"><button type="button" className="btn btn-sm btn-outline-primary" onClick={handleManageUnitsNavigation}>Manage units</button></div>
+            </div>
+          ) : null}
           {quickTenantError && <div className="alert alert-danger py-2 mt-3 mb-0">{quickTenantError}</div>}
         </div>
         <div className="modal-footer">
           <button type="button" className="btn btn-outline-secondary" onClick={() => { setAssigningQuickTenant(null); setQuickTenantError(""); }} disabled={quickTenantAssigning}>Cancel</button>
-          <button type="button" className="btn btn-primary" onClick={assignQuickTenantToSlot} disabled={!quickTenantSlotKey || quickTenantAssigning}>{quickTenantAssigning ? "Assigning…" : "Assign unit"}</button>
+          <button type="button" className="btn btn-outline-primary" onClick={refreshQuickTenantAvailability} disabled={quickTenantAvailabilityLoading || quickTenantAssigning}>Refresh availability</button>
+          <button type="button" className="btn btn-primary" onClick={assignQuickTenantToSlot} disabled={!quickTenantSlotKey || quickTenantAssigning || quickTenantAvailabilityLoading || !quickTenantAvailabilityReady}>{quickTenantAssigning ? "Assigning…" : "Assign unit"}</button>
         </div>
       </div>
     </div>
@@ -12054,6 +12336,11 @@ const isTodayOrFuture = (iso) => {
                 </div>
               )}
               {trackerType === "bed" && <CanteenTenantRates tenant={newTenant} setTenant={setNewTenant} settings={canteenSettings} />}
+
+              <div className="col-12 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <span className="text-muted small">Need a new {trackerType === "room" ? "flat" : trackerType === "shop" ? "shop" : "room and bed"}?</span>
+                <button type="button" className="btn btn-sm btn-outline-primary" onClick={openCreateTenantUnit}><FaPlus className="me-1" />Add {trackerType === "room" ? "flat" : trackerType === "shop" ? "shop" : "room and bed"}</button>
+              </div>
 
               {addTenantNeedsUnitSetup && (
                 <div className="col-12">
@@ -13352,6 +13639,11 @@ const isTodayOrFuture = (iso) => {
                     </div>
                   ))}
 
+                  <div className="col-12 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <span className="text-muted small">Need a new {trackerType === "room" ? "flat" : trackerType === "shop" ? "shop" : "room and bed"}?</span>
+                    <button type="button" className="btn btn-sm btn-outline-primary" onClick={openCreateTenantUnit}><FaPlus className="me-1" />Add {trackerType === "room" ? "flat" : trackerType === "shop" ? "shop" : "room and bed"}</button>
+                  </div>
+
                   {addTenantNeedsUnitSetup && (
                     <div className="col-12">
                       <div className="alert alert-warning d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-0">
@@ -13803,11 +14095,11 @@ const isTodayOrFuture = (iso) => {
           tabIndex="-1"
           style={{ backgroundColor: "rgba(0,0,0,0.62)", zIndex: 1065 }}
         >
-          <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
             <div className="modal-content">
               <div className="modal-header">
                 <div>
-                  <h5 className="modal-title mb-0">Set unit details</h5>
+                  <h5 className="modal-title mb-0">{tenantUnitSetupTarget.isNewUnit ? "Add unit" : "Set unit details"}</h5>
                   <small className="text-muted">
                     Complete this first, then continue adding tenant.
                   </small>
@@ -14073,6 +14365,8 @@ const isTodayOrFuture = (iso) => {
                     </div>
                   )}
 
+                  {tenantUnitSetupTarget.isNewUnit && getTenantSetupUnitType(tenantUnitSetupTarget) === "bed" && <div className="col-12 col-md-6"><label className="form-label">Bed number <span className="text-danger">*</span></label><input className="form-control" value={tenantUnitSetupForm.bedNo} onChange={(e) => setTenantUnitSetupForm((prev) => ({ ...prev, bedNo: e.target.value }))} placeholder="Example: 1" /></div>}
+
                   <div className="col-12 col-md-6">
                     <label className="form-label">Monthly rent</label>
                     <input
@@ -14111,7 +14405,7 @@ const isTodayOrFuture = (iso) => {
                   onClick={saveTenantUnitSetup}
                   disabled={tenantUnitSetupSaving}
                 >
-                  {tenantUnitSetupSaving ? "Saving..." : "Save details"}
+                  {tenantUnitSetupSaving ? "Saving..." : tenantUnitSetupTarget.isNewUnit ? "Add unit" : "Save details"}
                 </button>
               </div>
             </div>
@@ -15399,7 +15693,7 @@ const isTodayOrFuture = (iso) => {
 
 {showPendingModal && (
   <div
-    className="modal d-block"
+    className="modal d-block tracker-summary-modal"
     tabIndex="-1"
     style={{
       background: "rgba(0,0,0,0.5)",
@@ -15448,21 +15742,21 @@ const isTodayOrFuture = (iso) => {
                 <tbody>
                   {pendingTenants.map((p) => (
                     <tr key={p.tenant?._id}>
-                      <td>{p.tenant?.name}</td>
-                      <td>
+                      <td data-label="Tenant">{p.tenant?.name}</td>
+                      <td data-label={trackerType === "shop" ? "Shop" : trackerType === "room" ? "Room" : "Room / bed"}>
                         {trackerType === "bed"
                           ? `${p.tenant?.roomNo || "-"} / ${p.tenant?.bedNo || "-"}`
                           : p.tenant?.roomNo || "-"}
                       </td>
-                      <td>{p.reason}</td>
-                      <td className="fw-bold text-danger">
+                      <td data-label="Month">{p.reason}</td>
+                      <td data-label="Due" className="fw-bold text-danger">
                         {p.dueAmount != null
                           ? `₹${Number(p.dueAmount).toLocaleString("en-IN")}`
                           : "-"}
                       </td>
-                      <td>
+                      <td data-label="Action">
                        <button
-  className="btn btn-sm btn-outline-primary"
+  className="btn btn-sm tracker-summary-action"
   onClick={() => {
     setShowPendingModal(false);
 
@@ -15500,7 +15794,7 @@ const isTodayOrFuture = (iso) => {
 
 {showUpcomingModal && (
   <div
-    className="modal d-block"
+    className="modal d-block tracker-summary-modal"
     tabIndex="-1"
     style={{
       background: "rgba(0,0,0,0.5)",
@@ -15549,20 +15843,20 @@ const isTodayOrFuture = (iso) => {
                 <tbody>
                   {upcomingRentEntries.map((item) => (
                     <tr key={item.key}>
-                      <td>{item.tenant?.name}</td>
-                      <td>
+                      <td data-label="Tenant">{item.tenant?.name}</td>
+                      <td data-label={trackerType === "shop" ? "Shop" : trackerType === "room" ? "Room" : "Room / bed"}>
                         {trackerType === "bed"
                           ? `${item.tenant?.roomNo || "-"} / ${item.tenant?.bedNo || "-"}`
                           : item.tenant?.roomNo || "-"}
                       </td>
-                      <td>{item.monthText}</td>
-                      <td className="fw-semibold text-primary">{item.dateStr}</td>
-                      <td className="fw-bold">
+                      <td data-label="Month">{item.monthText}</td>
+                      <td data-label="Date" className="fw-semibold text-primary">{item.dateStr}</td>
+                      <td data-label="Amount" className="fw-bold">
                         ₹{Number(item.amount || 0).toLocaleString("en-IN")}
                       </td>
-                      <td>
+                      <td data-label="Action">
                         <button
-                          className="btn btn-sm btn-outline-primary"
+                          className="btn btn-sm tracker-summary-action"
                           onClick={() => {
                             setShowUpcomingModal(false);
                             openEditForTenantMonth(
@@ -15760,7 +16054,7 @@ const isTodayOrFuture = (iso) => {
 
 {showCanteenDueModal && (
   <div
-    className="modal d-block"
+    className="modal d-block tracker-summary-modal"
     tabIndex="-1"
     style={{
       background: "rgba(0,0,0,0.5)",
@@ -15809,18 +16103,18 @@ const isTodayOrFuture = (iso) => {
                 <tbody>
                   {canteenDueEntries.map((item) => (
                     <tr key={item.key}>
-                      <td>{item.tenant?.name || "-"}</td>
-                      <td>
+                      <td data-label="Tenant">{item.tenant?.name || "-"}</td>
+                      <td data-label={trackerType === "shop" ? "Shop" : trackerType === "room" ? "Room" : "Room / bed"}>
                         {trackerType === "bed"
                           ? `${item.tenant?.roomNo || "-"} / ${item.tenant?.bedNo || "-"}`
                           : item.tenant?.roomNo || "-"}
                       </td>
-                      <td>{item.monthLabel || item.month || "-"}</td>
-                      <td>{item.mealCount || 0}</td>
-                      <td className="fw-bold text-danger">
+                      <td data-label="Month">{item.monthLabel || item.month || "-"}</td>
+                      <td data-label="Meals">{item.mealCount || 0}</td>
+                      <td data-label="Amount" className="fw-bold text-danger">
                         ₹{Number(item.amount || 0).toLocaleString("en-IN")}
                       </td>
-                      <td className="text-uppercase">{item.status || "-"}</td>
+                      <td data-label="Status" className="text-uppercase">{item.status || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -15841,7 +16135,7 @@ const isTodayOrFuture = (iso) => {
 
 {showCanteenTenantModal && (
   <div
-    className="modal d-block"
+    className="modal d-block tracker-summary-modal"
     tabIndex="-1"
     style={{
       background: "rgba(0,0,0,0.5)",
@@ -15892,15 +16186,15 @@ const isTodayOrFuture = (iso) => {
 
                     return (
                       <tr key={tenant?._id || `${tenant?.name}-${tenant?.roomNo}-${tenant?.bedNo}`}>
-                        <td>{tenant?.name || "-"}</td>
-                        <td>
+                        <td data-label="Tenant">{tenant?.name || "-"}</td>
+                        <td data-label={trackerType === "shop" ? "Shop" : trackerType === "room" ? "Room" : "Room / bed"}>
                           {trackerType === "bed"
                             ? `${tenant?.roomNo || "-"} / ${tenant?.bedNo || "-"}`
                             : tenant?.roomNo || "-"}
                         </td>
-                        <td>{tenant?.phoneNo || "-"}</td>
-                        <td>{latestEntry?.month ? formatCanteenMonth(latestEntry.month) : "-"}</td>
-                        <td className="text-uppercase">
+                        <td data-label="Phone">{tenant?.phoneNo || "-"}</td>
+                        <td data-label="Latest month">{latestEntry?.month ? formatCanteenMonth(latestEntry.month) : "-"}</td>
+                        <td data-label="Status" className="text-uppercase">
                           {latestEntry?.status ? String(latestEntry.status) : "-"}
                         </td>
                       </tr>
@@ -16796,21 +17090,19 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
         <div
           className="modal d-block"
           tabIndex="-1"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="undo-leave-title"
           style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
         >
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">
-                  {trackerType === "shop"
-                    ? "Select Vacant Shop"
-                    : trackerType === "room"
-                    ? "Select Vacant Room"
-                    : "Select Vacant Bed"}
-                </h5>
+                <h5 className="modal-title" id="undo-leave-title">Undo leave</h5>
                 <button
                   type="button"
-                  className="btn-close p-0"
+                  className="btn btn-outline-secondary btn-sm"
+                  aria-label="Close"
                   disabled={undoBedModal.busy}
                   onClick={() =>
                     setUndoBedModal({
@@ -16818,6 +17110,7 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                       tenantId: "",
                       message: "",
                       vacantBeds: [],
+                      pendingDetailsCount: 0,
                       selectedIndex: "",
                       busy: false,
                     })
@@ -16830,6 +17123,7 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                 <div className="alert alert-warning mb-3">
                   {undoBedModal.message}
                 </div>
+                {undoBedModal.vacantBeds.length > 0 && <>
                 <label className="form-label fw-semibold">
                   {trackerType === "shop"
                     ? "Choose another vacant shop"
@@ -16864,6 +17158,18 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                     </option>
                   ))}
                 </select>
+                </>}
+                {undoBedModal.vacantBeds.length === 0 && (
+                  <div className="alert alert-warning mb-3">
+                    No vacant {getTrackerVacancyNoun()} is currently ready to assign.
+                    {undoBedModal.pendingDetailsCount === 0 && ` Add or free a ${getTrackerVacancyNoun()} in Manage Units, then try again.`}
+                  </div>
+                )}
+                {undoBedModal.pendingDetailsCount > 0 && (
+                  <div className="alert alert-info mb-3">
+                    {undoBedModal.pendingDetailsCount} {getTrackerVacancyNoun()}{undoBedModal.pendingDetailsCount === 1 ? " needs" : "s need"} details set before assignment. Complete the property, floor and {trackerType === "bed" ? "room and bed numbers" : `${getTrackerVacancyNoun()} number`} in Manage Units.
+                  </div>
+                )}
                 <div className="small text-muted mt-2">
                   The tenant will be restored to the Rent & Deposit Tracker only after this vacant
                   {trackerType === "shop"
@@ -16884,6 +17190,7 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                       tenantId: "",
                       message: "",
                       vacantBeds: [],
+                      pendingDetailsCount: 0,
                       selectedIndex: "",
                       busy: false,
                     })
@@ -16891,6 +17198,9 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                 >
                   Cancel
                 </button>
+                {(undoBedModal.pendingDetailsCount > 0 || undoBedModal.vacantBeds.length === 0) && (
+                  <button type="button" className="btn btn-outline-primary" disabled={undoBedModal.busy} onClick={handleManageUnitsNavigation}>Manage units</button>
+                )}
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -17277,15 +17587,21 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                 >x</button>
               </div>
               <div className="modal-body">
-                <input
-                  type="password"
-                  className="form-control"
-                  inputMode="numeric"
-                  maxLength="8"
-                  placeholder="Enter 4 to 8 digit security PIN"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                />
+                <SecurityPinStatusField
+                  status={deletePinStatus}
+                  onRetry={deletePinStatus.refresh}
+                  onSaved={(pin) => { deletePinStatus.markConfigured(); setPassword(pin); }}
+                >
+                  <input
+                    type="password"
+                    className="form-control"
+                    inputMode="numeric"
+                    maxLength="8"
+                    placeholder="Enter 4 to 8 digit security PIN"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  />
+                </SecurityPinStatusField>
               </div>
               <div className="modal-footer">
                 <button
@@ -17294,7 +17610,7 @@ If this month has a discount, enter the amount. Otherwise, keep it as ₹0.
                 >
                   Cancel
                 </button>
-                <button className="btn btn-primary" onClick={verifyPassword}>
+                <button className="btn btn-primary" onClick={verifyPassword} disabled={!deletePinStatus.configured}>
                   Submit
                 </button>
               </div>

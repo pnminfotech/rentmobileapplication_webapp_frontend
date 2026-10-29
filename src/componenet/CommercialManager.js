@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaEdit, FaStore, FaTrash } from "react-icons/fa";
 import { API_BASE } from "../api";
 import "../Pages/RoomManager.css";
+import { SecurityPinStatusField, useSystemSecurityPinStatus } from "./SecurityPinSetup";
 
 const apiUrl = `${API_BASE}/commercial-units`;
 
@@ -27,6 +28,7 @@ export default function CommercialManager() {
   const [editingId, setEditingId] = useState("");
   const [priceModalOpen, setPriceModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const deletePinStatus = useSystemSecurityPinStatus(deleteModalOpen);
   const [priceEditTarget, setPriceEditTarget] = useState({
     unitId: "",
     unitNo: "",
@@ -149,6 +151,7 @@ export default function CommercialManager() {
   };
 
   const handleDelete = async () => {
+    if (!deletePinStatus.configured) return;
     if (!/^\d{4,8}$/.test(String(deleteTarget.password || "").trim())) {
       alert("Enter your 4 to 8 digit security PIN.");
       return;
@@ -161,6 +164,10 @@ export default function CommercialManager() {
       setDeleteModalOpen(false);
       await fetchUnits();
     } catch (err) {
+      if (err.response?.status === 428) {
+        deletePinStatus.markUnconfigured();
+        return;
+      }
       console.error("Failed to delete commercial unit:", err);
       alert(err.response?.data?.message || "Failed to delete commercial unit.");
     }
@@ -597,20 +604,25 @@ export default function CommercialManager() {
                 />
               </div>
 
-              <div className="mb-3">
-                <label className="form-label mb-2">Security PIN (required to delete)</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  inputMode="numeric"
-                  maxLength="8"
-                  value={deleteTarget.password}
-                  onChange={(e) =>
-                    setDeleteTarget((prev) => ({ ...prev, password: e.target.value.replace(/\D/g, "").slice(0, 8) }))
-                  }
-                  placeholder="Enter 4 to 8 digit security PIN"
-                />
-              </div>
+              <SecurityPinStatusField
+                status={deletePinStatus}
+                onRetry={deletePinStatus.refresh}
+                onSaved={(pin) => { deletePinStatus.markConfigured(); setDeleteTarget((prev) => ({ ...prev, password: pin })); }}
+              >
+                <div className="mb-3">
+                  <label className="form-label mb-2" htmlFor="commercial-delete-pin">Security PIN (required to delete)</label>
+                  <input
+                    id="commercial-delete-pin"
+                    type="password"
+                    className="form-control"
+                    inputMode="numeric"
+                    maxLength="8"
+                    value={deleteTarget.password}
+                    onChange={(e) => setDeleteTarget((prev) => ({ ...prev, password: e.target.value.replace(/\D/g, "").slice(0, 8) }))}
+                    placeholder="Enter 4 to 8 digit security PIN"
+                  />
+                </div>
+              </SecurityPinStatusField>
 
               <div className="alert alert-warning small mt-2 mb-0">
                 This will permanently remove the selected {deleteTarget.unitType === "shop" ? "shop" : "room"}.
@@ -629,6 +641,7 @@ export default function CommercialManager() {
                 type="button"
                 className="btn btn-danger"
                 onClick={handleDelete}
+                disabled={!deletePinStatus.configured}
               >
                 Delete {deleteTarget.unitType === "shop" ? "Shop" : "Room"}
               </button>

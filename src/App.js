@@ -26,6 +26,7 @@ import AdminSidebar from './Pages/AdminSidebar';
 import AppEntry from './Pages/AppEntry';
 import RegisterBusiness from './Pages/RegisterBusiness';
 import TrialUnitSetup from './Pages/TrialUnitSetup';
+import PropertyTypes from './Pages/PropertyTypes';
 import SubscriptionExpired from './Pages/SubscriptionExpired';
 import SuperAdminHome from './Pages/SuperAdminHome';
 import Record from './Pages/record';
@@ -92,6 +93,7 @@ function Layout() {
         <Route path="/register" element={<RegisterBusiness />} />
         <Route path="/register-business" element={<RegisterBusiness />} />
         <Route path="/trial-unit-setup" element={<ProtectedRoute skipSubscriptionCheck><TrialUnitSetup /></ProtectedRoute>} />
+        <Route path="/property-types" element={<ProtectedRoute skipSubscriptionCheck><PropertyTypes /></ProtectedRoute>} />
         <Route path="/subscription-expired" element={<ProtectedRoute skipSubscriptionCheck><SubscriptionExpired /></ProtectedRoute>} />
 
         {/* Public Tenant Form */}

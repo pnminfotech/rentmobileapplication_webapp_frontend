@@ -128,6 +128,7 @@ function getTotalSummaryText(cell) {
 
 function RentMobileViewCardFeed({
   loading = false,
+  trackerType = "bed",
   visibleTenants = [],
   groupedRooms = [],
   getTenantPhotoMeta,
@@ -158,6 +159,7 @@ function RentMobileViewCardFeed({
 }) {
   const monthWindow = getMonthWindow(visibleMonths);
   const tenantList = flattenVisibleTenants(visibleTenants, groupedRooms);
+  const unitLabel = trackerType === "shop" ? "shop" : trackerType === "room" ? "room" : "bed";
   const monthSwipeStartX = useRef(null);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [filterMode, setFilterMode] = useState(
@@ -237,7 +239,7 @@ function RentMobileViewCardFeed({
             onClick={onOpenVacantBeds}
           >
             <FaBed />
-            <span>Vacant Beds</span>
+            <span>Vacant {unitLabel.charAt(0).toUpperCase() + unitLabel.slice(1)}s</span>
           </button>
         </div>
 

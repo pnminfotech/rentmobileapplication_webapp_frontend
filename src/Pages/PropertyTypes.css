@@ -1,0 +1,15 @@
+.property-types-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #eef3f9; }
+.property-types-card { width: min(640px, 100%); padding: 28px; border-radius: 18px; background: #fff; box-shadow: 0 12px 35px #1d35571a; }
+.property-types-card h1 { color: #142a50; font-size: 1.6rem; }
+.property-types-card p { color: #5d6f89; }
+.property-type-choices { display: grid; gap: 10px; margin: 18px 0; }
+.property-type-choice { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid #d8e2f0; border-radius: 10px; cursor: pointer; }
+.property-type-choice.is-selected { border-color: #5873f3; background: #f1f4ff; }
+.property-type-choice input { width: 18px; height: 18px; accent-color: #5369e9; }
+.property-type-choice strong, .property-type-choice small { display: block; }
+.property-type-choice strong { color: #18325a; }
+.property-type-choice small { color: #677995; margin-top: 3px; }
+.property-type-save { border: 0; border-radius: 8px; background: #5268e9; color: white; padding: 10px 16px; font-weight: 600; }
+.property-type-save:disabled { opacity: .6; }
+.property-type-message { color: #b33c3c; }
+@media (max-width: 600px) { .property-types-card { padding: 20px; } .property-type-save { width: 100%; } }

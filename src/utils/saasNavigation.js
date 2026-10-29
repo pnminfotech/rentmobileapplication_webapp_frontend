@@ -6,9 +6,13 @@ export function getPostLoginPath(bootstrap) {
     return "/superadmin";
   }
 
+  if (access.needsPropertySelection) return "/property-types";
+
   if (access.needsUnitSetup) {
     return "/trial-unit-setup";
   }
+
+  if (access.readOnly) return "/admin";
 
   if (access.expired || access.needsPayment || !access.canUseSystem) {
     return "/subscription-expired";

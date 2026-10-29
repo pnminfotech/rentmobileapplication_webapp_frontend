@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { getAuthToken, getAuthUser } from "../authStorage";
 import { getAppBootstrap } from "../saasApi";
 import { getPostLoginPath } from "../utils/saasNavigation";
@@ -32,6 +32,7 @@ const ProtectedRoute = ({
   const user  = getAuthUser();
   const [redirectPath, setRedirectPath] = useState("");
   const [checking, setChecking] = useState(Boolean(token && user && !skipSubscriptionCheck));
+  const [readOnlyUntil, setReadOnlyUntil] = useState(null);
 
   useEffect(() => {
     if (!token || !user || skipSubscriptionCheck) {
@@ -45,6 +46,7 @@ const ProtectedRoute = ({
       try {
         const bootstrap = await getAppBootstrap();
         const nextPath = getPostLoginPath(bootstrap);
+        if (mounted) setReadOnlyUntil(bootstrap.access?.readOnly ? bootstrap.access.readOnlyUntil : null);
         const currentPath = getCurrentAppPath();
 
         if (
@@ -97,7 +99,17 @@ const ProtectedRoute = ({
     return <Navigate to={redirectPath} replace />;
   }
 
-  return children;
+  return (
+    <>
+      {readOnlyUntil && (
+        <div role="status" style={{ padding: "10px 16px", background: "#fff3d6", color: "#633c00", textAlign: "center", fontWeight: 600 }}>
+          Subscription ended. You can view and download data until {new Date(readOnlyUntil).toLocaleDateString("en-IN")}. Changes are disabled.{" "}
+          <Link to="/subscription-expired">Renew or purchase a plan</Link>
+        </div>
+      )}
+      {children}
+    </>
+  );
 }
 
 

@@ -25,6 +25,10 @@ export function getUnitLimits(source = {}) {
 }
 
 export function allowedUnitTypes(source = {}) {
+  if (source?.organization?.onboardingMode === "flexible") {
+    const types = source.organization.selectedPropertyTypes || [];
+    return UNIT_TYPES.filter((type) => types.includes(type.value));
+  }
   const limits = getUnitLimits(source);
   const selected = UNIT_TYPES.filter((type) => limits[type.quotaKey] > 0);
   if (selected.length) return selected;
