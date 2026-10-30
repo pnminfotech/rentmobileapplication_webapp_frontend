@@ -26,6 +26,10 @@ export default function CanteenSettings() {
     let active = true;
     canteenApi.settings().then((settings) => {
       if (active) {
+        if (!settings.enabled) {
+          navigate("/profile", { replace: true });
+          return;
+        }
         setSavedSettings(settings);
         setForm({
         activeModes: settings.activeModes || [],
@@ -35,10 +39,14 @@ export default function CanteenSettings() {
         guestMeal: { ...initial.guestMeal, ...settings.guestMeal },
         });
       }
-    }).catch((err) => { if (active) setError(err.response?.data?.message || "Unable to load canteen settings."); })
+    }).catch((err) => {
+      if (!active) return;
+      if (err.response?.status === 403) navigate("/profile", { replace: true });
+      else setError(err.response?.data?.message || "Unable to load canteen settings.");
+    })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [navigate]);
 
   const primary = form.activeModes.find((mode) => ["per_meal", "meal_package"].includes(mode));
   const update = (section, key, value) => setForm((previous) => ({ ...previous, [section]: { ...previous[section], [key]: value } }));

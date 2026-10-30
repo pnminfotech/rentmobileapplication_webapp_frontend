@@ -139,7 +139,7 @@ const OtherExpense = ({ embedded = false, propertyScope = null }) => {
 
   const fetchExpenses = async () => {
     try {
-      const res = await fetch("   http://localhost:8000/api/other-expense/all");
+      const res = await fetch("   https://rentmobile-api.pnminfotech.com/api/other-expense/all");
       const data = await res.json();
       setOtherExpenses(
         Array.isArray(data)
@@ -191,7 +191,7 @@ const OtherExpense = ({ embedded = false, propertyScope = null }) => {
         status: newEntry.status,
       };
 
-      const res = await fetch("   http://localhost:8000/api/other-expense", {
+      const res = await fetch("   https://rentmobile-api.pnminfotech.com/api/other-expense", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -250,7 +250,7 @@ const OtherExpense = ({ embedded = false, propertyScope = null }) => {
       };
 
       const res = await fetch(
-        `   http://localhost:8000/api/other-expense/${selectedExpense._id}`,
+        `   https://rentmobile-api.pnminfotech.com/api/other-expense/${selectedExpense._id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

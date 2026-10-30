@@ -11,8 +11,8 @@ import {
   FiClock,
   FiCopy,
   FiCreditCard,
+  FiCoffee,
   FiDatabase,
-  FiDollarSign,
   FiExternalLink,
   FiFileText,
   FiGift,
@@ -31,6 +31,7 @@ import {
   FiUpload,
   FiX,
 } from "react-icons/fi";
+import { FaRupeeSign } from "react-icons/fa";
 
 import {
   completeMockSaasPayment,
@@ -43,6 +44,9 @@ import {
   removeOwnerDocument,
   requestSubscriptionUpgrade,
   resetSystemSecurityPin,
+  savePropertyTypes,
+  saveCanteenFeature,
+  saveBusinessProfile,
   saveSystemSecurityPin,
   saveUnitCounts,
   uploadOwnerDocument,
@@ -101,12 +105,16 @@ export default function ProfileSettings() {
   const [pinForm, setPinForm] = useState(emptyPinForm);
   const [savingPin, setSavingPin] = useState(false);
   const [unitCounts, setUnitCounts] = useState({ beds: "", rooms: "", shops: "" });
+  const [propertyTypesDraft, setPropertyTypesDraft] = useState([]);
   const [savingCounts, setSavingCounts] = useState(false);
   const [ownerDocuments, setOwnerDocuments] = useState(emptyOwnerDocuments);
   const [ownerDocumentError, setOwnerDocumentError] = useState("");
   const [ownerDocumentNotice, setOwnerDocumentNotice] = useState("");
   const [ownerDocumentBusy, setOwnerDocumentBusy] = useState("");
   const [confirmRemoveOwnerDocument, setConfirmRemoveOwnerDocument] = useState("");
+  const [businessProfile, setBusinessProfile] = useState({ businessName: "", ownerName: "" });
+  const [savingBusinessProfile, setSavingBusinessProfile] = useState(false);
+  const [savingCanteenFeature, setSavingCanteenFeature] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -117,6 +125,11 @@ export default function ProfileSettings() {
         getSystemSecurityPinStatus().catch(() => ({ configured: false })),
       ]);
       setBootstrap(account);
+      setPropertyTypesDraft(account.organization?.selectedPropertyTypes || []);
+      setBusinessProfile({
+        businessName: account.organization?.name || "",
+        ownerName: account.organization?.ownerName || account.user?.name || "",
+      });
       if (account.organization?.onboardingMode === "flexible") {
         const initial = account.organization.unitCountsConfigured ? account.subscription?.units : account.unitUsage;
         setUnitCounts(Object.fromEntries(unitFields.map(({ key }) => [key, String(initial?.[key] || 0)])));
@@ -175,6 +188,7 @@ export default function ProfileSettings() {
   const user = bootstrap?.user || {};
   const units = subscription.units || organization.unitAllocation || {};
   const isTrial = Number(subscription.amount || 0) === 0 && !subscription.planId && String(subscription.status || "").toLowerCase() === "active";
+  const canChangeUnits = Boolean(access.canUseSystem) && !access.readOnly && !access.needsPayment && !access.suspended;
   const walletBalance = Number(wallet?.balance || 0);
   const walletEntries = useMemo(() => Array.isArray(wallet?.entries) ? wallet.entries : [], [wallet]);
   const earnedCoins = useMemo(() => walletEntries.filter((entry) => entry.direction === "credit").reduce((sum, entry) => sum + Number(entry.coins || 0), 0), [walletEntries]);
@@ -185,6 +199,8 @@ export default function ProfileSettings() {
   const registeredUnits = flexible ? (bootstrap?.unitUsage || {}) : units;
   const totalUnits = unitFields.reduce((sum, { key }) => sum + Number(registeredUnits[key] || 0), 0);
   const selectedTypes = organization.selectedPropertyTypes || [];
+  const hasHostel = flexible ? selectedTypes.includes("bed") : Number(units.beds || 0) > 0;
+  const canteenEnabled = Boolean(organization.features?.canteenEnabled);
 
   const saveOwnerDocument = async (kind, label, file) => {
     const isImage = ["image/jpeg", "image/png"].includes(file.type) && /\.(jpe?g|png)$/i.test(file.name);
@@ -231,11 +247,38 @@ export default function ProfileSettings() {
   const saveCounts = async () => {
     try {
       setSavingCounts(true); setError(""); setNotice("");
-      await saveUnitCounts(Object.fromEntries(unitFields.map(({ key }) => [key, Number(unitCounts[key] || 0)])));
+      const selectedTypeSet = new Set(propertyTypesDraft);
+      const countPayload = Object.fromEntries(unitFields.map(({ key }) => [key, Number(unitCounts[key] || 0)]));
+      const selectedCount = unitFields.some(({ key }) => {
+        const type = ({ beds: "bed", rooms: "room", shops: "shop" })[key];
+        return selectedTypeSet.has(type) && countPayload[key] > 0;
+      });
+      if (!selectedCount) {
+        setError("Set a count for at least one selected property type.");
+        return;
+      }
+      const savedTypes = organization.selectedPropertyTypes || [];
+      if (savedTypes.length !== propertyTypesDraft.length || savedTypes.some((type) => !selectedTypeSet.has(type))) {
+        await savePropertyTypes(propertyTypesDraft, canteenEnabled && selectedTypeSet.has("bed"));
+      }
+      await saveUnitCounts(countPayload);
       await load();
-      setNotice("Unit counts saved. Your existing units have been kept.");
+      setNotice("Property types and unit counts saved. Your existing units have been kept.");
     } catch (err) { setError(err.response?.data?.message || "Unable to save unit counts."); }
     finally { setSavingCounts(false); }
+  };
+
+  const changeCanteenFeature = async (enabled) => {
+    try {
+      setSavingCanteenFeature(true); setError(""); setNotice("");
+      const result = await saveCanteenFeature(enabled);
+      await load();
+      setNotice(result.message || (enabled ? "Canteen feature enabled." : "Canteen feature disabled."));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update canteen feature.");
+    } finally {
+      setSavingCanteenFeature(false);
+    }
   };
 
   const changeUpgradeUnit = (key, value) => setUpgradeUnits((current) => ({
@@ -328,6 +371,30 @@ export default function ProfileSettings() {
     finally { setSavingPin(false); }
   };
 
+  const saveProfile = async (event) => {
+    event.preventDefault();
+    try {
+      setSavingBusinessProfile(true);
+      setError("");
+      setNotice("");
+      const updated = await saveBusinessProfile(businessProfile);
+      setBootstrap((current) => ({
+        ...current,
+        organization: updated.organization,
+        user: updated.user,
+      }));
+      setBusinessProfile({
+        businessName: updated.organization?.name || "",
+        ownerName: updated.organization?.ownerName || updated.user?.name || "",
+      });
+      setNotice("Business profile saved.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update your business profile.");
+    } finally {
+      setSavingBusinessProfile(false);
+    }
+  };
+
   if (loading) return <div className="profile-page profile-loading"><div className="spinner-border text-primary" role="status" /></div>;
 
   return (
@@ -343,7 +410,7 @@ export default function ProfileSettings() {
 
         <section className="profile-hero">
           <div className="profile-avatar">{String(user.name || user.email || "AD").slice(0, 2).toUpperCase()}</div>
-          <div className="profile-hero-identity"><h2>{user.name || "System admin"}</h2><p>{user.email || "-"}</p><b>{titleCase(user.role || "system admin")}</b></div>
+          <div className="profile-hero-identity"><h2>{user.name || "System admin"}</h2><p>{user.email || organization.phone || user.phone || "-"}</p><b>{titleCase(user.role || "system admin")}</b></div>
           <div className="profile-hero-art" aria-hidden="true"><div className="profile-art-sheet"><span /><span /><span /></div><div className="profile-art-user"><FiUser /></div></div>
           <div className="profile-hero-message"><strong>Manage your account</strong><span>Keep your business information, subscription and security settings up to date.</span></div>
         </section>
@@ -367,7 +434,41 @@ export default function ProfileSettings() {
                 <p><FiClock /><span>Created<strong>{formatDate(user.createdAt)}</strong></span></p>
                 <p><FiUser /><span>Owner<strong>{organization.ownerName || "-"}</strong></span></p>
               </div>
+              {user.role === "system_admin" && <form className="profile-business-edit" onSubmit={saveProfile}>
+                <h3>Business details</h3>
+                <label>
+                  Business name
+                  <input
+                    className="form-control"
+                    value={businessProfile.businessName}
+                    onChange={(event) => setBusinessProfile((current) => ({ ...current, businessName: event.target.value }))}
+                    maxLength={120}
+                    required
+                  />
+                </label>
+                <label>
+                  Owner name
+                  <input
+                    className="form-control"
+                    value={businessProfile.ownerName}
+                    onChange={(event) => setBusinessProfile((current) => ({ ...current, ownerName: event.target.value }))}
+                    maxLength={120}
+                    required
+                  />
+                </label>
+                <button className="btn btn-primary" type="submit" disabled={savingBusinessProfile}>
+                  {savingBusinessProfile ? "Saving..." : "Save business details"}
+                </button>
+              </form>}
             </section>
+            {user.role === "system_admin" && hasHostel && <section className="profile-card profile-canteen-feature">
+              <div className="profile-section-heading"><div><h2><FiCoffee /> Canteen feature</h2><p>Choose whether this hostel uses meal settings and attendance.</p></div></div>
+              <label className="profile-canteen-toggle">
+                <span><strong>{canteenEnabled ? "Canteen enabled" : "Canteen disabled"}</strong><small>{canteenEnabled ? "Canteen settings, tenant meal options, and attendance are available." : "Canteen sections and meal options are hidden. Existing canteen settings are kept if you enable it later."}</small></span>
+                <input type="checkbox" role="switch" checked={canteenEnabled} disabled={savingCanteenFeature || !canChangeUnits} onChange={(event) => changeCanteenFeature(event.target.checked)} />
+              </label>
+              {!canChangeUnits && <p className="profile-card-copy mb-0">Activate or renew your subscription to change this feature.</p>}
+            </section>}
             {user.role === "system_admin" && <section className="profile-card profile-owner-documents" id="profile-owner-documents">
               <div className="profile-section-heading">
                 <div><h2><FiFileText /> Owner documents</h2><p>Save the owner's photo and identity cards for police verification.</p></div>
@@ -410,14 +511,15 @@ export default function ProfileSettings() {
 
           <div className="profile-column">
             {!(flexible && isTrial && !organization.unitCountsConfigured) && <section className="profile-card profile-upgrade" id="profile-upgrade">
-              <div className="profile-card-title"><div><h2><FiPlus /> {isTrial ? "Trial units" : "Upgrade units"}</h2><p>Add capacity whenever you need more beds, rooms, or shops.</p></div><button type="button" className="profile-primary-button" onClick={() => setShowUpgrade((value) => !value)}><FiPlus /> {showUpgrade ? "Close" : "Add units"}</button></div>
+              <div className="profile-card-title"><div><h2><FiPlus /> {isTrial ? "Trial units" : "Upgrade units"}</h2><p>{isTrial ? "Increase your unit capacity for free during the trial. The trial allows up to 10 active units total across all property types." : "Add capacity to your active paid plan; upgrade pricing applies."}</p></div>{canChangeUnits && <button type="button" className="profile-primary-button" onClick={() => setShowUpgrade((value) => !value)}><FiPlus /> {showUpgrade ? "Close" : "Add units"}</button>}</div>
               <div className="profile-wallet-summary"><span className="profile-wallet-summary-icon"><FiDatabase /></span><div><span>Wallet balance</span><strong>{number(walletBalance)} coins</strong></div><span className="profile-coins-art" aria-hidden="true">◉</span></div>
-              {showUpgrade && <div className="profile-upgrade-form"><div className="profile-upgrade-inputs">{unitFields.map(({ key, label }) => <label key={key}>Extra {label.toLowerCase()}<input inputMode="numeric" value={upgradeUnits[key]} onChange={(event) => changeUpgradeUnit(key, event.target.value)} placeholder="0" /></label>)}</div>{!isTrial && <label className="profile-wallet-toggle"><input type="checkbox" checked={useWallet} disabled={!walletBalance} onChange={(event) => setUseWallet(event.target.checked)} /> Use wallet coins ({number(walletBalance)} available)</label>}<button type="button" className="profile-primary-button" onClick={upgrade} disabled={upgrading}>{upgrading ? "Starting payment…" : isTrial ? "Add trial units" : "Continue to payment"}</button></div>}
+              {!canChangeUnits && <p className="profile-card-copy">Unit capacity changes are unavailable until your subscription is active. Complete or renew your plan first; paid unit upgrades are available after successful purchase.</p>}
+              {showUpgrade && canChangeUnits && <div className="profile-upgrade-form"><div className="profile-upgrade-inputs">{unitFields.map(({ key, label }) => <label key={key}>Extra {label.toLowerCase()}<input inputMode="numeric" value={upgradeUnits[key]} onChange={(event) => changeUpgradeUnit(key, event.target.value)} placeholder="0" /></label>)}</div>{!isTrial && <label className="profile-wallet-toggle"><input type="checkbox" checked={useWallet} disabled={!walletBalance} onChange={(event) => setUseWallet(event.target.checked)} /> Use wallet coins ({number(walletBalance)} available)</label>}<button type="button" className="profile-primary-button" onClick={upgrade} disabled={upgrading}>{upgrading ? "Starting payment…" : isTrial ? "Add trial units free" : "Continue to payment"}</button></div>}
             </section>}
 
             <section className="profile-wallet-page" id="profile-wallet">
               <div className="profile-section-heading"><div><h2><FiDatabase /> Wallet</h2><p>Coins, referrals and reward history</p></div><button type="button" className="profile-section-action" onClick={openWalletUpgrade}><FiRefreshCw /> Upgrade package</button></div>
-              <div className="profile-wallet-balance-card"><span className="profile-wallet-balance-icon"><FiDollarSign /></span><div><span>Available balance</span><strong>{number(walletBalance)} coins</strong><p>Use coins when upgrading your package</p></div><FiArrowRight className="profile-wallet-balance-arrow" /></div>
+              <div className="profile-wallet-balance-card"><span className="profile-wallet-balance-icon"><FaRupeeSign /></span><div><span>Available balance</span><strong>{number(walletBalance)} coins</strong><p>Use coins when upgrading your package</p></div><FiArrowRight className="profile-wallet-balance-arrow" /></div>
             </section>
             <section className="profile-referral-panel">
               {referral?.code && <div className="profile-referral-card">
@@ -425,7 +527,7 @@ export default function ProfileSettings() {
                 <div className="profile-referral-actions"><button type="button" className="profile-referral-code" onClick={copyReferralCode}>{referral.code}<FiCopy /></button><button type="button" className="profile-referral-share" onClick={shareReferralCode}><FiShare2 /> Share code</button></div>
                 {referralCopied && <small className="profile-referral-copied">Referral code copied.</small>}
               </div>}
-              <div className="profile-wallet-stats"><div><FiGift /><strong>{number(earnedCoins)}</strong><span>Earned</span></div><div><FiDollarSign /><strong>{number(usedCoins)}</strong><span>Used</span></div><div><FiUsers /><strong>{number(referral?.usedCount)}</strong><span>Referrals</span></div></div>
+              <div className="profile-wallet-stats"><div><FiGift /><strong>{number(earnedCoins)}</strong><span>Earned</span></div><div><FaRupeeSign /><strong>{number(usedCoins)}</strong><span>Used</span></div><div><FiUsers /><strong>{number(referral?.usedCount)}</strong><span>Referrals</span></div></div>
             </section>
             <section className="profile-history-panel"><div className="profile-wallet-history-heading"><h3><FiGift /> Reward history</h3><select value={walletFilter} onChange={(event) => setWalletFilter(event.target.value)} aria-label="Filter reward history"><option value="all">All activity</option><option value="credit">Coins earned</option><option value="debit">Coins used</option></select></div><div className="profile-wallet-history">{entries.length ? entries.map((entry) => <WalletEntry entry={entry} key={entry._id || `${entry.createdAt}-${entry.coins}`} />) : <p className="profile-empty">No wallet activity for this filter.</p>}</div><p className="profile-wallet-disclaimer"><FiInfo /> Coins have no cash value</p></section>
           </div>
@@ -446,8 +548,8 @@ export default function ProfileSettings() {
               <div className="profile-unit-grid">{unitFields.map(({ key, label }) => <div key={key}><strong>{number(registeredUnits[key])}</strong><span>{label}</span></div>)}</div>
               {flexible && <>
                 <p className="profile-card-copy">Select the property types you use. Types with existing units or allocated capacity must remain selected.</p>
-                <PropertyTypePicker initialTypes={selectedTypes} onSaved={async () => { await load(); setNotice("Property types saved."); }} />
-                {isTrial && <div className="profile-upgrade-form"><h3>Set unit counts</h3><p className="profile-card-copy">Your existing units: {number(bootstrap?.unitUsage?.beds)} beds, {number(bootstrap?.unitUsage?.rooms)} rooms and {number(bootstrap?.unitUsage?.shops)} shops. Counts must cover these units.</p><div className="profile-upgrade-inputs">{unitFields.filter(({ key }) => selectedTypes.includes(({ beds: "bed", rooms: "room", shops: "shop" })[key])).map(({ key, label }) => <label key={key}>{label}<input inputMode="numeric" value={unitCounts[key]} onChange={(event) => setUnitCounts((current) => ({ ...current, [key]: event.target.value.replace(/\D/g, "") }))} /></label>)}</div><button type="button" className="profile-primary-button" onClick={saveCounts} disabled={savingCounts}>{savingCounts ? "Saving..." : "Save unit counts"}</button></div>}
+                <PropertyTypePicker initialTypes={selectedTypes} initialCanteenEnabled={canteenEnabled} showCanteenOption={false} onTypesChange={setPropertyTypesDraft} onSaved={async () => { await load(); setNotice("Property types saved."); }} />
+                {isTrial && <div className="profile-upgrade-form"><h3>Set unit counts</h3><p className="profile-card-copy">Set the capacity for each selected property type, including types you just selected above. Existing units must remain covered. Trial usage remains limited to 10 active units total.</p><div className="profile-upgrade-inputs">{unitFields.filter(({ key }) => propertyTypesDraft.includes(({ beds: "bed", rooms: "room", shops: "shop" })[key])).map(({ key, label }) => <label key={key}>{label}<input inputMode="numeric" value={unitCounts[key]} onChange={(event) => setUnitCounts((current) => ({ ...current, [key]: event.target.value.replace(/\D/g, "") }))} /></label>)}</div><button type="button" className="profile-primary-button" onClick={saveCounts} disabled={savingCounts}>{savingCounts ? "Saving..." : "Save property types & counts"}</button></div>}
               </>}
               {!flexible && <button type="button" className="profile-primary-button" onClick={() => { setShowUnitsModal(false); openWalletUpgrade(); }}>Add units</button>}
             </div>

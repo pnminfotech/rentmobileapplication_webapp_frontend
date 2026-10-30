@@ -2,7 +2,7 @@
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .rent-mobile-profile-screen {
     display: block;
     width: 100%;
@@ -337,7 +337,7 @@
 }
 
 /* ================= MOBILE PROFILE POLISH ================= */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .rent-mobile-profile-shell {
     gap: 12px;
   }

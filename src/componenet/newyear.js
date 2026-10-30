@@ -7,7 +7,7 @@ import { FaSearch, FaMoneyBillWave } from "react-icons/fa";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-const API_BASE_URL = "    http://localhost:8000/api/maintenance"; // Update this if backend is deployed
+const API_BASE_URL = "    https://rentmobile-api.pnminfotech.com/api/maintenance"; // Update this if backend is deployed
 
 const Kahata = () => {
     const [schemas, setSchemas] = useState([]);
@@ -38,7 +38,7 @@ const Kahata = () => {
                 const token = localStorage.getItem("authToken");
                 if (!token) return;
 
-                const response = await axios.get("    http://localhost:8000/api/user", {
+                const response = await axios.get("    https://rentmobile-api.pnminfotech.com/api/user", {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 

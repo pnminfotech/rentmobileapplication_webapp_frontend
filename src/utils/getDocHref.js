@@ -10,7 +10,7 @@ export const getDocHref = (doc) => {
   if (url && /^https?:\/\//i.test(url)) return url;
 
   // 2) relative URL (disk) -> open from backend origin (8000)
-  //    "/uploads/docs/abc.webp" => "   http://localhost:8000//uploads/docs/abc.webp"
+  //    "/uploads/docs/abc.webp" => "   https://rentmobile-api.pnminfotech.com//uploads/docs/abc.webp"
   if (url) {
     const rel = url.startsWith("/") ? url : `/${url}`;
     return `${API_ORIGIN}${rel}`;

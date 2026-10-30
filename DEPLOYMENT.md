@@ -10,7 +10,7 @@ Run `npm run build` from this folder. Upload the **contents** of the generated `
 
 Keep the generated `.htaccess` file in that folder. It lets direct links such as `/rentmanagementsoftware/login` and `/rentmanagementsoftware/tenant-intake` open the React application.
 
-The production web build sends API requests to `http://localhost:8000/api`. The backend deployment must allow `https://pnminfotech.com` in CORS and use these values:
+The production web build sends API requests to `https://rentmobile-api.pnminfotech.com/api`. The backend deployment must allow `https://pnminfotech.com` in CORS and use these values:
 
 ```env
 FRONTEND_BASENAME=rentmanagementsoftware

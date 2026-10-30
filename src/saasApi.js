@@ -22,6 +22,22 @@ export async function requestSaasLoginEmailCode(email) {
   return data;
 }
 
+export async function requestSaasLoginPhoneCode(phone) {
+  const { data } = await api.post("/saas/auth/login/request-phone-code", { phone });
+  return data;
+}
+
+export async function verifySaasLoginPhoneCode(challengeId, code) {
+  const { data } = await api.post("/saas/auth/login/verify-phone-code", { challengeId, code });
+  if (data.token) saveAuthSession({ token: data.token, user: data.user });
+  return data;
+}
+
+export async function resendSaasLoginPhoneCode(challengeId) {
+  const { data } = await api.post("/saas/auth/login/resend-phone-code", { challengeId });
+  return data;
+}
+
 export async function verifySaasLoginEmailCode(challengeId, code) {
   const { data } = await api.post("/saas/auth/login/verify-email", { challengeId, code });
   if (data.token) saveAuthSession({ token: data.token, user: data.user });
@@ -61,6 +77,11 @@ export async function getAppBootstrap() {
   return data;
 }
 
+export async function saveBusinessProfile(payload) {
+  const { data } = await api.put("/saas/app/profile", payload);
+  return data;
+}
+
 export async function getOwnerDocuments() {
   const { data } = await api.get("/saas/app/owner-documents");
   return data.documents;
@@ -83,8 +104,13 @@ export async function saveOnboardingUnits(payload = {}) {
   return data;
 }
 
-export async function savePropertyTypes(types) {
-  const { data } = await api.put("/saas/onboarding/property-types", { types });
+export async function savePropertyTypes(types, canteenEnabled = false) {
+  const { data } = await api.put("/saas/onboarding/property-types", { types, canteenEnabled });
+  return data;
+}
+
+export async function saveCanteenFeature(canteenEnabled) {
+  const { data } = await api.put("/saas/app/canteen-feature", { canteenEnabled });
   return data;
 }
 
@@ -145,6 +171,11 @@ export async function getSuperAdminDashboard() {
 
 export async function getOrganizations() {
   const { data } = await api.get("/saas/admin/organizations");
+  return data;
+}
+
+export async function getSystemAdminUsers() {
+  const { data } = await api.get("/saas/admin/system-users");
   return data;
 }
 

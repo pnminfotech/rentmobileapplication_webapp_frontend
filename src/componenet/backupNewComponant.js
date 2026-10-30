@@ -98,7 +98,7 @@ const openAddModal = () => {
   setShowAddModal(true);
 };
 
-  const apiUrl = '    http://localhost:8000/api/';
+  const apiUrl = '    https://rentmobile-api.pnminfotech.com/api/';
 const correctPassword = "987654";
 
   useEffect(() => {
@@ -133,7 +133,7 @@ useEffect(() => {
     .catch(err => console.error("Error fetching archived tenants:", err));
 }, []);
 useEffect(() => {
-  axios.get('    http://localhost:8000/api/rooms')
+  axios.get('    https://rentmobile-api.pnminfotech.com/api/rooms')
     .then(response => setRoomsData(response.data))
     .catch(err => console.error("Failed to fetch rooms:", err));
 }, []);

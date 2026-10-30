@@ -75,7 +75,8 @@ export function useDashboardMenuItems() {
       })
       .filter((item) => !Array.isArray(item.children) || item.children.length > 0)
       .filter((item) => {
-        if (item.label === "Canteen" || item.label === "Hostel rules") return enabledTypes.has("bed");
+        if (item.label === "Canteen") return enabledTypes.has("bed") && Boolean(unitAccess?.organization?.features?.canteenEnabled);
+        if (item.label === "Hostel rules") return enabledTypes.has("bed");
         if (item.label === "Staff") return enabledTypes.size > 0;
         return true;
       });

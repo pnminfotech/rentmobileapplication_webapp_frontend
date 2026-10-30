@@ -28,7 +28,7 @@ const Maintenance = () => {
 
   useEffect(() => {
     axios
-      .get("   http://localhost:8000/api/projects")
+      .get("   https://rentmobile-api.pnminfotech.com/api/projects")
       .then((res) => setProjects(res.data))
       .catch((err) => console.error("Error fetching projects:", err));
   }, []);
@@ -53,7 +53,7 @@ const Maintenance = () => {
   
     try {
       const res = await axios.post(
-        "   http://localhost:8000/api/emp/projects",
+        "   https://rentmobile-api.pnminfotech.com/api/emp/projects",
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -96,7 +96,7 @@ const Maintenance = () => {
 
     try {
       const res = await axios.put(
-        `   http://localhost:8000/api/projects/${editProject}`,
+        `   https://rentmobile-api.pnminfotech.com/api/projects/${editProject}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -252,7 +252,7 @@ const Maintenance = () => {
                   <td> {project.image && (
     <img 
     src={project.image 
-      ? `   http://localhost:8000//uploads/${project.image}` 
+      ? `   https://rentmobile-api.pnminfotech.com//uploads/${project.image}` 
       : `../image/houseRom.jpeg`}     
        alt="Project"
       style={{ 

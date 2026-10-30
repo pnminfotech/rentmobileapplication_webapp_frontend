@@ -8,7 +8,7 @@ const LOCAL_HOSTS = new Set([
   "::1",
 ]);
 
-const DEFAULT_LOCAL_API_BASE = "http://localhost:8000/api";
+const DEFAULT_LOCAL_API_BASE = "https://rentmobile-api.pnminfotech.com/api";
 function getDefaultApiBase() {
   if (
     typeof window !== "undefined" &&

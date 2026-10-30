@@ -92,6 +92,51 @@ function CanteenTenantRates({ tenant, setTenant, settings }) {
   </div>;
 }
 
+function TrackerLocationFilters({
+  className = "",
+  trackerType,
+  trackerNavigationTypes,
+  trackerBuildingOptions,
+  trackerWingOptions,
+  trackerFloorOptions,
+  trackerLocationFilters,
+  onTrackerTypeChange,
+  onLocationFiltersChange,
+}) {
+  return (
+    <section className={`rent-location-filters ${className}`} aria-label="Tenant location filters">
+      <label className="rent-location-filter-field">
+        <span>Property type</span>
+        <select className="form-select" value={trackerType} onChange={(event) => onTrackerTypeChange(event.target.value)}>
+          {trackerNavigationTypes.map(({ value }) => <option key={value} value={value}>{value === "bed" ? "Hostel" : value === "room" ? "Residential Room" : "Commercial Shop"}</option>)}
+        </select>
+      </label>
+      <label className="rent-location-filter-field">
+        <span>Property / building</span>
+        <select className="form-select" value={trackerLocationFilters.building} onChange={(event) => onLocationFiltersChange({ building: event.target.value, wing: "", floor: "" })}>
+          <option value="">All</option>
+          {trackerBuildingOptions.map((building) => <option key={building} value={building}>{building}</option>)}
+        </select>
+      </label>
+      <label className="rent-location-filter-field">
+        <span>Wing</span>
+        <select className="form-select" value={trackerLocationFilters.wing} onChange={(event) => onLocationFiltersChange((current) => ({ ...current, wing: event.target.value, floor: "" }))}>
+          <option value="">All</option>
+          {trackerWingOptions.map((wing) => <option key={wing} value={wing}>{wing}</option>)}
+        </select>
+      </label>
+      <label className="rent-location-filter-field">
+        <span>Floor</span>
+        <select className="form-select" value={trackerLocationFilters.floor} onChange={(event) => onLocationFiltersChange((current) => ({ ...current, floor: event.target.value }))}>
+          <option value="">All</option>
+          {trackerFloorOptions.map((floor) => <option key={floor} value={floor}>{floor}</option>)}
+        </select>
+      </label>
+      <button type="button" className="rent-location-filter-reset" disabled={!trackerLocationFilters.building && !trackerLocationFilters.wing && !trackerLocationFilters.floor} onClick={() => onLocationFiltersChange({ building: "", wing: "", floor: "" })}>Reset filters</button>
+    </section>
+  );
+}
+
 const TRACKER_TYPES = ["bed", "room", "shop"];
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -179,8 +224,8 @@ function buildApiUrl(base) {
 
   const fallbackOrigin =
     typeof window !== "undefined" && LOCAL_HOSTS.has(window.location.hostname)
-      ? "   http://localhost:8000/"
-      : " http://localhost:8000/";
+      ? "   https://rentmobile-api.pnminfotech.com/"
+      : " https://rentmobile-api.pnminfotech.com/";
 
   return new URL("/api/", fallbackOrigin).toString();
 }
@@ -6171,7 +6216,7 @@ const updateBreakdownItemStatus = async (item, nextStatus) => {
   // }, []);
   // useEffect(() => {
   //   axios
-  //     .get("    http://localhost:8000/api/rooms")
+  //     .get("    https://rentmobile-api.pnminfotech.com/api/rooms")
   //     .then((response) => setRoomsData(response.data))
   //     .catch((err) => console.error("Failed to fetch rooms:", err));
   // }, []);
@@ -7327,7 +7372,7 @@ setRentUpdateMode("add");
     if (
       typeof window !== "undefined" &&
       window.matchMedia &&
-      window.matchMedia("(max-width: 768px)").matches
+      window.matchMedia("(max-width: 1024px)").matches
     ) {
       setMobileSelectedTenant(tenant);
       setShowMobileTenantProfile(true);
@@ -10031,18 +10076,18 @@ const isTodayOrFuture = (iso) => {
         onLogout={handleLogout}
       />
 
-   <div className="mobile-section-trigger-wrap">
+   {/* <div className="mobile-section-trigger-wrap">
   <button
     type="button"
     className="mobile-section-trigger"
     onClick={() => setShowMobileSections(true)}
   >
     <FaBars />
-    {/* <span>Sections</span> */}
+  
   </button>
 
   <h3 className="mobile-dynamic-heading">{currentSectionHeading}</h3>
-</div>
+</div> */}
 
     {/* ⭐ Staff & Other Expenses Button */}
   {/* ----------------- NEW BUTTON ROW ----------------- */}
@@ -10668,36 +10713,17 @@ const isTodayOrFuture = (iso) => {
 />
 
 {!showUnassignedTenantsView && (
-  <section className="rent-location-filters" aria-label="Tenant location filters">
-    <label className="rent-location-filter-field">
-      <span>Property type</span>
-      <select className="form-select" value={trackerType} onChange={(event) => openTrackerView(event.target.value, "rent")}>
-        {trackerNavigationTypes.map(({ value }) => <option key={value} value={value}>{value === "bed" ? "Hostel" : value === "room" ? "Residential Room" : "Commercial Shop"}</option>)}
-      </select>
-    </label>
-    <label className="rent-location-filter-field">
-      <span>Property / building</span>
-      <select className="form-select" value={trackerLocationFilters.building} onChange={(event) => setTrackerLocationFilters({ building: event.target.value, wing: "", floor: "" })}>
-        <option value="">All</option>
-        {trackerBuildingOptions.map((building) => <option key={building} value={building}>{building}</option>)}
-      </select>
-    </label>
-    <label className="rent-location-filter-field">
-      <span>Wing</span>
-      <select className="form-select" value={trackerLocationFilters.wing} onChange={(event) => setTrackerLocationFilters((current) => ({ ...current, wing: event.target.value, floor: "" }))}>
-        <option value="">All</option>
-        {trackerWingOptions.map((wing) => <option key={wing} value={wing}>{wing}</option>)}
-      </select>
-    </label>
-    <label className="rent-location-filter-field">
-      <span>Floor</span>
-      <select className="form-select" value={trackerLocationFilters.floor} onChange={(event) => setTrackerLocationFilters((current) => ({ ...current, floor: event.target.value }))}>
-        <option value="">All</option>
-        {trackerFloorOptions.map((floor) => <option key={floor} value={floor}>{floor}</option>)}
-      </select>
-    </label>
-    <button type="button" className="rent-location-filter-reset" disabled={!trackerLocationFilters.building && !trackerLocationFilters.wing && !trackerLocationFilters.floor} onClick={() => setTrackerLocationFilters({ building: "", wing: "", floor: "" })}>Reset filters</button>
-  </section>
+  <TrackerLocationFilters
+    className="rent-location-filters--desktop"
+    trackerType={trackerType}
+    trackerNavigationTypes={trackerNavigationTypes}
+    trackerBuildingOptions={trackerBuildingOptions}
+    trackerWingOptions={trackerWingOptions}
+    trackerFloorOptions={trackerFloorOptions}
+    trackerLocationFilters={trackerLocationFilters}
+    onTrackerTypeChange={(type) => openTrackerView(type, "rent")}
+    onLocationFiltersChange={setTrackerLocationFilters}
+  />
 )}
 
   {showMobileVacantBeds ? (
@@ -10797,6 +10823,21 @@ const isTodayOrFuture = (iso) => {
         onOpenVacantBeds={openMobileVacantBeds}
         onAddTenantForSlot={openAddForSlot}
         onMarkLeave={handleLeave}
+        locationFilters={
+          !showUnassignedTenantsView ? (
+            <TrackerLocationFilters
+              className="rent-mobile-location-filters"
+              trackerType={trackerType}
+              trackerNavigationTypes={trackerNavigationTypes}
+              trackerBuildingOptions={trackerBuildingOptions}
+              trackerWingOptions={trackerWingOptions}
+              trackerFloorOptions={trackerFloorOptions}
+              trackerLocationFilters={trackerLocationFilters}
+              onTrackerTypeChange={(type) => openTrackerView(type, "rent")}
+              onLocationFiltersChange={setTrackerLocationFilters}
+            />
+          ) : null
+        }
       />
     </>
   )}

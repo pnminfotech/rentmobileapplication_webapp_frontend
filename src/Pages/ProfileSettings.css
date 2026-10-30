@@ -54,6 +54,35 @@
   background: #e9faf1;
 }
 
+.profile-canteen-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #d9e1e7;
+  border-radius: 10px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.profile-canteen-toggle strong,
+.profile-canteen-toggle small {
+  display: block;
+}
+
+.profile-canteen-toggle small {
+  margin-top: 4px;
+  color: #63738a;
+}
+
+.profile-canteen-toggle input {
+  width: 42px;
+  height: 22px;
+  flex: 0 0 auto;
+  accent-color: #5268e9;
+}
+
 .profile-hero,
 .profile-card {
   border: 1px solid #d9e1e7;
@@ -2473,6 +2502,11 @@
 .profile-owner-upload:hover { color: #174bb8; background: #e3edff; }
 .profile-owner-upload { position: relative; }
 .profile-owner-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.profile-business-edit { display: grid; gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid #e5ecf7; }
+.profile-business-edit h3 { margin: 0; color: #183567; font-size: 15px; font-weight: 800; }
+.profile-business-edit label { display: grid; gap: 6px; color: #60718b; font-size: 12px; font-weight: 700; }
+.profile-business-edit .form-control { min-height: 42px; border-color: #d6e0ef; border-radius: 9px; }
+.profile-business-edit .btn { justify-self: start; min-height: 40px; padding: 8px 14px; font-size: 12px; font-weight: 800; }
 .profile-owner-upload:focus-within, .profile-owner-remove:focus-visible { outline: 2px solid #245bce; outline-offset: 2px; }
 .profile-owner-upload svg, .profile-owner-remove svg { width: 12px; height: 12px; }
 .profile-owner-remove { border-color: #f2cccc; background: #fff2f2; color: #bc3540; }

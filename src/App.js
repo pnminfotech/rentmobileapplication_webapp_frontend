@@ -24,7 +24,6 @@ import Suppliers from './Pages/Suppliers';
 import Maintenance from './Pages/Maintenance';
 import AdminSidebar from './Pages/AdminSidebar';
 import AppEntry from './Pages/AppEntry';
-import RegisterBusiness from './Pages/RegisterBusiness';
 import TrialUnitSetup from './Pages/TrialUnitSetup';
 import PropertyTypes from './Pages/PropertyTypes';
 import SubscriptionExpired from './Pages/SubscriptionExpired';
@@ -90,8 +89,9 @@ function Layout() {
         {/* Auth routes */}
         <Route path="/" element={<AppEntry />} />
         <Route path="/login" element={<Log />} />
-        <Route path="/register" element={<RegisterBusiness />} />
-        <Route path="/register-business" element={<RegisterBusiness />} />
+        <Route path="/superadmin/login" element={<Log superadminOnly />} />
+        <Route path="/register" element={<Navigate to="/login" replace />} />
+        <Route path="/register-business" element={<Navigate to="/login" replace />} />
         <Route path="/trial-unit-setup" element={<ProtectedRoute skipSubscriptionCheck><TrialUnitSetup /></ProtectedRoute>} />
         <Route path="/property-types" element={<ProtectedRoute skipSubscriptionCheck><PropertyTypes /></ProtectedRoute>} />
         <Route path="/subscription-expired" element={<ProtectedRoute skipSubscriptionCheck><SubscriptionExpired /></ProtectedRoute>} />

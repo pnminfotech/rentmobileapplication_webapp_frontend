@@ -34,7 +34,7 @@ const isTenant = params.get("tenant") === "true";
 
   const fetchSrNo = async () => {
     try {
-      const response = await axios.get('    http://localhost:8000/api/forms/count');
+      const response = await axios.get('    https://rentmobile-api.pnminfotech.com/api/forms/count');
       setFormData((prev) => ({ ...prev, srNo: response.data.nextSrNo }));
     } catch (error) {
       console.error("Error fetching Sr No:", error);
@@ -53,7 +53,7 @@ const isTenant = params.get("tenant") === "true";
 const handleSubmit = async (e) => {
   e.preventDefault();
   try {
-    await axios.post('    http://localhost:8000/api/forms', formData);
+    await axios.post('    https://rentmobile-api.pnminfotech.com/api/forms', formData);
 
     // Tenant via shared link
     if (isTenant) {

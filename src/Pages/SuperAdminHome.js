@@ -26,6 +26,7 @@ import {
   getOrganizationSupportUnits,
   getReferralCodes,
   getSecurityPinStatus,
+  getSystemAdminUsers,
   getSuperAdminDashboard,
   requestPasswordReset,
   requestSuperadminEmailChange,
@@ -166,6 +167,8 @@ export default function SuperAdminHome() {
   const drawerRef = useRef(null);
   const [dashboard, setDashboard] = useState(null);
   const [organizations, setOrganizations] = useState([]);
+  const [systemAdminUsers, setSystemAdminUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -229,11 +232,16 @@ export default function SuperAdminHome() {
       if (section === "transactions") setTransactions(await getBillingTransactions({ limit: 100 }));
       if (section === "referrals") setReferrals(await getReferralCodes());
       if (section === "notifications") setNotifications(await getNotifications({ status: "all", limit: 100 }));
+      if (section === "users") {
+        setUsersLoading(true);
+        setSystemAdminUsers(await getSystemAdminUsers());
+      }
       if (section === "profile" || section === "security") {
         const [account, pin] = await Promise.all([getAppBootstrap(), getSecurityPinStatus()]);
         setBootstrap(account); setSecurityConfigured(Boolean(pin.configured));
       }
     } catch (err) { setError(err.response?.data?.message || "Unable to load this section."); }
+    finally { if (section === "users") setUsersLoading(false); }
   }
 
   useEffect(() => {
@@ -355,6 +363,7 @@ export default function SuperAdminHome() {
     { key: "dashboard", label: "Dashboard", icon: <FiBarChart2 /> },
     { key: "trial", label: "Trial Accounts", icon: <MdOutlinePendingActions /> },
     { key: "renewed", label: "Renewed Accounts", icon: <FiCreditCard /> },
+    { key: "users", label: "System Admin Users", icon: <FiUsers /> },
     { key: "transactions", label: "Transactions", icon: <FiCreditCard /> },
     { key: "plans", label: "Plans", icon: <FiPackage /> },
     { key: "referrals", label: "Referral Codes", icon: <FiTag /> },
@@ -479,6 +488,14 @@ export default function SuperAdminHome() {
         />
       );
     }
+
+    if (activeSection === "users") return <Panel title="System admin users" action={<span className="badge text-bg-light">{systemAdminUsers.length}</span>}>
+      {usersLoading ? (
+        <div className="text-center py-4"><div className="spinner-border text-primary" role="status" /></div>
+      ) : (
+        <div className="table-responsive"><table className="table align-middle mb-0"><thead><tr><th>System admin</th><th>Contact</th><th>Business / organization</th><th>Account status</th><th>Last login</th><th>Added</th></tr></thead><tbody>{systemAdminUsers.map((user) => <tr key={user._id}><td><div className="fw-semibold">{user.name || "-"}</div><div className="small text-muted">System admin</div></td><td><div>{user.email || "-"}</div><div className="small text-muted">{user.phone || "-"}</div></td><td><div className="fw-semibold">{user.organization?.name || "-"}</div></td><td><span className={`badge ${user.status === "active" ? "text-bg-success" : user.status === "suspended" ? "text-bg-danger" : "text-bg-light"} text-capitalize`}>{statusText(user.status)}</span></td><td>{formatDate(user.lastLoginAt)}</td><td>{formatDate(user.createdAt)}</td></tr>)}{!systemAdminUsers.length && <tr><td colSpan="6" className="text-center text-muted py-4">No system-admin users found.</td></tr>}</tbody></table></div>
+      )}
+    </Panel>;
 
     if (activeSection === "plans") return <Panel title="Subscription plans" action={<button className="btn btn-primary btn-sm" onClick={() => setPlanForm({ name: "", durationMonths: 12, bedMonthly: 0, roomMonthly: 0, shopMonthly: 0, baseAmount: 0, discountPercent: 0, isActive: true })}>Add plan</button>}>
       {planForm && <form onSubmit={savePlan} className="border rounded p-3 mb-3"><div className="row g-2">{[["name", "Plan name"], ["durationMonths", "Duration months"], ["bedMonthly", "Bed monthly price"], ["roomMonthly", "Room monthly price"], ["shopMonthly", "Shop monthly price"], ["baseAmount", "Base amount"], ["discountPercent", "Discount %"]].map(([key, label]) => <div className="col-12 col-md-4" key={key}><label className="form-label small">{label}</label><input required={key === "name"} type={key === "name" ? "text" : "number"} min="0" className="form-control" value={planForm[key]} onChange={(e) => setPlanForm({ ...planForm, [key]: e.target.value })} /></div>)}</div><div className="mt-3 d-flex gap-2"><button className="btn btn-primary">Save plan</button><button type="button" className="btn btn-outline-secondary" onClick={() => setPlanForm(null)}>Cancel</button></div></form>}

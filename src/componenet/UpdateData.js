@@ -20,7 +20,7 @@ function UpdateData() {
     navigate(path);
   };
 
-  const apiUrl = '    http://localhost:8000/api/'; // API endpoint
+  const apiUrl = '    https://rentmobile-api.pnminfotech.com/api/'; // API endpoint
 
   // Generate months dynamically for the selected year
   const months = Array.from({ length: 12 }, (_, index) => {

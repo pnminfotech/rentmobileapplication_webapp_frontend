@@ -118,11 +118,12 @@ function getRentSummaryText(cell) {
 }
 
 function getTotalSummaryText(cell) {
-  const total =
-    toNum(cell?.expected) +
-    toNum(cell?.canteenAmount) +
-    toNum(cell?.lightBillExtraAmount) +
-    toNum(cell?.duePenaltyAmount);
+  const total = toNum(
+    cell?.totalExpected ??
+      toNum(cell?.expected) +
+        toNum(cell?.canteenAmount) +
+        toNum(cell?.lightBillExtraAmount)
+  );
   return `Total: ₹${total.toLocaleString("en-IN")}`;
 }
 
@@ -139,6 +140,7 @@ function RentMobileViewCardFeed({
   searchText = "",
   onYearChange,
   onSearchChange,
+  locationFilters,
   visibleMonths = [],
   getMonthCell,
   getRentStatusLabelForSort,
@@ -308,6 +310,8 @@ function RentMobileViewCardFeed({
                   </select>
                 </div>
               )}
+
+              {locationFilters}
 
               <div className="rent-mobile-filter-actions">
                 <button

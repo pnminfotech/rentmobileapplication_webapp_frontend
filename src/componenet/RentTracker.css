@@ -1496,6 +1496,13 @@
     display: block;
   }
 }
+
+@media (max-width: 1023px) {
+  .leaved-tenants-section {
+    display: none;
+  }
+}
+
 .maincontainer{
   padding-right: 10px;
     padding-left: 10px !important;
@@ -2661,6 +2668,10 @@
     display: none !important;
   }
 
+  .rent-location-filters--desktop {
+    display: none;
+  }
+
   .rent-mobile-tools {
     display: flex;
     flex-direction: column;
@@ -2790,6 +2801,22 @@
     padding: 12px;
   }
 
+  .rent-mobile-filter-panel .rent-mobile-location-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .rent-mobile-filter-panel .rent-mobile-location-filters .rent-location-filter-reset {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+
   .rent-mobile-tools-actions button {
     min-height: 43px;
     padding: 8px 10px;
@@ -2888,6 +2915,10 @@
     padding: 13px;
   }
 
+  .rent-mobile-filter-panel .rent-mobile-location-filters {
+    grid-template-columns: 1fr;
+  }
+
   .rent-summary-row {
     display: flex !important;
     flex-wrap: nowrap !important;
@@ -2976,3 +3007,12 @@
 }
 
 
+@media (max-width: 1024px) {
+    .rent-table-wrapper {
+        background: linear-gradient(180deg, #f6f4ff, #ffffff);
+        border-radius: 18px;
+        padding: 14px;
+        box-shadow: 0 18px 40px rgba(120, 100, 200, 0.22);
+        overflow-x: auto;
+    }
+}

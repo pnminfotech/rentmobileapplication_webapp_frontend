@@ -1,19 +1,86 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FaUser } from "react-icons/fa";
+import { FaEnvelope, FaPhoneAlt } from "react-icons/fa";
 import logo from "../image/mutkehostel.png";
 import bgImage from "../image/hostelbg.png";
 import "../stylecss/LoginRegister.css";
-import { getAppBootstrap, requestSaasLoginEmailCode, resendSaasLoginEmailCode, resetSaasLoginSecurityPin, setupSaasLoginSecurityPin, verifySaasLoginEmailCode, verifySaasLoginSecurityPin } from "../saasApi";
+import { getAppBootstrap, requestSaasLoginEmailCode, requestSaasLoginPhoneCode, resendSaasLoginEmailCode, resendSaasLoginPhoneCode, resetSaasLoginSecurityPin, setupSaasLoginSecurityPin, verifySaasLoginEmailCode, verifySaasLoginPhoneCode, verifySaasLoginSecurityPin } from "../saasApi";
 import { getPostLoginPath } from "../utils/saasNavigation";
 // import { API, setToken } from "../tenant/tenantApi";
 // Single API base
-// const API = (process.env.REACT_APP_API_BASE || "    http://localhost:8000/api").replace(/\/+$/, "");
+// const API = (process.env.REACT_APP_API_BASE || "    https://rentmobile-api.pnminfotech.com/api").replace(/\/+$/, "");
 // const setTenantToken = (t) => localStorage.setItem("tenantToken", t);
 import { API, setToken } from "../tenant/tenantApi";
 // (Optional) helper to keep only digits
 const digitsOnly = (s) => String(s || "").replace(/\D/g, "");
+const getSecondsUntil = (timestamp) => Math.max(0, Math.ceil((new Date(timestamp).getTime() - Date.now()) / 1000));
+
+function OtpCodeInput({ value, onChange, disabled = false, autoComplete = false }) {
+  const inputs = React.useRef([]);
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 6).split("");
+
+  function updateFrom(index, input) {
+    const enteredDigits = digitsOnly(input).slice(0, 6 - index).split("");
+    const nextDigits = [...digits];
+    if (!enteredDigits.length) {
+      nextDigits[index] = "";
+      onChange(nextDigits.join(""));
+      return;
+    }
+    if (enteredDigits.length > 1) nextDigits.length = index;
+    enteredDigits.forEach((digit, offset) => {
+      nextDigits[index + offset] = digit;
+    });
+    onChange(nextDigits.join(""));
+    inputs.current[Math.min(index + enteredDigits.length, 5)]?.focus();
+  }
+
+  function handleKeyDown(index, event) {
+    if (event.key === "Backspace" && !digits[index] && index > 0) {
+      event.preventDefault();
+      const nextDigits = [...digits];
+      nextDigits[index - 1] = "";
+      onChange(nextDigits.join(""));
+      inputs.current[index - 1]?.focus();
+    } else if (event.key === "ArrowLeft" && index > 0) {
+      event.preventDefault();
+      inputs.current[index - 1]?.focus();
+    } else if (event.key === "ArrowRight" && index < 5) {
+      event.preventDefault();
+      inputs.current[index + 1]?.focus();
+    }
+  }
+
+  function handlePaste(index, event) {
+    event.preventDefault();
+    updateFrom(index, event.clipboardData.getData("text"));
+  }
+
+  return (
+    <div className="login-otp-inputs" role="group" aria-label="6-digit verification code">
+      {Array.from({ length: 6 }, (_, index) => (
+        <input
+          key={index}
+          ref={(element) => { inputs.current[index] = element; }}
+          className="login-otp-input"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={6}
+          aria-label={`Digit ${index + 1} of 6`}
+          autoComplete={autoComplete && index === 0 ? "one-time-code" : "off"}
+          value={digits[index] || ""}
+          disabled={disabled}
+          required={index === 0}
+          onChange={(event) => updateFrom(index, event.target.value)}
+          onKeyDown={(event) => handleKeyDown(index, event)}
+          onPaste={(event) => handlePaste(index, event)}
+        />
+      ))}
+    </div>
+  );
+}
 
 // Generate candidate phone formats. We will try them for request-otp until one works,
 // then reuse the exact working value for verify.
@@ -249,12 +316,13 @@ setToken(r.data.token);
 }
 
 // =================== Main Log component ===================
-const Log = () => {
+const Log = ({ superadminOnly = false }) => {
   const [role, setRole] = useState("admin"); // "admin" | "tenant"
-  const [isLogin, setIsLogin] = useState(true); // only for admin section
+  const [loginMethod, setLoginMethod] = useState(superadminOnly ? "email" : "phone");
   const navigate = useNavigate();
 
   // Admin Login State
+  const [loginPhone, setLoginPhone] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginMessage, setLoginMessage] = useState("");
   const [loginChallengeId, setLoginChallengeId] = useState("");
@@ -262,15 +330,38 @@ const Log = () => {
   const [loginMaskedEmail, setLoginMaskedEmail] = useState("");
   const [loginNotice, setLoginNotice] = useState("");
   const [loginCodeSending, setLoginCodeSending] = useState(false);
+  const [loginCodeLocked, setLoginCodeLocked] = useState(false);
+  const [loginResendAvailableAt, setLoginResendAvailableAt] = useState(null);
+  const [loginResendSeconds, setLoginResendSeconds] = useState(0);
   const [loginPinStage, setLoginPinStage] = useState("");
   const [loginSecurityPin, setLoginSecurityPin] = useState("");
   const [loginSecurityPinConfirm, setLoginSecurityPinConfirm] = useState("");
 
-  // Admin Register State
-  const [username, setUsername] = useState("");
-  const [registerEmail, setRegisterEmail] = useState("");
-  const [registerPassword, setRegisterPassword] = useState("");
-  const [registerMessage, setRegisterMessage] = useState("");
+  useEffect(() => {
+    setRole("admin");
+    setLoginMethod(superadminOnly ? "email" : "phone");
+    setLoginChallengeId("");
+    setLoginCode("");
+    setLoginCodeLocked(false);
+    setLoginResendAvailableAt(null);
+    setLoginResendSeconds(0);
+    setLoginPinStage("");
+    setLoginMessage("");
+    setLoginNotice("");
+  }, [superadminOnly]);
+
+  useEffect(() => {
+    if (loginMethod !== "phone" || !loginResendAvailableAt) {
+      setLoginResendSeconds(0);
+      return undefined;
+    }
+
+    const updateCountdown = () => setLoginResendSeconds(getSecondsUntil(loginResendAvailableAt));
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [loginChallengeId, loginMethod, loginResendAvailableAt]);
+
   const box1 = {
     maxWidth: 520,
     margin: "0 auto",
@@ -282,13 +373,22 @@ const Log = () => {
 async function handleLogin(e) {
   e.preventDefault();
 
+  if (loginMethod === "phone" && !/^\d{10}$/.test(loginPhone)) {
+    setLoginMessage("Enter a valid 10-digit mobile number.");
+    return;
+  }
+
   try {
     setLoginMessage("");
     setLoginNotice("");
 
-    const data = await requestSaasLoginEmailCode(loginEmail.trim());
+    const data = loginMethod === "phone"
+      ? await requestSaasLoginPhoneCode(`+91${loginPhone}`)
+      : await requestSaasLoginEmailCode(loginEmail.trim());
     setLoginChallengeId(data.challengeId);
-    setLoginMaskedEmail(data.email || "your registered email");
+    setLoginMaskedEmail(data.phone || data.email || (loginMethod === "phone" ? "your mobile number" : "your registered email"));
+    setLoginCodeLocked(false);
+    setLoginResendAvailableAt(data.resendAvailableAt || null);
     setLoginCode("");
   } catch (error) {
     console.error(
@@ -296,9 +396,14 @@ async function handleLogin(e) {
       error.response?.data || error
     );
 
+    if (loginMethod === "phone" && error.response?.data?.resendAvailableAt) {
+      setLoginResendAvailableAt(error.response.data.resendAvailableAt);
+    }
     setLoginMessage(
       error.response?.data?.message ||
-        "Unable to send the verification code. Please check your email address."
+        (loginMethod === "phone"
+          ? "Unable to send the OTP. Please check your mobile number and try again."
+          : "Unable to send the verification code. Please check your email address.")
     );
   }
 }
@@ -306,7 +411,7 @@ async function handleLogin(e) {
 async function handleVerifyLoginCode(e) {
   e.preventDefault();
   if (!/^\d{6}$/.test(loginCode)) {
-    setLoginMessage("Enter the 6-digit code sent to your email.");
+    setLoginMessage(`Enter the 6-digit code sent to your ${loginMethod === "phone" ? "mobile" : "email"}.`);
     return;
   }
 
@@ -314,7 +419,9 @@ async function handleVerifyLoginCode(e) {
     const resetPinAfterCode = loginPinStage === "reset-code";
     setLoginMessage("");
     setLoginNotice("");
-    const data = await verifySaasLoginEmailCode(loginChallengeId, loginCode);
+    const data = loginMethod === "phone"
+      ? await verifySaasLoginPhoneCode(loginChallengeId, loginCode)
+      : await verifySaasLoginEmailCode(loginChallengeId, loginCode);
     if (resetPinAfterCode) {
       setLoginPinStage("reset");
       setLoginCode("");
@@ -329,7 +436,11 @@ async function handleVerifyLoginCode(e) {
     const bootstrap = await getAppBootstrap();
     navigate(getPostLoginPath(bootstrap), { replace: true });
   } catch (error) {
-    setLoginMessage(error.response?.data?.message || "Unable to verify the code. Please try again.");
+    const message = error.response?.data?.message || "Unable to verify the code. Please try again.";
+    if (loginMethod === "phone" && error.response?.status === 429 && /incorrect otp attempts/i.test(message)) {
+      setLoginCodeLocked(true);
+    }
+    setLoginMessage(message);
   }
 }
 
@@ -371,18 +482,30 @@ async function handleVerifyLoginSecurityPin(e) {
 }
 
 async function handleResendLoginCode() {
-  if (loginCodeSending) return;
+  if (loginCodeSending || (loginMethod === "phone" && loginResendSeconds > 0)) return;
   setLoginCodeSending(true);
   try {
     setLoginMessage("");
     setLoginNotice("");
-    const data = await resendSaasLoginEmailCode(loginChallengeId);
+      if (loginMethod === "phone") {
+        const data = await resendSaasLoginPhoneCode(loginChallengeId);
+        setLoginMaskedEmail(data.phone || loginMaskedEmail);
+        setLoginResendAvailableAt(data.resendAvailableAt || null);
+        setLoginCodeLocked(false);
+        setLoginCode("");
+        setLoginNotice("A new sign-in code has been sent.");
+        return;
+      }
+      const data = await resendSaasLoginEmailCode(loginChallengeId);
     setLoginMaskedEmail(data.email || loginMaskedEmail);
     setLoginCode("");
     setLoginNotice("A new sign-in code has been sent.");
   } catch (error) {
     const serverMessage = error.response?.data?.message || "Unable to resend the code. Please try again.";
-    if (error.response?.status === 400 && /invalid|expired/i.test(serverMessage) && loginEmail.trim()) {
+    if (loginMethod === "phone" && error.response?.data?.resendAvailableAt) {
+      setLoginResendAvailableAt(error.response.data.resendAvailableAt);
+    }
+    if (loginMethod === "email" && error.response?.status === 400 && /invalid|expired/i.test(serverMessage) && loginEmail.trim()) {
       try {
         const freshChallenge = await requestSaasLoginEmailCode(loginEmail.trim());
         setLoginChallengeId(freshChallenge.challengeId);
@@ -403,25 +526,6 @@ async function handleResendLoginCode() {
     setLoginCodeSending(false);
   }
 }
-  async function handleRegister(e) {
-    e.preventDefault();
-    try {
-      const response = await fetch(`${API}/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email: registerEmail, password: registerPassword }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setRegisterMessage("Registration successful! Please log in.");
-        setIsLogin(true);
-      } else {
-        setRegisterMessage(data.message || "Registration failed.");
-      }
-    } catch (error) {
-      setRegisterMessage("An error occurred. Please try again.");
-    }
-  }
 
   return (
     <div
@@ -456,139 +560,103 @@ async function handleResendLoginCode() {
                
               </h2>
 
-              <div className="btn-group mb-3" role="group" aria-label="Role switch">
-                <button
-                  className={`btn ${role === "admin" ? "btn-primary" : "btn-outline-primary"}`}
-                  onClick={() => setRole("admin")}
-                >
-                  Admin
-                </button>
-                <button
-                  className={`btn ${role === "tenant" ? "btn-primary" : "btn-outline-primary"}`}
-                  onClick={() => setRole("tenant")}
-                >
-                  Tenant
-                </button>
-              </div>
+              {!superadminOnly && (
+                <div className="btn-group mb-3" role="group" aria-label="Role switch">
+                  <button
+                    className={`btn ${role === "admin" ? "btn-primary" : "btn-outline-primary"}`}
+                    onClick={() => setRole("admin")}
+                  >
+                    Admin
+                  </button>
+                  {/* <button
+                    className={`btn ${role === "tenant" ? "btn-primary" : "btn-outline-primary"}`}
+                    onClick={() => setRole("tenant")}
+                  >
+                    Tenant
+                  </button> */}
+                </div>
+              )}
 
-              {role === "admin" && (
+              {(role === "admin" || superadminOnly) && (
                 <>
-                  {isLogin ? (
-                    <form onSubmit={loginPinStage === "reset-code" ? handleVerifyLoginCode : loginPinStage ? handleVerifyLoginSecurityPin : loginChallengeId ? handleVerifyLoginCode : handleLogin} className="" style={box1}>
-                      <h3 style={{ color: "#1e3a8a", textAlign: "center" }}>{loginPinStage === "reset-code" ? "Verify reset OTP" : loginPinStage ? "Confirm security PIN" : loginChallengeId ? "Verify your email" : "Admin sign in"}</h3>
-                      {!loginChallengeId ? <>
-                        <div className="form-group text-start">
-                          <label>Email address:</label>
-                          <div className="input-group">
-                            <input
-                              type="email"
-                              className="form-control"
-                              placeholder="Enter your registered email"
-                              value={loginEmail}
-                              onChange={(e) => setLoginEmail(e.target.value)}
-                              required
-                            />
-                          <span className="input-group-text">
-                            <FaUser />
-                          </span>
+                  <form onSubmit={loginPinStage === "reset-code" ? handleVerifyLoginCode : loginPinStage ? handleVerifyLoginSecurityPin : loginChallengeId ? handleVerifyLoginCode : handleLogin} className="" style={box1}>
+                    <h3 style={{ color: "#1e3a8a", textAlign: "center" }}>
+                      {loginPinStage === "reset-code" ? "Verify reset OTP" : loginPinStage ? "Confirm security PIN" : loginChallengeId ? `Verify ${loginMethod === "phone" ? "mobile" : "email"} OTP` : superadminOnly ? "Superadmin sign in" : "Admin sign in"}
+                    </h3>
+                    {superadminOnly && <p className="text-muted text-center">Sign in with the superadmin email address. Access is restricted to superadmin accounts.</p>}
+                    {!loginChallengeId && !loginPinStage ? (
+                      <div className="form-group text-start">
+                        <label>{loginMethod === "phone" ? "Mobile number:" : "Email address:"}</label>
+                        <div className="input-group">
+                          {loginMethod === "phone" && (
+                            <span
+                              className="input-group-text"
+                              aria-label="Country code +91"
+                              style={{ borderLeft: "1px solid #ccc", borderRight: "none", borderRadius: "4px 0 0 4px" }}
+                            >
+                              +91
+                            </span>
+                          )}
+                          <input
+                            type={loginMethod === "phone" ? "tel" : "email"}
+                            className="form-control"
+                            placeholder={loginMethod === "phone" ? "10-digit mobile number" : "Enter your registered email"}
+                            value={loginMethod === "phone" ? loginPhone : loginEmail}
+                            onChange={(event) => {
+                              if (loginMethod === "phone") {
+                                const digits = event.target.value.replace(/\D/g, "");
+                                const nationalNumber = digits.startsWith("91") && digits.length === 12
+                                  ? digits.slice(2)
+                                  : digits;
+                                setLoginPhone(nationalNumber.slice(0, 10));
+                              } else {
+                                setLoginEmail(event.target.value);
+                              }
+                            }}
+                            inputMode={loginMethod === "phone" ? "tel" : undefined}
+                            autoComplete={loginMethod === "phone" ? "tel" : "email"}
+                            maxLength={loginMethod === "phone" ? 10 : undefined}
+                            pattern={loginMethod === "phone" ? "[0-9]{10}" : undefined}
+                            required
+                          />
+                          <span className="input-group-text">{loginMethod === "phone" ? <FaPhoneAlt /> : <FaEnvelope aria-label="Email" />}</span>
                         </div>
+                        {loginMethod === "phone" && loginResendSeconds > 0 && <p className="small text-muted mt-2">You can request another OTP in {`${String(Math.floor(loginResendSeconds / 60)).padStart(2, "0")}:${String(loginResendSeconds % 60).padStart(2, "0")}`}.</p>}
                       </div>
-                      </> : loginPinStage === "reset-code" ? <>
+                    ) : loginPinStage === "reset-code" ? (
+                      <>
                         <p className="text-muted">Enter the new 6-digit OTP sent to {loginMaskedEmail} before resetting your PIN.</p>
                         <label>Reset OTP:</label>
-                        <input type="text" className="form-control" placeholder="6-digit OTP" value={loginCode} onChange={(e) => setLoginCode(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} required />
-                      </> : loginPinStage ? <>
+                        <OtpCodeInput value={loginCode} onChange={setLoginCode} autoComplete />
+                      </>
+                    ) : loginPinStage ? (
+                      <>
                         <p className="text-muted">{loginPinStage === "setup" ? "Create a 4 to 8 digit PIN for future superadmin sign-ins." : loginPinStage === "reset" ? "Create a new security PIN. Your verified email OTP allows this reset." : "Enter the security PIN saved in your superadmin profile."}</p>
                         <label>Security PIN:</label>
                         <input type="password" className="form-control" value={loginSecurityPin} onChange={(e) => setLoginSecurityPin(e.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="off" maxLength={8} required />
                         {(loginPinStage === "setup" || loginPinStage === "reset") && <><label className="mt-2">Confirm security PIN:</label><input type="password" className="form-control" value={loginSecurityPinConfirm} onChange={(e) => setLoginSecurityPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="off" maxLength={8} required /></>}
-                      </> : <>
-                        <p className="text-muted">Enter the 6-digit code sent to {loginMaskedEmail}. It expires in 10 minutes.</p>
-                        <label>Email verification code:</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="6-digit code"
-                          value={loginCode}
-                          onChange={(e) => setLoginCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={6}
-                          required
-                        />
-                      </>}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-muted">Enter the 6-digit code sent to {loginMaskedEmail}. It expires in {loginMethod === "phone" ? "5" : "10"} minutes.</p>
+                        {loginMethod === "phone" && loginResendSeconds > 0 && <p className="small text-muted mb-2">You can request another OTP in {`${String(Math.floor(loginResendSeconds / 60)).padStart(2, "0")}:${String(loginResendSeconds % 60).padStart(2, "0")}`}.</p>}
+                        <label>{loginMethod === "phone" ? "Mobile verification code:" : "Email verification code:"}</label>
+                        <OtpCodeInput value={loginCode} onChange={setLoginCode} autoComplete disabled={loginCodeLocked} />
+                      </>
+                    )}
 
-                      <button type="submit" className="back-btn btn" style={{ backgroundColor: "#1e3a8a", color: "#fff" }}>
-                        {loginPinStage === "setup" ? "Set PIN and sign in" : loginPinStage === "reset" ? "Reset PIN and sign in" : loginPinStage === "reset-code" ? "Verify reset OTP" : loginPinStage ? "Verify PIN" : loginChallengeId ? "Verify code" : "Send OTP"}
-                      </button>
-                      {loginMessage && <p className="text-danger mt-2">{loginMessage}</p>}
-                      {loginNotice && <p className="text-success mt-2">{loginNotice}</p>}
-                      {loginChallengeId && !loginPinStage && <div className="d-flex gap-2 mt-3">
-                        <button type="button" className="btn btn-link p-0" onClick={handleResendLoginCode} disabled={loginCodeSending}>{loginCodeSending ? "Sending..." : "Send a new code"}</button>
-                        <button type="button" className="btn btn-link p-0" onClick={() => { setLoginChallengeId(""); setLoginCode(""); setLoginMessage(""); setLoginNotice(""); }}>Back to sign in</button>
-                      </div>}
-                      {loginPinStage === "verify" && <button type="button" className="btn btn-link p-0 mt-3" onClick={handleForgotLoginSecurityPin}>Forgot security PIN? Send a new OTP</button>}
-                      {loginPinStage && <button type="button" className="btn btn-link p-0 mt-3" onClick={() => { setLoginChallengeId(""); setLoginCode(""); setLoginPinStage(""); setLoginSecurityPin(""); setLoginSecurityPinConfirm(""); setLoginMessage(""); setLoginNotice(""); }}>Back to sign in</button>}
-                    </form>
-                  ) : (
-                    <form onSubmit={handleRegister} className="" style={box1}>
-                      <div className="form-group text-start">
-                        <h3 style={{ color: "#1e3a8a", textAlign: "center" }}>Register</h3>
-                        <label>Username</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Enter username"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="form-group text-start">
-                        <label>Email Address</label>
-                        <input
-                          type="email"
-                          className="form-control"
-                          placeholder="Enter email"
-                          value={registerEmail}
-                          onChange={(e) => setRegisterEmail(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="form-group text-start">
-                        <label>Password</label>
-                        <input
-                          type="password"
-                          className="form-control"
-                          placeholder="Enter password"
-                          value={registerPassword}
-                          onChange={(e) => setRegisterPassword(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <button type="submit" className="back-btn btn btn-primary" style={{ backgroundColor: "#07226c" }}>
-                        Register
-                      </button>
-                      {registerMessage && <p className="text-danger mt-2">{registerMessage}</p>}
-                    </form>
-                  )}
-
-                  <p className="mt-3 text-dark " style={{ fontWeight: "bold" }}>
-                    {isLogin ? "Don't have an account?" : "Already have an account?"}
-                    <button
-                      className="btn btn-link"
-                      onClick={() => {
-                        if (isLogin) {
-                          navigate("/register-business");
-                          return;
-                        }
-                        setIsLogin(true);
-                      }}
-                      style={{ textDecoration: "none", paddingLeft: 5, color: "#07226c", fontWeight: "bolder" }}
-                    >
-                      {isLogin ? "Register here" : "Login here"}
+                    <button type="submit" className="back-btn btn" disabled={(loginCodeLocked && Boolean(loginChallengeId)) || (!loginChallengeId && loginMethod === "phone" && loginResendSeconds > 0)} style={{ backgroundColor: "#1e3a8a", color: "#fff" }}>
+                      {loginPinStage === "setup" ? "Set PIN and sign in" : loginPinStage === "reset" ? "Reset PIN and sign in" : loginPinStage === "reset-code" ? "Verify reset OTP" : loginPinStage ? "Verify PIN" : loginChallengeId ? loginCodeLocked ? "OTP attempts used" : "Verify OTP" : loginMethod === "phone" && loginResendSeconds > 0 ? `Wait ${String(Math.floor(loginResendSeconds / 60)).padStart(2, "0")}:${String(loginResendSeconds % 60).padStart(2, "0")}` : "Send OTP"}
                     </button>
-                  </p>
+                    {loginMessage && <p className="text-danger mt-2">{loginMessage}</p>}
+                    {loginNotice && <p className="text-success mt-2">{loginNotice}</p>}
+                    {loginChallengeId && !loginPinStage && <div className="d-flex gap-2 mt-3">
+                      <button type="button" className="btn btn-link p-0" onClick={handleResendLoginCode} disabled={loginCodeSending || (loginMethod === "phone" && loginResendSeconds > 0)}>{loginCodeSending ? "Sending..." : loginMethod === "phone" && loginResendSeconds > 0 ? `Resend OTP in ${String(Math.floor(loginResendSeconds / 60)).padStart(2, "0")}:${String(loginResendSeconds % 60).padStart(2, "0")}` : "Send a new code"}</button>
+                      <button type="button" className="btn btn-link p-0" onClick={() => { setLoginChallengeId(""); setLoginCode(""); setLoginCodeLocked(false); setLoginMessage(""); setLoginNotice(""); }}>Back to sign in</button>
+                    </div>}
+                    {loginPinStage === "verify" && <button type="button" className="btn btn-link p-0 mt-3" onClick={handleForgotLoginSecurityPin}>Forgot security PIN? Send a new OTP</button>}
+                    {loginPinStage && <button type="button" className="btn btn-link p-0 mt-3" onClick={() => { setLoginChallengeId(""); setLoginCode(""); setLoginPinStage(""); setLoginSecurityPin(""); setLoginSecurityPinConfirm(""); setLoginMessage(""); setLoginNotice(""); }}>Back to sign in</button>}
+                  </form>
                 </>
               )}
 

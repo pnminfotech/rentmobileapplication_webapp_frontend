@@ -59,7 +59,7 @@ export default function CanteenAttendance() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => { let active = true; canteenApi.settings().then((result) => { if (active) setSettings(result); }).catch((err) => { if (active) setError(err.response?.data?.message || "Unable to load canteen settings."); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; canteenApi.settings().then((result) => { if (active) { if (!result.enabled) { navigate("/profile", { replace: true }); return; } setSettings(result); } }).catch((err) => { if (active) { if (err.response?.status === 403) navigate("/profile", { replace: true }); else setError(err.response?.data?.message || "Unable to load canteen settings."); } }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [navigate]);
   const allowedMeals = useMemo(() => enabledMeals(settings), [settings]);
   const load = useCallback(async () => {
     if (!needsCanteenAttendance(settings) || !allowedMeals.length) return;

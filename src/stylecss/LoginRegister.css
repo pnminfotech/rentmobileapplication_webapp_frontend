@@ -74,6 +74,41 @@
   .input-group input {
     border-right: none;
   }
+
+  .login-otp-inputs {
+    display: flex;
+    justify-content: center;
+    gap: clamp(6px, 2vw, 12px);
+    margin: 12px 0;
+  }
+
+  .login-otp-inputs .login-otp-input {
+    box-sizing: border-box;
+    flex: 1 1 0;
+    width: 100%;
+    max-width: 58px;
+    height: 54px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #1e3a8a;
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .login-otp-inputs .login-otp-input:focus {
+    border-color: #1e3a8a;
+    outline: 3px solid rgba(30, 58, 138, 0.18);
+  }
+
+  .login-otp-inputs .login-otp-input:disabled {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+
   /* Buttons */
 .back-btn {
   background-color: #ffc107;
